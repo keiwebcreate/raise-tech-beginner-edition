@@ -25,9 +25,9 @@
 |---|---|
 | Node.js v26 / npm、Git、VS Code | インストール済み |
 | Docker | 入っている（別プロジェクトでも使用）。テストの Testcontainers で使う。PostgreSQL 18 のイメージは取得済み |
-| JDK | Temurin 21 が入っていて、JAVA_HOME も 21 を指している。**Java 25 に入れ替える必要がある**（次にやること 1） |
-| PostgreSQL 18 | **これから入れる**（Windows に直接。次にやること 2）。ポート 5432、DB `task_app`、アプリ用ユーザー `task_app_user`。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと |
-| MySQL 8.4.9 | 使わない（サービス `MySQL84`・ポート3307）。サービスを止めて「手動」にして残す。PostgreSQL でアプリが動いたら削除するか決める |
+| JDK | Temurin 25.0.4（LTS）をインストール済み。JAVA_HOME も 25 を指している。Temurin 21 も残っている（使わなくなったら削除してよい） |
+| PostgreSQL 18 | 18.6 を Windows に直接インストール済み（サービス `postgresql-x64-18`）。ポート 5432、DB `task_app`（UTF8・照合順序 Japanese_Japan.932）、アプリ用ユーザー `task_app_user` を作成済み。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと |
+| MySQL 8.4.9 | 使わない（サービス `MySQL84`・ポート3307）。停止して「手動」にしてある。PostgreSQL でアプリが動いたら削除するか決める |
 
 - **注意**：ポート3306は別プロジェクト（cytech_step9_app）の Docker MySQL が使っている。触らないこと
 - Git Bash で `docker exec` にコンテナ内のパスを渡すときは `MSYS_NO_PATHCONV=1` が必要（パスが Windows 形式に変換されるため）
