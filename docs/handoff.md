@@ -24,10 +24,12 @@
 | もの | 状態 |
 |---|---|
 | Node.js v26 / npm、Git、VS Code | インストール済み |
-| Docker | 入っている（別プロジェクトでも使用）。テストの Testcontainers で使う。PostgreSQL 18 のイメージは取得済み |
+| Docker | 入っている（別プロジェクトでも使用）。**開発用DB**（`compose.yaml`）とテストの Testcontainers で使う |
 | JDK | Temurin 25.0.4（LTS）をインストール済み。JAVA_HOME も 25 を指している。Temurin 21 も残っている（使わなくなったら削除してよい） |
-| PostgreSQL 18 | 18.6 を Windows に直接インストール済み（サービス `postgresql-x64-18`）。ポート 5432、DB `task_app`（UTF8・照合順序 Japanese_Japan.932）、アプリ用ユーザー `task_app_user` を作成済み。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと |
-| MySQL 8.4.9 | 使わない（サービス `MySQL84`・ポート3307）。停止して「手動」にしてある。PostgreSQL でアプリが動いたら削除するか決める |
+| PostgreSQL 18（Docker） | **開発用DBはこれ**。`beginner_version/compose.yaml`（プロジェクト名 `taskboard`・コンテナ `taskboard-db-1`・ボリューム `taskboard_db-data`）。ポート 5432、DB `task_app`（UTF8）、ユーザー `task_app_user`。`beginner_version` で `docker compose up -d` で起動、`docker compose stop` で停止 |
+| DB のパスワード | Windows のユーザー環境変数 `DB_PASSWORD` に登録済み（中身は私だけが知っている）。`compose.yaml` と Spring Boot の両方がこれを読む。コードやGitには書かない。VS Code のターミナルで使うには、登録後に VS Code を開き直す |
+| PostgreSQL 18（Windows） | 使わない。講座で Docker を使うとわかったため。18.6 を直接インストールしたが、停止して「手動」にしてある（サービス `postgresql-x64-18`。psql・pgAdmin は Docker 版を見るのにも使える）。削除するかは後で決める |
+| MySQL 8.4.9 | 使わない（サービス `MySQL84`・ポート3307）。停止して「手動」にしてある。削除するかは後で決める |
 
 - **注意**：ポート3306は別プロジェクト（cytech_step9_app）の Docker MySQL が使っている。触らないこと
 - Git Bash で `docker exec` にコンテナ内のパスを渡すときは `MSYS_NO_PATHCONV=1` が必要（パスが Windows 形式に変換されるため）
@@ -51,31 +53,16 @@
 
 ## 次にやること
 
-### 1. Java 25 を入れる（私が操作する）
-1. https://adoptium.net/ から **Temurin 25（LTS）の Windows x64 の .msi** をダウンロードして実行する
-2. インストールの途中の「Set JAVA_HOME variable」を **「Will be installed on local hard drive」** にする（JAVA_HOME を 25 に切り替える）
-3. VS Code とターミナルを開き直し、`java -version` で `25` と出ればOK
-- Temurin 21 は残しておいてよい（使わなくなったら削除してよい）
-- 注意：Java 25 を使うには **Gradle 9.1 以上**、**Spring Boot は Java 25 に対応した版** が必要。ひな形を作るときに確かめる
+### 済んだこと（2026-10-25）
+- Java 25・PostgreSQL 18（のちに Docker に変更）の準備、MySQL の停止
+- Spring Boot のひな形（`backend/`）：Spring Boot 4.1.2・Gradle 9.8.2（Groovy 形式）。起動クラス `TaskBoardApplication`（UTC で動かす）。テストの PostgreSQL は `postgres:18` に固定
+- `application.yml`：DB の接続先だけ（`DB_URL`・`DB_USERNAME` は省略時ローカル用の初期値、`DB_PASSWORD` は環境変数のみ）。Docker の DB につながることを確認済み
+- 進め方の希望：**Spring Boot のセットアップは最小限で、少しずつ進める**
 
-### 2. PostgreSQL 18 を入れる（私が操作する）
-1. https://www.postgresql.org/download/windows/ の「Download the installer」から 18.x の Windows x86-64 版を入れる。PostgreSQL Server・pgAdmin 4・Command Line Tools にチェック、**Stack Builder は外す**。管理者（postgres）のパスワードを決めて控える。ポートは 5432、Locale は Default のまま
-2. 「SQL Shell (psql)」を開き（Enter で初期値のまま進み、管理者のパスワードを入れる）、次を実行する
-   ```sql
-   CREATE USER task_app_user WITH PASSWORD '自分で決めたパスワード';
-   CREATE DATABASE task_app OWNER task_app_user;
-   ```
-   `\l task_app` で Encoding が UTF8 なら完成。`\q` で終わる
-3. 管理者の PowerShell で MySQL を止める
-   ```powershell
-   Stop-Service MySQL84
-   Set-Service MySQL84 -StartupType Manual
-   ```
-
-### 3. Spring Boot と React のひな形を作る（AI）
-- `backend/`・`frontend/` を作る（詳細設計書 2章・3.1・4.1、`CLAUDE.md` のコマンド）
-- Flyway の V1（テーブル。`database-design.md` 10章）・V2（Spring Session のテーブル）を、ローカルの PostgreSQL で流して確かめる
-- バージョンは、そのときの最新の安定版（Java 25 に対応しているもの）にする
+### 3. 続き（AI）
+- 次の一歩：Flyway の V1（`database-design.md` 10章の SQL をそのまま）を `backend/src/main/resources/db/migration/` に置き、起動時にテーブルができるか確かめる
+- その後：V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、`open-in-view: false`・`ddl-auto: validate` などの設定、React（`frontend/`）のひな形
+- バージョンは、そのときの最新の安定版にする
 
 ### 4. その後
 - 実装（API → 画面の順を想定）、テスト、GitHub Actions
@@ -88,4 +75,4 @@
 ## Git
 - `beginner_version/` が Git リポジトリ。ブランチは `main`、リモートは `https://github.com/keiwebcreate/raise-tech-beginner-edition.git`
 - `beginner_version/CLAUDE.md` に「add・commit・push・ブランチ操作は承認なしで許可」と書いてある
-- 2026-10-25 時点で、設計書・モックアップ・CLAUDE.md はすべてコミットして GitHub にプッシュ済み
+- 2026-10-25 時点で、設計書・モックアップ・CLAUDE.md・backend のひな形・compose.yaml はすべてコミットして GitHub にプッシュ済み

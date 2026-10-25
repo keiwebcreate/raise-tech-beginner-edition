@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-10-25（DBを PostgreSQL 18 に変更）
+最終更新：2026-10-25（DBを PostgreSQL 18 に変更。開発用DBを Docker に変更）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -31,6 +31,7 @@
 | 画面の切り替え | React Router |
 | APIの呼び出し | ブラウザ標準の `fetch` を包んだ関数を自作する（axios は使わない） |
 | フォーム | `useState` で自作する（フォーム用のライブラリは使わない。入力欄が少ないため） |
+| 開発用DB | Docker Compose（`compose.yaml`）で PostgreSQL 18 を動かす。起動・停止は自分で `docker compose up -d`・`stop`。データは Docker のボリュームに保存（2026-10-25 決定） |
 | サーバーのテスト用DB | Testcontainers（テストのたびに Docker で PostgreSQL 18 を立ち上げる）。本番と同じ PostgreSQL で確かめられ、GitHub Actions でも動く |
 | ゲストのサンプルデータ | モックアップの `mockup/js/sample-data.js` の `createGuestSampleBoard` と同じ中身（`database-design.md` 11章の未決事項） |
 | バージョン | Java は 25（最新のLTS。講座の指定）。Spring Boot・Gradle・React などは、ひな形を作るときの最新の安定版にする（Java 25 には Gradle 9.1 以上が必要） |
@@ -39,6 +40,7 @@
 
 ```
 beginner_version/
+├─ compose.yaml 開発用の PostgreSQL 18（Docker。ポート 5432）
 ├─ backend/    Spring Boot（ポート 8080）
 ├─ frontend/   React（Vite。開発中はポート 5173）
 ├─ docs/       設計書
@@ -209,7 +211,7 @@ Spring が投げる例外も同じ形にそろえる：
 | 設定 | 値 |
 |---|---|
 | DBの接続先・ユーザー・パスワード | 環境変数 `DB_URL`・`DB_USERNAME`・`DB_PASSWORD` から読む。コードやGitには書かない |
-| DBの接続URL（ローカル） | `jdbc:postgresql://localhost:5432/task_app` |
+| DBの接続URL（ローカル） | `jdbc:postgresql://localhost:5432/task_app`。DB は `beginner_version/compose.yaml` の Docker（PostgreSQL 18）。`DB_URL`・`DB_USERNAME` は省略するとこの値と `task_app_user` を使う |
 | JVMのタイムゾーン | UTC（ログの時刻などをそろえるため。テーブル設計書 6章） |
 | セッション | `spring.session.timeout: 30m`（要件 U-09）。保存先は JDBC。テーブルは Flyway で作る（3.9） |
 | 上限 | `app.limits.columns: 20`・`cards-per-column: 100`・`labels: 30`。`LimitsProperties`（`@ConfigurationProperties`）で読む（要件 3.7） |

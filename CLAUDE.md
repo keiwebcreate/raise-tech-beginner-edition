@@ -26,9 +26,9 @@
 | `mockup/` | モックアップ | `npx serve mockup`（`beginner_version` で実行） | なし |
 
 - 開発中は `http://localhost:5173` を開く。`/api` は Vite が Spring Boot（8080）へ転送する
-- DB は PostgreSQL 18（Windows のサービス。ポート 5432）、DB名は `task_app`、アプリ用ユーザーは `task_app_user`
-- MySQL 8.4（サービス `MySQL84`・ポート 3307）は使わない（止めて残してある）。3306 は別のプロジェクトの Docker なので触らない
-- DBのパスワードなどの秘密情報は、コードにもGitにも書かない。環境変数（`DB_URL`・`DB_USERNAME`・`DB_PASSWORD`）で渡す
+- DB は Docker の PostgreSQL 18（`compose.yaml`。ポート 5432）、DB名は `task_app`、アプリ用ユーザーは `task_app_user`。`beginner_version` で `docker compose up -d` で起動、`docker compose stop` で停止
+- Windows に直接入れた PostgreSQL 18（サービス `postgresql-x64-18`）と MySQL 8.4（サービス `MySQL84`・ポート 3307）は使わない（止めて残してある）。3306 は別のプロジェクトの Docker なので触らない
+- DBのパスワードなどの秘密情報は、コードにもGitにも書かない。環境変数（`DB_URL`・`DB_USERNAME`・`DB_PASSWORD`）で渡す。`DB_PASSWORD` は Windows のユーザー環境変数に登録してあり、`compose.yaml` と Spring Boot の両方がそれを読む（`DB_URL`・`DB_USERNAME` は省略するとローカル用の初期値）
 
 ## サーバー（Spring Boot）のルール
 

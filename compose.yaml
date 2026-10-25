@@ -1,0 +1,20 @@
+# 開発用の PostgreSQL 18
+# 起動：docker compose up -d ／ 停止：docker compose stop（beginner_version で実行）
+name: taskboard
+
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: task_app
+      POSTGRES_USER: task_app_user
+      # パスワードはファイルに書かず、Windows の環境変数 DB_PASSWORD から読む。なければエラーで止める
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?環境変数 DB_PASSWORD を設定してください}
+    ports:
+      - "5432:5432"
+    volumes:
+      # データを Docker のボリュームに保存する（コンテナを作り直しても消えない）
+      - db-data:/var/lib/postgresql
+
+volumes:
+  db-data:
