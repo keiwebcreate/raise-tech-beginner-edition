@@ -82,7 +82,7 @@
     - カードの左端の帯は重要度。緊急度が「高」のときだけ「至急」の札（赤い文字＋赤い枠）を出す
     - DBの列は `importance`・`urgency`、APIの項目名も同じ
 
-11. **モックアップ**：完了（2026-10-25、私が触って「今の形でOK」と確認）。：`beginner_version/mockup/`（開き方は `mockup/README.md`）
+11. **モックアップ**：完了（2026-10-25、私が触って「今の形でOK」と確認）。場所は `beginner_version/mockup/`（開き方は `mockup/README.md`）
     - 決定：ボード・カード詳細・ラベル管理・確認ダイアログは本物どおりに動かし、ログイン・登録・退会は画面と入力チェックだけ／localStorage に保存／ドラッグ＆ドロップは SortableJS（CDN）／JS は部品ごとに分けて ES モジュールでつなぐ／確認は `npx serve mockup`
     - `js/api.js` はニセのサーバー。API設計書の A-01〜A-19 と同じ関数・同じ形（Problem Details のエラーも同じ）。React に移すときは fetch に置き換える
     - 左下の「モック操作」パネルで、通信の遅れ・失敗・セッション切れを起こせる
