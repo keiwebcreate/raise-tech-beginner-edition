@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ワイヤーフレーム｜トレロ風タスク管理アプリ</title>
+<style>
+  :root {
+    /* 資料の地 */
+    --doc-bg: #eceef2;
+    --doc-text: #1c2024;
+    --doc-muted: #60646c;
+    --pin: #e5484d;
+
+    /* アプリの色（画面設計書 1章・6章） */
+    --app-bg: #f4f5f7;
+    --surface: #ffffff;
+    --list-bg: #ebecf0;
+    --border: #dfe1e6;
+    --text: #1c2024;
+    --muted: #6b6f76;
+    --primary: #3e63dd;
+    --primary-hover: #3358d4;
+    --danger: #e5484d;
+
+    --red: #e5484d;
+    --orange: #f76b15;
+    --yellow: #ffc53d;
+    --green: #30a46c;
+    --sky: #0090ff;
+    --blue: #3e63dd;
+    --purple: #8e4ec6;
+    --gray: #8b8d98;
+
+    --radius: 8px;
+    --shadow-card: 0 1px 1px rgba(16, 24, 40, .08), 0 0 0 1px rgba(16, 24, 40, .04);
+    --shadow-modal: 0 16px 40px rgba(16, 24, 40, .22);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--doc-bg);
+    color: var(--doc-text);
+    font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+
+  /* ===== 資料のレイアウト ===== */
+  .doc { max-width: 1360px; margin: 0 auto; padding: 32px 16px 80px; }
+  .doc-head h1 { font-size: 24px; margin: 0 0 4px; }
+  .doc-head p { margin: 0; color: var(--doc-muted); }
+  .toc { display: flex; flex-wrap: wrap; gap: 8px; margin: 20px 0 8px; padding: 0; list-style: none; }
+  .toc a {
+    display: inline-block; padding: 4px 12px; border-radius: 999px;
+    background: #fff; color: var(--doc-text); text-decoration: none; border: 1px solid #d0d3da;
+  }
+  .toc a:hover { border-color: var(--primary); color: var(--primary); }
+
+  .frame { margin-top: 48px; }
+  .frame > h2 { font-size: 18px; margin: 0 0 4px; }
+  .frame > h2 small { font-weight: normal; color: var(--doc-muted); margin-left: 8px; font-size: 13px; }
+  .frame > p.lead { margin: 0 0 12px; color: var(--doc-muted); }
+  .viewport { overflow-x: auto; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+  .screen {
+    position: relative; width: 100%; min-width: 1280px; min-height: 560px;
+    background: var(--app-bg); color: var(--text); overflow: hidden;
+  }
+  .annot { margin: 12px 0 0; padding-left: 0; list-style: none; columns: 2 420px; column-gap: 32px; }
+  .annot li { break-inside: avoid; margin-bottom: 6px; display: flex; gap: 8px; }
+
+  /* 注記の番号 */
+  .pin {
+    display: inline-flex; align-items: center; justify-content: center; flex: none;
+    width: 20px; height: 20px; border-radius: 50%;
+    background: var(--pin); color: #fff; font-size: 11px; font-weight: 700; line-height: 1;
+  }
+  .screen .pin { position: absolute; z-index: 30; box-shadow: 0 0 0 2px #fff; }
+  .screen .pin.inline { position: static; }
+
+  /* ===== アプリの部品 ===== */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 34px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--border);
+    background: var(--surface); cursor: pointer; white-space: nowrap;
+  }
+  .btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+  .btn-ghost { border-color: transparent; background: transparent; }
+  .btn-text-danger { border-color: transparent; background: transparent; color: var(--danger); }
+  .btn-block { width: 100%; height: 40px; }
+
+  .field { margin-bottom: 16px; }
+  .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }
+  .input, .select, .textarea {
+    width: 100%; height: 38px; padding: 0 10px;
+    border: 1px solid #c9ccd3; border-radius: 6px; background: #fff;
+  }
+  .textarea { height: auto; min-height: 120px; padding: 8px 10px; resize: vertical; }
+  .input.is-error { border-color: var(--danger); background: #fff8f8; }
+  .help { font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .error { font-size: 12px; color: var(--danger); margin-top: 4px; }
+
+  /* ===== 認証画面 ===== */
+  .auth-wrap { display: flex; align-items: center; justify-content: center; min-height: 620px; }
+  .auth-card {
+    width: 400px; background: var(--surface); border-radius: 12px; padding: 32px;
+    box-shadow: 0 4px 16px rgba(16,24,40,.08); position: relative;
+  }
+  .auth-logo { font-weight: 700; font-size: 20px; text-align: center; margin-bottom: 4px; }
+  .auth-sub { text-align: center; color: var(--muted); margin: 0 0 24px; }
+  .divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 12px; margin: 16px 0; }
+  .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+  .auth-foot { text-align: center; margin-top: 20px; font-size: 13px; }
+  .auth-foot a, .link { color: var(--primary); text-decoration: none; }
+  .alert {
+    padding: 10px 12px; border-radius: 6px; margin-bottom: 16px; font-size: 13px;
+    background: #fff0f0; color: #b4232a; border: 1px solid #f7c7c9;
+  }
+
+  /* ===== ボード画面 ===== */
+  .app-header {
+    height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 20px;
+    background: var(--surface); border-bottom: 1px solid var(--border);
+  }
+  .app-name { font-weight: 700; font-size: 16px; }
+  .sep { width: 1px; height: 20px; background: var(--border); }
+  .board-name { font-weight: 600; font-size: 16px; padding: 2px 6px; border-radius: 4px; }
+  .board-name:hover { background: var(--list-bg); }
+  .header-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .user { color: var(--muted); font-size: 13px; }
+  .guest-badge {
+    font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+    background: #fff4d6; color: #8a5a00;
+  }
+  .guest-bar {
+    background: #fff8e1; color: #6b4a00; border-bottom: 1px solid #f3e1a6;
+    padding: 8px 20px; font-size: 13px;
+  }
+
+  .board { display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px 24px; }
+  .list {
+    flex: none; width: 272px; background: var(--list-bg); border-radius: 10px;
+    padding: 8px; position: relative;
+  }
+  .list-head { display: flex; align-items: center; gap: 6px; padding: 4px 6px 8px; }
+  .list-name { font-weight: 600; flex: 1; }
+  .count { font-size: 12px; color: var(--muted); background: rgba(0,0,0,.06); padding: 0 8px; border-radius: 999px; }
+  .icon-btn {
+    width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 6px; border: 0; background: transparent; cursor: pointer; color: var(--muted);
+  }
+  .icon-btn:hover { background: rgba(0,0,0,.06); }
+  .cards { display: flex; flex-direction: column; gap: 8px; }
+
+  .card {
+    position: relative; background: var(--surface); border-radius: var(--radius);
+    padding: 8px 10px 8px 14px; box-shadow: var(--shadow-card); cursor: pointer;
+  }
+  .card::before {
+    content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+    border-radius: var(--radius) 0 0 var(--radius); background: var(--band);
+  }
+  .card.p-high { --band: var(--red); }
+  .card.p-mid { --band: var(--yellow); }
+  .card.p-low { --band: #c1c4cb; }
+  .card-title { margin: 2px 0; word-break: break-word; }
+  .card-meta { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+  .card.dragging { transform: rotate(3deg); box-shadow: 0 8px 20px rgba(16,24,40,.2); }
+  .drop-slot { height: 44px; border-radius: var(--radius); background: rgba(62, 99, 221, .12); border: 2px dashed rgba(62, 99, 221, .4); }
+
+  .labels { display: flex; gap: 4px; flex-wrap: wrap; }
+  .lbl {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; color: #fff; background: var(--c);
+  }
+  .lbl.dark-text { color: #1c2024; }
+  .lbl-red { --c: var(--red); } .lbl-orange { --c: var(--orange); }
+  .lbl-yellow { --c: var(--yellow); } .lbl-green { --c: var(--green); }
+  .lbl-sky { --c: var(--sky); } .lbl-blue { --c: var(--blue); }
+  .lbl-purple { --c: var(--purple); } .lbl-gray { --c: var(--gray); }
+
+  .due {
+    display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px;
+    border-radius: 4px; font-size: 11px; background: #eef0f3; color: var(--muted);
+  }
+  .due.overdue { background: var(--red); color: #fff; }
+  .due.soon { background: var(--yellow); color: #1c2024; }
+  .desc-icon { color: var(--muted); font-size: 12px; }
+
+  .add-card {
+    display: block; width: 100%; text-align: left; margin-top: 8px; padding: 6px 8px;
+    border: 0; border-radius: 6px; background: transparent; color: var(--muted); cursor: pointer;
+  }
+  .add-card:hover { background: rgba(0,0,0,.06); color: var(--text); }
+  .add-list {
+    flex: none; width: 272px; padding: 10px 12px; border-radius: 10px;
+    background: rgba(0,0,0,.05); color: var(--muted); border: 0; text-align: left; cursor: pointer;
+  }
+  .inline-form .input { margin-bottom: 8px; }
+  .inline-form .row { display: flex; gap: 6px; align-items: center; }
+
+  .menu {
+    position: absolute; z-index: 20; width: 200px; background: var(--surface);
+    border-radius: 8px; box-shadow: var(--shadow-modal); padding: 6px;
+  }
+  .menu .menu-title { font-size: 12px; color: var(--muted); text-align: center; padding: 4px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px; }
+  .menu button { display: block; width: 100%; text-align: left; padding: 6px 10px; border: 0; background: transparent; border-radius: 4px; cursor: pointer; }
+  .menu button:hover { background: var(--list-bg); }
+  .menu .danger { color: var(--danger); }
+
+  /* スケルトン */
+  .skel { background: linear-gradient(90deg, #e3e5ea, #eef0f3, #e3e5ea); border-radius: 6px; }
+
+  /* ===== モーダル ===== */
+  .overlay {
+    position: absolute; inset: 0; background: rgba(16, 24, 40, .45);
+    display: flex; align-items: flex-start; justify-content: center; padding-top: 48px; z-index: 10;
+  }
+  .modal {
+    position: relative; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-modal);
+  }
+  .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; }
+  .modal-head h3 { margin: 0; font-size: 16px; }
+  .modal-body { padding: 16px 20px; }
+  .modal-foot {
+    display: flex; align-items: center; gap: 8px; padding: 12px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .modal-foot .spacer { flex: 1; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .counter { text-align: right; font-size: 12px; color: var(--muted); margin-top: 4px; }
+  .muted { color: var(--muted); }
+  .desc-view {
+    border-radius: 6px; padding: 10px 12px; background: #f6f7f9; white-space: pre-wrap;
+    cursor: text; min-height: 96px;
+  }
+  .add-chip {
+    display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 20px;
+    border-radius: 4px; background: var(--list-bg); color: var(--muted); font-size: 13px; border: 0;
+  }
+  .popover {
+    position: absolute; z-index: 12; width: 260px; background: var(--surface); border-radius: 8px;
+    box-shadow: var(--shadow-modal); padding: 10px;
+  }
+  .popover .opt { display: flex; align-items: center; gap: 8px; padding: 4px 2px; }
+  .popover .opt .lbl { flex: 1; height: 26px; font-size: 12px; }
+  .check { width: 16px; height: 16px; border: 1.5px solid #b9bcc4; border-radius: 4px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; }
+  .check.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+
+  .label-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .label-row .lbl { min-width: 120px; height: 26px; font-size: 12px; }
+  .label-row .actions { margin-left: auto; display: flex; gap: 4px; }
+  .swatches { display: flex; gap: 6px; }
+  .sw { width: 28px; height: 28px; border-radius: 6px; background: var(--c); border: 2px solid transparent; position: relative; }
+  .sw.on { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--text); }
+
+  .toast {
+    position: absolute; right: 20px; bottom: 20px; width: 360px; z-index: 40;
+    background: #fff; border-left: 4px solid var(--danger); border-radius: 8px;
+    box-shadow: var(--shadow-modal); padding: 12px 14px; display: flex; gap: 10px;
+  }
+  .toast strong { display: block; }
+
+  .center-box { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 560px; text-align: center; gap: 8px; }
+  .big-code { font-size: 64px; font-weight: 700; color: #c1c4cb; line-height: 1; }
+
+  .split { display: grid; grid-template-columns: 1fr 1fr; }
+  .split > div { position: relative; }
+  .split > div + div { border-left: 1px dashed #c9ccd3; }
+  .split .tag { position: absolute; left: 16px; top: 12px; font-size: 12px; color: var(--muted); background: #fff; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); z-index: 5; }
+</style>
+</head>
+<body>
+<div class="doc">
+
+  <header class="doc-head">
+    <h1>ワイヤーフレーム：トレロ風タスク管理アプリ</h1>
+    <p>最終更新：2026-10-25 ／ 画面の項目と動きの詳細は <code>screen-design.md</code> を参照。赤い丸の番号は、各画面の下の注記に対応しています。</p>
+  </header>
+
+  <ul class="toc">
+    <li><a href="#w01">W-01 ログイン</a></li>
+    <li><a href="#w02">W-02 ユーザー登録</a></li>
+    <li><a href="#w03">W-03 ボード</a></li>
+    <li><a href="#w03g">W-03 ボード（ゲスト・操作中）</a></li>
+    <li><a href="#w04">W-04 カード詳細</a></li>
+    <li><a href="#w05">W-05 ラベル管理</a></li>
+    <li><a href="#w06">W-06 確認ダイアログ</a></li>
+    <li><a href="#common">共通の表示・W-07</a></li>
+  </ul>
+
+  <!-- ================= W-01 ログイン ================= -->
+  <section class="frame" id="w01">
+    <h2>W-01 ログイン <small>/login</small></h2>
+    <p class="lead">左：通常の状態 ／ 右：ログインに失敗したとき</p>
+    <div class="viewport"><div class="screen split">
+      <div>
+        <span class="tag">通常</span>
+        <div class="auth-wrap">
+          <div class="auth-card">
+            <div class="auth-logo">TaskBoard</div>
+            <p class="auth-sub">ログインしてボードを開く</p>
+            <div class="field"><label>メールアドレス</label><input class="input" placeholder="you@example.com"></div>
+            <div class="field"><label>パスワード</label><input class="input" type="password" value="password"></div>
+            <button class="btn btn-primary btn-block">ログイン</button>
+            <div class="divider">または</div>
+            <span class="pin" style="left:-10px; top:330px">1</span>
+            <button class="btn btn-block">ゲストとして試す</button>
+            <p class="help" style="text-align:center">登録なしで、サンプルデータ入りのボードを試せます</p>
+            <div class="auth-foot">アカウントをお持ちでない方は <a href="#w02">新規登録はこちら</a></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <span class="tag">ログイン失敗</span>
+        <div class="auth-wrap">
+          <div class="auth-card">
+            <div class="auth-logo">TaskBoard</div>
+            <p class="auth-sub">ログインしてボードを開く</p>
+            <span class="pin" style="left:-10px; top:100px">2</span>
+            <div class="alert">メールアドレスまたはパスワードが正しくありません</div>
+            <div class="field"><label>メールアドレス</label><input class="input" value="taro@example.com"></div>
+            <div class="field"><label>パスワード</label><input class="input" type="password"></div>
+            <button class="btn btn-primary btn-block">ログイン</button>
+            <div class="divider">または</div>
+            <button class="btn btn-block">ゲストとして試す</button>
+            <p class="help" style="text-align:center">登録なしで、サンプルデータ入りのボードを試せます</p>
+            <div class="auth-foot">アカウントをお持ちでない方は <a href="#w02">新規登録はこちら</a></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>押すたびに新しい一時ユーザーを作り、ボードへ進む（U-06）。1時間に10回まで（U-10）</span></li>
+      <li><span class="pin">2</span><span>どちらが違うかは教えない（U-03）。回数制限を超えたら「しばらくしてから再度お試しください」。セッションが切れて戻ってきたときも、ここに案内を出す</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-02 ユーザー登録 ================= -->
+  <section class="frame" id="w02">
+    <h2>W-02 ユーザー登録 <small>/signup</small></h2>
+    <p class="lead">入力エラーがある状態の例</p>
+    <div class="viewport"><div class="screen">
+      <div class="auth-wrap" style="min-height:640px">
+        <div class="auth-card">
+          <div class="auth-logo">TaskBoard</div>
+          <p class="auth-sub">アカウントを作成</p>
+          <div class="field">
+            <label>メールアドレス</label>
+            <input class="input is-error" value="taro@example.com">
+            <span class="pin" style="right:-10px; top:132px">1</span>
+            <div class="error">このメールアドレスは登録済みです</div>
+          </div>
+          <div class="field">
+            <label>パスワード</label>
+            <input class="input" type="password" value="passw0rd!">
+            <span class="pin" style="right:-10px; top:216px">2</span>
+            <div class="help">8〜64文字の半角英数字・記号</div>
+          </div>
+          <div class="field">
+            <label>パスワード（確認）</label>
+            <input class="input is-error" type="password" value="passw0rd">
+            <div class="error">パスワードが一致しません</div>
+          </div>
+          <span class="pin" style="right:-10px; top:376px">3</span>
+          <button class="btn btn-primary btn-block">登録する</button>
+          <div class="auth-foot">アカウントをお持ちの方は <a href="#w01">ログインはこちら</a></div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>エラーは項目のすぐ下に赤字で表示する。形式チェック・254文字まで・重複不可（U-01）</span></li>
+      <li><span class="pin">2</span><span>パスワードのルールは、エラーがなくても常に表示しておく</span></li>
+      <li><span class="pin">3</span><span>成功したら自動でログインし、ボード（/）へ進む</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-03 ボード ================= -->
+  <section class="frame" id="w03">
+    <h2>W-03 ボード <small>/</small></h2>
+    <p class="lead">通常ユーザーでログインし、何も操作していない状態。今日は 2026/10/25 とする</p>
+    <div class="viewport"><div class="screen" style="min-height:600px">
+      <header class="app-header">
+        <span class="app-name">TaskBoard</span>
+        <span class="sep"></span>
+        <span class="board-name">マイボード</span>
+        <span class="pin inline">1</span>
+        <div class="header-right">
+          <button class="btn">ラベル管理</button>
+          <span class="pin inline">2</span>
+          <span class="user">taro@example.com</span>
+          <button class="btn btn-ghost">ログアウト</button>
+        </div>
+      </header>
+
+      <div class="board">
+        <div class="list">
+          <div class="list-head">
+            <span class="list-name">未着手</span><span class="count">3</span>
+            <button class="icon-btn" aria-label="メニュー">…</button>
+          </div>
+          <span class="pin" style="left:150px; top:2px">3</span>
+          <div class="cards">
+            <div class="card p-high">
+              <div class="labels"><span class="lbl lbl-blue">仕事</span></div>
+              <p class="card-title">企画書のドラフトを作る</p>
+              <div class="card-meta"><span class="due overdue">10/24</span><span class="desc-icon">≡ 説明あり</span></div>
+            </div>
+            <div class="card p-mid">
+              <p class="card-title">歯医者の予約を取る</p>
+              <div class="card-meta"><span class="due soon">10/26</span></div>
+            </div>
+            <div class="card p-low">
+              <div class="labels"><span class="lbl lbl-green">買い物</span></div>
+              <p class="card-title">牛乳と卵を買う</p>
+            </div>
+          </div>
+          <button class="add-card">＋ カードを追加</button>
+        </div>
+
+        <div class="list">
+          <div class="list-head">
+            <span class="list-name">作業中</span><span class="count">2</span>
+            <button class="icon-btn" aria-label="メニュー">…</button>
+          </div>
+          <div class="cards">
+            <div class="card p-high" style="position:relative">
+              <span class="pin" style="left:-10px; top:-8px">4</span>
+              <div class="labels"><span class="lbl lbl-purple">学習</span><span class="lbl lbl-blue">仕事</span></div>
+              <p class="card-title">ポートフォリオのREADMEを書く。スクリーンショットと技術構成図も入れる</p>
+              <div class="card-meta"><span class="due">11/3</span><span class="desc-icon">≡ 説明あり</span></div>
+            </div>
+            <div class="card p-mid">
+              <div class="labels"><span class="lbl lbl-purple">学習</span></div>
+              <p class="card-title">Spring Security の勉強</p>
+              <div class="card-meta"><span class="due">2027/1/5</span></div>
+            </div>
+          </div>
+          <button class="add-card">＋ カードを追加</button>
+        </div>
+
+        <div class="list">
+          <div class="list-head">
+            <span class="list-name">完了</span><span class="count">2</span>
+            <button class="icon-btn" aria-label="メニュー">…</button>
+          </div>
+          <div class="cards">
+            <div class="card p-mid">
+              <div class="labels"><span class="lbl lbl-purple">学習</span></div>
+              <p class="card-title">要件定義書を作る</p>
+            </div>
+            <div class="card p-low">
+              <p class="card-title">テーブル設計</p>
+            </div>
+          </div>
+          <button class="add-card">＋ カードを追加</button>
+        </div>
+
+        <button class="add-list" style="position:relative">＋ リストを追加
+          <span class="pin" style="right:8px; top:-8px">5</span>
+        </button>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>ボード名。クリックするとその場で入力欄に変わる（1〜50文字）</span></li>
+      <li><span class="pin">2</span><span>ログイン中のメールアドレス。ゲストのときは「ゲスト」の札に変わる</span></li>
+      <li><span class="pin">3</span><span>リスト名（クリックで変更）、カードの枚数、「…」メニュー（リストを削除）。見出しをドラッグしてリストを並び替える</span></li>
+      <li><span class="pin">4</span><span>カード：左端の帯が優先度（高＝赤・中＝黄・低＝グレー）。期限は期限切れ＝赤、今日・明日＝黄、それ以外＝グレー。年が違うときだけ年を表示。クリックでカード詳細</span></li>
+      <li><span class="pin">5</span><span>リストが0個でも常に表示する。上限（20個）に達していたら、押したときにメッセージを出す</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-03 ボード（ゲスト・操作中） ================= -->
+  <section class="frame" id="w03g">
+    <h2>W-03 ボード（ゲスト・操作中の状態） <small>/</small></h2>
+    <p class="lead">ゲストでログインし、リスト名の変更・カードの追加・ドラッグ・「…」メニューを同時に表示した例（実際には同時には起きない）</p>
+    <div class="viewport"><div class="screen" style="min-height:600px">
+      <header class="app-header">
+        <span class="app-name">TaskBoard</span>
+        <span class="sep"></span>
+        <span class="board-name">マイボード</span>
+        <div class="header-right">
+          <button class="btn">ラベル管理</button>
+          <span class="guest-badge">ゲスト</span>
+          <button class="btn btn-ghost">ログアウト</button>
+        </div>
+      </header>
+      <div class="guest-bar" style="position:relative">
+        ゲストモード：データはログアウトするか24時間たつと削除されます
+        <span class="pin inline" style="margin-left:8px; vertical-align:middle">1</span>
+      </div>
+
+      <div class="board">
+        <div class="list">
+          <span class="pin" style="left:-8px; top:6px">2</span>
+          <div class="list-head">
+            <input class="input" value="未着手" style="height:30px; font-weight:600">
+          </div>
+          <div class="cards">
+            <div class="card p-mid"><p class="card-title">サンプル：右のリストへドラッグしてみよう</p></div>
+            <div class="drop-slot"></div>
+          </div>
+          <div class="inline-form" style="margin-top:8px; position:relative">
+            <span class="pin" style="left:-16px; top:-6px">3</span>
+            <input class="input" placeholder="カードのタイトルを入力" value="資料を印刷する">
+            <div class="row"><button class="btn btn-primary">追加</button><button class="icon-btn" aria-label="閉じる">✕</button><span class="help" style="margin:0">Enter で追加 / Esc で閉じる</span></div>
+          </div>
+        </div>
+
+        <div class="list" style="position:relative">
+          <div class="list-head">
+            <span class="list-name">作業中</span><span class="count">1</span>
+            <button class="icon-btn" aria-label="メニュー" style="background:rgba(0,0,0,.08)">…</button>
+          </div>
+          <div class="menu" style="left:200px; top:40px">
+            <div class="menu-title">リストの操作</div>
+            <button class="danger">リストを削除</button>
+          </div>
+          <span class="pin" style="left:410px; top:44px">4</span>
+          <div class="cards">
+            <div class="card p-high dragging" style="position:relative; left:-70px; top:20px; z-index:3">
+              <span class="pin" style="right:-10px; top:-8px">5</span>
+              <div class="labels"><span class="lbl lbl-orange">サンプル</span></div>
+              <p class="card-title">カードをクリックして詳細を編集</p>
+            </div>
+          </div>
+          <button class="add-card" style="margin-top:28px">＋ カードを追加</button>
+        </div>
+
+        <div class="list">
+          <div class="list-head"><span class="list-name">完了</span><span class="count">0</span><button class="icon-btn" aria-label="メニュー">…</button></div>
+          <button class="add-card">＋ カードを追加</button>
+        </div>
+
+        <div class="add-list" style="background:var(--list-bg); position:relative">
+          <span class="pin" style="right:-8px; top:-8px">6</span>
+          <div class="inline-form">
+            <input class="input" placeholder="リスト名を入力">
+            <div class="row"><button class="btn btn-primary">リストを追加</button><button class="icon-btn" aria-label="閉じる">✕</button></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>ゲストのときだけ表示する注意書き（U-07）。ヘッダー右は「ゲスト」の札になる</span></li>
+      <li><span class="pin">2</span><span>リスト名の変更中。Enter で確定、Esc で取り消し。空のまま確定したらエラーを出して元に戻す</span></li>
+      <li><span class="pin">3</span><span>カードの追加。Enter で追加したあとも入力欄は開いたままにし、続けて入力できる</span></li>
+      <li><span class="pin">4</span><span>「…」メニュー。「リストを削除」を選ぶと W-06 で確認する</span></li>
+      <li><span class="pin">5</span><span>ドラッグ中のカードは少し傾けて影を付け、落とす場所を点線の枠で示す。保存に失敗したら元の位置に戻して通知を出す</span></li>
+      <li><span class="pin">6</span><span>リストの追加。名前は1〜50文字</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-04 カード詳細 ================= -->
+  <section class="frame" id="w04">
+    <h2>W-04 カード詳細（モーダル）</h2>
+    <p class="lead">ラベルの選択を開いている状態</p>
+    <div class="viewport"><div class="screen" style="min-height:760px">
+      <div class="overlay">
+        <div class="modal" style="width:640px">
+          <div class="modal-head">
+            <span class="muted" style="font-size:12px">リスト：作業中</span>
+            <button class="icon-btn" aria-label="閉じる">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="field">
+              <label>タイトル</label>
+              <input class="input" value="ポートフォリオのREADMEを書く。スクリーンショットと技術構成図も入れる" style="font-size:16px; font-weight:600">
+              <span class="pin" style="left:-10px; top:76px">1</span>
+            </div>
+            <div class="field" style="position:relative">
+              <label>ラベル</label>
+              <div class="labels" style="align-items:center">
+                <span class="lbl lbl-purple">学習</span><span class="lbl lbl-blue">仕事</span>
+                <button class="add-chip" aria-label="ラベルを追加">＋</button>
+              </div>
+              <span class="pin" style="left:-30px; top:22px">2</span>
+              <div class="popover" style="left:120px; top:52px">
+                <div style="font-size:12px; color:var(--muted); margin-bottom:6px">ラベルを選ぶ</div>
+                <div class="opt"><span class="check on">✓</span><span class="lbl lbl-blue">仕事</span></div>
+                <div class="opt"><span class="check on">✓</span><span class="lbl lbl-purple">学習</span></div>
+                <div class="opt"><span class="check"></span><span class="lbl lbl-green">買い物</span></div>
+                <div class="opt"><span class="check"></span><span class="lbl lbl-yellow dark-text">あとで</span></div>
+                <div style="border-top:1px solid var(--border); margin-top:6px; padding-top:6px"><a class="link" href="#w05">ラベルを管理</a></div>
+              </div>
+            </div>
+            <div class="grid-2">
+              <div class="field">
+                <label>優先度</label>
+                <select class="select"><option>高</option><option>中</option><option>低</option></select>
+              </div>
+              <div class="field">
+                <label>期限</label>
+                <input class="input" value="2026/11/03">
+                <div class="help"><a class="link" href="#w04">期限をクリア</a></div>
+              </div>
+            </div>
+            <div class="field">
+              <label>説明</label>
+              <span class="pin" style="left:-10px; top:330px">3</span>
+              <div class="desc-view">見る人が最初に読む場所なので、わかりやすく書く。
+・アプリの概要とURL
+・使った技術（Spring Boot / React / MySQL / AWS）
+・参考：<a class="link" href="#w04">https://github.com/</a></div>
+              <div class="help">クリックすると編集できます</div>
+            </div>
+          </div>
+          <div class="modal-foot">
+            <span class="pin" style="left:-10px; bottom:14px">4</span>
+            <button class="btn btn-text-danger">カードを削除</button>
+            <span class="spacer"></span>
+            <button class="btn">キャンセル</button>
+            <button class="btn btn-primary">保存</button>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>タイトルは1〜100文字。エラーは項目のすぐ下に赤字で出す</span></li>
+      <li><span class="pin">2</span><span>「＋」でラベルの一覧を開き、チェックで付ける・外すを切り替える。一覧の下から W-05 ラベル管理へ</span></li>
+      <li><span class="pin">3</span><span>説明文は改行を反映し、http/https の URL をリンクにする（新しいタブ）。クリックで入力欄（2000文字まで・残り文字数を表示）に切り替わる</span></li>
+      <li><span class="pin">4</span><span>「保存」で全項目をまとめて保存。変更があるのにキャンセル・✕・背景クリック・Esc をしたら「変更を破棄しますか？」と確認する。「カードを削除」は W-06 で確認する</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-05 ラベル管理 ================= -->
+  <section class="frame" id="w05">
+    <h2>W-05 ラベル管理（モーダル）</h2>
+    <p class="lead">「買い物」を編集中の状態</p>
+    <div class="viewport"><div class="screen" style="min-height:640px">
+      <div class="overlay">
+        <div class="modal" style="width:560px">
+          <div class="modal-head">
+            <h3>ラベル管理 <span class="muted" style="font-weight:normal; font-size:13px">4 / 30</span></h3>
+            <span class="pin" style="left:150px; top:14px">1</span>
+            <button class="icon-btn" aria-label="閉じる">✕</button>
+          </div>
+          <div class="modal-body">
+            <div class="label-row"><span class="lbl lbl-blue">仕事</span><div class="actions"><button class="btn btn-ghost">編集</button><button class="btn btn-text-danger">削除</button></div></div>
+            <div class="label-row"><span class="lbl lbl-purple">学習</span><div class="actions"><button class="btn btn-ghost">編集</button><button class="btn btn-text-danger">削除</button></div></div>
+            <div class="label-row" style="display:block; position:relative">
+              <span class="pin" style="left:-30px; top:12px">2</span>
+              <input class="input" value="買い物" style="margin-bottom:8px">
+              <div class="swatches" style="margin-bottom:8px">
+                <span class="sw" style="--c:var(--red)"></span><span class="sw" style="--c:var(--orange)"></span>
+                <span class="sw" style="--c:var(--yellow)"></span><span class="sw on" style="--c:var(--green)"></span>
+                <span class="sw" style="--c:var(--sky)"></span><span class="sw" style="--c:var(--blue)"></span>
+                <span class="sw" style="--c:var(--purple)"></span><span class="sw" style="--c:var(--gray)"></span>
+              </div>
+              <div class="row" style="display:flex; gap:6px"><button class="btn btn-primary">保存</button><button class="btn">キャンセル</button></div>
+            </div>
+            <div class="label-row"><span class="lbl lbl-yellow dark-text">あとで</span><div class="actions"><button class="btn btn-ghost">編集</button><button class="btn btn-text-danger">削除</button></div></div>
+
+            <div style="margin-top:20px; position:relative">
+              <span class="pin" style="left:-30px; top:0">3</span>
+              <label style="font-size:13px; font-weight:600">新しいラベル</label>
+              <div style="display:flex; gap:8px; margin:6px 0 8px">
+                <input class="input is-error" value="仕事" placeholder="ラベル名（20文字まで）">
+                <button class="btn btn-primary">追加</button>
+              </div>
+              <div class="error" style="margin:-4px 0 8px">同じ名前のラベルがあります</div>
+              <div class="swatches">
+                <span class="sw on" style="--c:var(--red)"></span><span class="sw" style="--c:var(--orange)"></span>
+                <span class="sw" style="--c:var(--yellow)"></span><span class="sw" style="--c:var(--green)"></span>
+                <span class="sw" style="--c:var(--sky)"></span><span class="sw" style="--c:var(--blue)"></span>
+                <span class="sw" style="--c:var(--purple)"></span><span class="sw" style="--c:var(--gray)"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>今の件数と上限（30個）</span></li>
+      <li><span class="pin">2</span><span>編集中の行は、名前の入力欄と8色の選択肢に変わる</span></li>
+      <li><span class="pin">3</span><span>名前は1〜20文字、同じユーザーの中で重複不可。色は8色から選ぶ。削除は W-06 で「付いているカード3枚から外れます」と確認する</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-06 確認ダイアログ ================= -->
+  <section class="frame" id="w06">
+    <h2>W-06 確認ダイアログ</h2>
+    <p class="lead">リストを削除するときの例</p>
+    <div class="viewport"><div class="screen" style="min-height:420px">
+      <div class="overlay" style="padding-top:110px">
+        <div class="modal" style="width:420px">
+          <div class="modal-body" style="padding:24px 24px 8px">
+            <h3 style="margin:0 0 8px; font-size:16px">リストを削除しますか？</h3>
+            <p style="margin:0" class="muted">「未着手」と中のカード3件を削除します。この操作は取り消せません。</p>
+          </div>
+          <div class="modal-foot" style="border-top:0; padding:16px 24px 20px">
+            <span class="spacer"></span>
+            <button class="btn" style="box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--primary)">キャンセル</button>
+            <button class="btn btn-danger">削除する</button>
+            <span class="pin" style="right:-10px; top:6px">1</span>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>最初に選ばれているのは「キャンセル」（Enter の押し間違いで消さないため）。何が消えるかを具体的に書く</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= 共通の表示 ================= -->
+  <section class="frame" id="common">
+    <h2>共通の表示：読み込み中・エラー通知・W-07 ページが見つかりません</h2>
+    <p class="lead">左：ボードの読み込み中と通信エラーの通知 ／ 右：存在しないURLを開いたとき</p>
+    <div class="viewport"><div class="screen split">
+      <div>
+        <header class="app-header"><span class="app-name">TaskBoard</span></header>
+        <div class="board" style="position:relative">
+          <span class="pin" style="left:8px; top:8px">1</span>
+          <div class="list" style="width:240px">
+            <div class="skel" style="height:16px; width:50%; margin:6px 6px 12px"></div>
+            <div class="skel" style="height:56px; margin-bottom:8px"></div>
+            <div class="skel" style="height:40px"></div>
+          </div>
+          <div class="list" style="width:240px">
+            <div class="skel" style="height:16px; width:40%; margin:6px 6px 12px"></div>
+            <div class="skel" style="height:48px"></div>
+          </div>
+        </div>
+        <div class="toast" style="width:320px">
+          <span class="pin" style="left:-10px; top:-8px">2</span>
+          <span style="color:var(--danger); font-weight:700">!</span>
+          <div><strong>通信に失敗しました</strong><span class="muted" style="font-size:13px">時間をおいて再度お試しください</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="center-box">
+          <span class="pin" style="position:relative">3</span>
+          <div class="big-code">404</div>
+          <h3 style="margin:8px 0 0">ページが見つかりません</h3>
+          <p class="muted" style="margin:0 0 12px">URLが間違っているか、ページが削除された可能性があります。</p>
+          <a class="btn btn-primary" href="#w03" style="text-decoration:none">トップへ戻る</a>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>ボードを最初に開いたときは、リストの形をした灰色の枠（スケルトン）を出す</span></li>
+      <li><span class="pin">2</span><span>通信エラー・サーバーエラーは右下に5秒間通知する（G-03）</span></li>
+      <li><span class="pin">3</span><span>W-07。ログインしていなければ「トップへ戻る」でログイン画面へ移動する</span></li>
+    </ol>
+  </section>
+
+</div>
+</body>
+</html>
