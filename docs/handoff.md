@@ -78,4 +78,4 @@
 ## Git
 - `beginner_version/` が Git リポジトリ。ブランチは `main`、リモートは `https://github.com/keiwebcreate/raise-tech-beginner-edition.git`
 - `beginner_version/CLAUDE.md` に「add・commit・push・ブランチ操作は承認なしで許可」と書いてある
-- 2026-10-25 時点で、設計書（database-design.md・screen-design.md・wireframes.html・handoff.md・requirements.md の変更）と CLAUDE.md はまだコミットしていない
+- 2026-10-25 時点で、設計書と CLAUDE.md はすべてコミットして GitHub にプッシュ済み
