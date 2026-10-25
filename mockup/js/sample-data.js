@@ -52,7 +52,7 @@ export function createUserSampleBoard(newId) {
             importance: 'HIGH',
             dueDate: daysFromToday(9),
             description:
-              '見る人が最初に読む場所なので、わかりやすく書く。\n・アプリの概要とURL\n・使った技術（Spring Boot / React / MySQL / AWS）\n・参考：https://github.com/',
+              '見る人が最初に読む場所なので、わかりやすく書く。\n・アプリの概要とURL\n・使った技術（Spring Boot / React / PostgreSQL / AWS）\n・参考：https://github.com/',
             labelIds: [study.id, work.id],
           }),
           card(newId, 'Spring Security の勉強', { dueDate: daysFromToday(72), labelIds: [study.id] }),

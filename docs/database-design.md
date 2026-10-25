@@ -1,6 +1,6 @@
 # テーブル設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-10-25
+最終更新：2026-10-25（DBを MySQL から PostgreSQL 18 に変更）
 
 要件は `requirements.md` を参照。
 
@@ -8,9 +8,10 @@
 
 | 項目 | 決定 | 理由 |
 |---|---|---|
+| DB | PostgreSQL 18 | 講座の指定 |
 | ボード | `boards` テーブルを独立させる（今は1ユーザー1ボード） | 後回しにした「複数ボード」をテーブルの作り直しなしで追加できる |
-| リストのテーブル名 | `board_columns`（Javaクラスは `BoardColumn`） | `COLUMNS` は MySQL で「テーブルの列」の意味でも使われ、紛らわしいため |
-| 主キー | `BIGINT AUTO_INCREMENT` | 一般的で扱いやすい。IDを推測されても、所有者チェック（要件 U-05）で守る |
+| リストのテーブル名 | `board_columns`（Javaクラスは `BoardColumn`） | `columns` は SQL で「テーブルの列」の意味でも使われ、紛らわしいため |
+| 主キー | `BIGINT GENERATED ALWAYS AS IDENTITY`（自動採番） | 一般的で扱いやすい。IDを推測されても、所有者チェック（要件 U-05）で守る |
 | 並び順 | `position` 列に 0 から始まる連番 | 仕組みがわかりやすい。移動したら同じリスト内を振り直す（4章） |
 | 削除 | 外部キーに `ON DELETE CASCADE` を付け、DBに任せる | 消し忘れが起きない。ゲストデータも users の1行を消すだけで済む |
 | 重要度・緊急度 | 列 `importance`・`urgency`。どちらも文字列 `HIGH` / `MEDIUM` / `LOW`（Javaは共通の enum） | DBを見ても意味がわかる |
@@ -18,11 +19,11 @@
 | ラベルの持ち主 | ユーザー単位（`labels.user_id`）。ボード単位にはしない | 今は1人1ボードなので、どちらでも同じ動きになる。ユーザー単位なら、所有者の確認が `labels.user_id` を見るだけで済む。複数ボードを追加したときも、同じラベルを全ボードで共通に使える。ボードごとに分けたくなったら、`board_id` 列を追加する |
 | ラベル名 | ユーザーごとに重複不可 | カード詳細で同じ名前が並ばないようにする |
 | CHECK制約 | 基本的なものだけ付ける（3.7） | Java のチェックをすり抜けた値を、DBが最後の砦として止める |
-| ストレージエンジン | InnoDB（CREATE TABLE に明記する） | 外部キーとトランザクションが使える。MySQLの標準だが、設定に左右されないように明記する |
 | ゲスト | ゲストログインのたびに一時ユーザーを作る | 通常ユーザーと同じ仕組みで動かせる（5章） |
 | テーブル作成 | Flyway で管理する | SQLファイルで変更履歴が残り、ローカルとAWSで同じテーブルを作れる |
-| 文字コード | `utf8mb4`（照合順序はMySQL 8.4の標準 `utf8mb4_0900_ai_ci`）。CREATE TABLE に明記する | 日本語・絵文字を保存できる。DBやサーバーの設定が違っても同じになるように明記する |
-| 日時 | UTCで保存する | AWSの標準とそろえ、ローカルと本番で動きを変えないため（6章） |
+| 文字コード | UTF8（DBを作るときの標準。日本語・絵文字を保存できる） | 文字列の比べ方は PostgreSQL の標準のまま。PostgreSQL は文字を厳密に比べるので、濁点の有無や大文字・小文字は別の文字として扱われる（3.5） |
+| 日時 | `TIMESTAMPTZ`（タイムゾーン付き）。中身は常にUTCで保存される | サーバーやPCのタイムゾーン設定が違っても、同じ時刻として正しく比べられる（6章） |
+| 更新日時 | DBのトリガーで自動更新する（3.8） | PostgreSQL には MySQL の `ON UPDATE CURRENT_TIMESTAMP` がないため。手でSQLを流して更新したときも必ず更新される |
 | 所有者の確認 | 毎回、持ち主をたどって確認する（テーブルに user_id を重複して持たせない） | 同じ情報を何か所にも持つと、食い違いが起きるため（7章） |
 
 ## 2. ER図
@@ -51,7 +52,7 @@ erDiagram
         BIGINT id PK
         BIGINT board_id FK
         VARCHAR name
-        INT position
+        INTEGER position
     }
     cards {
         BIGINT id PK
@@ -61,7 +62,7 @@ erDiagram
         VARCHAR importance
         VARCHAR urgency
         DATE due_date
-        INT position
+        INTEGER position
     }
     labels {
         BIGINT id PK
@@ -81,8 +82,8 @@ erDiagram
 
 | 列 | 型 | 内容 |
 |---|---|---|
-| created_at | DATETIME | 作成日時。DBが自動で入れる |
-| updated_at | DATETIME | 更新日時。DBが自動で更新する |
+| created_at | TIMESTAMPTZ | 作成日時。DBが自動で入れる |
+| updated_at | TIMESTAMPTZ | 更新日時。DBのトリガーが自動で更新する（3.8） |
 
 ### 3.1 users（ユーザー）
 
@@ -110,7 +111,7 @@ erDiagram
 | id | BIGINT | 不可 | 自動採番 | 主キー |
 | board_id | BIGINT | 不可 | | `boards.id` への外部キー |
 | name | VARCHAR(50) | 不可 | | リスト名。1〜50文字 |
-| position | INT | 不可 | | ボード内の並び順。0から始まる連番 |
+| position | INTEGER | 不可 | | ボード内の並び順。0から始まる連番 |
 
 インデックス：`(board_id, position)`
 
@@ -125,7 +126,7 @@ erDiagram
 | importance | VARCHAR(10) | 不可 | MEDIUM | 重要度。`HIGH` / `MEDIUM` / `LOW` |
 | urgency | VARCHAR(10) | 不可 | MEDIUM | 緊急度。`HIGH` / `MEDIUM` / `LOW` |
 | due_date | DATE | 可 | NULL | 期限（時刻なし） |
-| position | INT | 不可 | | リスト内の並び順。0から始まる連番 |
+| position | INTEGER | 不可 | | リスト内の並び順。0から始まる連番 |
 
 インデックス：`(column_id, position)`
 
@@ -135,12 +136,12 @@ erDiagram
 |---|---|---|---|---|
 | id | BIGINT | 不可 | 自動採番 | 主キー |
 | user_id | BIGINT | 不可 | | `users.id` への外部キー |
-| name | VARCHAR(20) | 不可 | | ラベル名。1〜20文字。照合順序は `utf8mb4_bin`（下の注意を参照） |
+| name | VARCHAR(20) | 不可 | | ラベル名。1〜20文字 |
 | color | CHAR(7) | 不可 | | 色コード（例：`#e5484d`）。`screen-design.md` 6章の8色のみ |
 
 一意制約：`(user_id, name)`
 
-**注意**：MySQL標準の照合順序 `utf8mb4_0900_ai_ci` は、濁点・半濁点や大文字・小文字を区別せずに比べる。そのままだと「パン」と「ハン」が同じ名前とみなされ、一意制約に引っかかる。そこで `labels.name` だけ、文字を厳密に比べる `utf8mb4_bin` にする。
+PostgreSQL は文字列を厳密に比べるので、「パン」と「ハン」、「Work」と「work」は別の名前として扱われる（どちらも登録できる）。
 
 ### 3.6 card_labels（カードとラベルの中間テーブル）
 
@@ -151,6 +152,8 @@ erDiagram
 
 主キー：`(card_id, label_id)`（同じカードに同じラベルを二重に付けられない）
 インデックス：`(label_id)`（ラベルからカードを探すため）
+
+**注意**：PostgreSQL は外部キーの列に、インデックスを自動では作らない。この設計では、外部キーの列はすべて上のインデックス・一意制約・主キーの先頭に入っているので、追加は不要。
 
 ### 3.7 CHECK制約
 
@@ -163,8 +166,17 @@ erDiagram
 
 - 文字数の上限は列の型（`VARCHAR(50)` など）で決まるので、CHECK制約には書かない
 - 色は「色コードの形」だけを確かめ、「8色のどれか」は Java で確かめる。8色をDBで決めると、色を変えるたびにテーブルの変更が必要になるため
-- 色の確認には `REGEXP_LIKE(color, '^#[0-9a-f]{6}$', 'c')` を使う。最後の `'c'` は大文字・小文字を区別する指定。`color` 列の照合順序（`utf8mb4_0900_ai_ci`）のままだと区別されず、`#E5484D` も通ってしまうため
+- 色の確認には正規表現の演算子 `~` を使う（`color ~ '^#[0-9a-f]{6}$'`）。`~` は大文字・小文字を区別するので、`#E5484D` は通らない
 - CHECK制約に引っかかるのは Java のチェック漏れ（バグ）なので、そのときは500エラーになる
+
+### 3.8 更新日時のトリガー
+
+PostgreSQL には「行を更新したら、自動で更新日時を入れる」列の設定がない。そこで、次の2つを作る。
+
+1. 関数 `set_updated_at()`：更新される行の `updated_at` を今の時刻にする（1回だけ作る）
+2. トリガー：`card_labels` 以外の各テーブルに「行を更新する直前に `set_updated_at()` を呼ぶ」仕掛けを付ける
+
+SQLは10章。Java（JPA）からは `created_at`・`updated_at` に書き込まない。
 
 ## 4. 並び順（position）のルール
 
@@ -192,14 +204,15 @@ erDiagram
 - ゲストがログアウトしたとき：そのゲストの users の行をすぐに削除する
 - 定期削除：Spring の `@Scheduled` で1時間ごとに、次のSQLにあたる削除を行う
   ```sql
-  DELETE FROM users WHERE is_guest = TRUE AND created_at < 現在時刻(UTC) - 24時間;
+  DELETE FROM users WHERE is_guest = TRUE AND created_at < now() - INTERVAL '24 hours';
   ```
   `(is_guest, created_at)` のインデックスで、対象をすばやく探せる
 
 ## 6. 日時の扱い
 
-- `created_at`・`updated_at` は UTC で保存する。Spring Boot から MySQL への接続設定で、タイムゾーンを UTC にそろえる
-- `due_date`（期限）は時刻を持たない日付なので、タイムゾーンの影響を受けない
+- `created_at`・`updated_at` は `TIMESTAMPTZ`。PostgreSQL が内部でUTCに変換して保存するので、接続する側のタイムゾーン設定に左右されない。Java では `Instant`（世界共通のある瞬間）で受け取る
+- 念のため、Spring Boot は JVM のタイムゾーンを UTC にして動かす（ログの時刻などをそろえるため）
+- `due_date`（期限）は時刻を持たない日付（`DATE`）なので、タイムゾーンの影響を受けない。Java では `LocalDate`
 - 期限の色分け（要件 C-05）の「今日」は、React で利用者のブラウザの日付を使って判定する
 
 ## 7. 所有者の確認（要件 U-05）
@@ -238,87 +251,102 @@ erDiagram
 ## 10. テーブル作成SQL（Flyway の `V1__create_tables.sql` の原案）
 
 ```sql
+-- 更新日時を自動で入れる関数（3.8）
+CREATE FUNCTION set_updated_at() RETURNS trigger AS $$
+BEGIN
+    NEW.updated_at = now();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE users (
-    id            BIGINT       NOT NULL AUTO_INCREMENT,
+    id            BIGINT       GENERATED ALWAYS AS IDENTITY,
     email         VARCHAR(255) NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     is_guest      BOOLEAN      NOT NULL DEFAULT FALSE,
-    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_users_email (email),
-    KEY idx_users_guest_created (is_guest, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    CONSTRAINT pk_users PRIMARY KEY (id),
+    CONSTRAINT uk_users_email UNIQUE (email)
+);
+CREATE INDEX idx_users_guest_created ON users (is_guest, created_at);
 
 CREATE TABLE boards (
-    id         BIGINT      NOT NULL AUTO_INCREMENT,
+    id         BIGINT      GENERATED ALWAYS AS IDENTITY,
     user_id    BIGINT      NOT NULL,
     name       VARCHAR(50) NOT NULL DEFAULT 'マイボード',
-    created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_boards_user (user_id),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_boards PRIMARY KEY (id),
+    CONSTRAINT uk_boards_user UNIQUE (user_id),
     CONSTRAINT fk_boards_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    CONSTRAINT chk_boards_name CHECK (CHAR_LENGTH(TRIM(name)) > 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    CONSTRAINT chk_boards_name CHECK (char_length(btrim(name)) > 0)
+);
 
 CREATE TABLE board_columns (
-    id         BIGINT      NOT NULL AUTO_INCREMENT,
+    id         BIGINT      GENERATED ALWAYS AS IDENTITY,
     board_id   BIGINT      NOT NULL,
     name       VARCHAR(50) NOT NULL,
-    position   INT         NOT NULL,
-    created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    KEY idx_board_columns_board_position (board_id, position),
+    position   INTEGER     NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_board_columns PRIMARY KEY (id),
     CONSTRAINT fk_board_columns_board FOREIGN KEY (board_id) REFERENCES boards (id) ON DELETE CASCADE,
-    CONSTRAINT chk_board_columns_name CHECK (CHAR_LENGTH(TRIM(name)) > 0),
+    CONSTRAINT chk_board_columns_name CHECK (char_length(btrim(name)) > 0),
     CONSTRAINT chk_board_columns_position CHECK (position >= 0)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
+CREATE INDEX idx_board_columns_board_position ON board_columns (board_id, position);
 
 CREATE TABLE cards (
-    id          BIGINT        NOT NULL AUTO_INCREMENT,
+    id          BIGINT        GENERATED ALWAYS AS IDENTITY,
     column_id   BIGINT        NOT NULL,
     title       VARCHAR(100)  NOT NULL,
     description VARCHAR(2000) NULL,
     importance  VARCHAR(10)   NOT NULL DEFAULT 'MEDIUM',
     urgency     VARCHAR(10)   NOT NULL DEFAULT 'MEDIUM',
     due_date    DATE          NULL,
-    position    INT           NOT NULL,
-    created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    KEY idx_cards_column_position (column_id, position),
+    position    INTEGER       NOT NULL,
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT now(),
+    CONSTRAINT pk_cards PRIMARY KEY (id),
     CONSTRAINT fk_cards_column FOREIGN KEY (column_id) REFERENCES board_columns (id) ON DELETE CASCADE,
-    CONSTRAINT chk_cards_title CHECK (CHAR_LENGTH(TRIM(title)) > 0),
+    CONSTRAINT chk_cards_title CHECK (char_length(btrim(title)) > 0),
     CONSTRAINT chk_cards_position CHECK (position >= 0),
     CONSTRAINT chk_cards_importance CHECK (importance IN ('HIGH', 'MEDIUM', 'LOW')),
     CONSTRAINT chk_cards_urgency CHECK (urgency IN ('HIGH', 'MEDIUM', 'LOW'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
+CREATE INDEX idx_cards_column_position ON cards (column_id, position);
 
 CREATE TABLE labels (
-    id         BIGINT      NOT NULL AUTO_INCREMENT,
+    id         BIGINT      GENERATED ALWAYS AS IDENTITY,
     user_id    BIGINT      NOT NULL,
-    name       VARCHAR(20) COLLATE utf8mb4_bin NOT NULL,
+    name       VARCHAR(20) NOT NULL,
     color      CHAR(7)     NOT NULL,
-    created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    PRIMARY KEY (id),
-    UNIQUE KEY uk_labels_user_name (user_id, name),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_labels PRIMARY KEY (id),
+    CONSTRAINT uk_labels_user_name UNIQUE (user_id, name),
     CONSTRAINT fk_labels_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
-    CONSTRAINT chk_labels_name CHECK (CHAR_LENGTH(TRIM(name)) > 0),
-    CONSTRAINT chk_labels_color CHECK (REGEXP_LIKE(color, '^#[0-9a-f]{6}$', 'c'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+    CONSTRAINT chk_labels_name CHECK (char_length(btrim(name)) > 0),
+    CONSTRAINT chk_labels_color CHECK (color ~ '^#[0-9a-f]{6}$')
+);
 
 CREATE TABLE card_labels (
-    card_id    BIGINT   NOT NULL,
-    label_id   BIGINT   NOT NULL,
-    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (card_id, label_id),
-    KEY idx_card_labels_label (label_id),
+    card_id    BIGINT      NOT NULL,
+    label_id   BIGINT      NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT pk_card_labels PRIMARY KEY (card_id, label_id),
     CONSTRAINT fk_card_labels_card  FOREIGN KEY (card_id)  REFERENCES cards (id)  ON DELETE CASCADE,
     CONSTRAINT fk_card_labels_label FOREIGN KEY (label_id) REFERENCES labels (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+);
+CREATE INDEX idx_card_labels_label ON card_labels (label_id);
+
+-- 更新日時のトリガー（card_labels は更新しないので付けない）
+CREATE TRIGGER trg_users_updated_at         BEFORE UPDATE ON users         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_boards_updated_at        BEFORE UPDATE ON boards        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_board_columns_updated_at BEFORE UPDATE ON board_columns FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_cards_updated_at         BEFORE UPDATE ON cards         FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_labels_updated_at        BEFORE UPDATE ON labels        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
 セッション（ログイン状態）を保存する Spring Session JDBC のテーブルは、`V2__create_session_tables.sql` で作る（`detailed-design.md` 3.9）。

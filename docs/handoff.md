@@ -13,7 +13,7 @@
 ## プロジェクト
 - 講座の課題で、トレロ風のタスク管理アプリを作っている。作業フォルダは `beginner_version/`。完成したらポートフォリオとして公開する
 - 講座の目的は、AIと相談しながら「要件定義 → 設計 → 環境構築 → 実装 → テスト → デプロイ」を一通り経験すること。締め切りはない
-- 技術スタックは講座の指定で、Java 21 / Spring Boot、React（Vite）、MySQL 8.4、AWS
+- 技術スタックは講座の指定で、Java 21 / Spring Boot、React（Vite）、**PostgreSQL 18**（2026-10-25 に MySQL から変更）、AWS
 - 私（ユーザー）はWeb制作の経験はあるが、プログラミングは未経験。コードは基本的にAIに書いてもらう。ただし自分で説明できるように、何をしているかを解説してほしい
 
 ## 進め方の希望
@@ -32,8 +32,9 @@
 2. **開発環境の構築**（Windows 11）
    - Node.js v26 / npm、Git、VS Code：インストール済み
    - JDK：Eclipse Temurin 21。JAVA_HOME は設定済み
-   - MySQL 8.4.9：Windowsサービス `MySQL84`、**ポートは3307**
-   - DB は `task_app`（utf8mb4）、アプリ用ユーザーは `task_app_user`@localhost。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと
+   - **PostgreSQL 18：これから入れる**（Windows に直接。下の「次にやること」1）。ポートは 5432、DB は `task_app`、アプリ用ユーザーは `task_app_user`。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと
+   - MySQL 8.4.9（Windowsサービス `MySQL84`、ポート3307）は、DBを PostgreSQL に変えたので使わない。サービスを止めて残す（自動起動しない設定）。PostgreSQL でアプリが動いたら、削除するか決める
+   - Docker：入っている（別プロジェクトで使用）。テスト用の Testcontainers で使う
    - **注意**：ポート3306は別プロジェクト（cytech_step9_app）の Docker MySQL が使っている。触らないこと
 
 3. **テーブル設計**：確定済み。詳しくは `beginner_version/docs/database-design.md` を必ず読むこと
@@ -94,17 +95,22 @@
     - `wireframes.html` の W-03 を、カードに説明を表示する形に直した
 
 13. **詳細設計**：完了（2026-10-25）。`docs/detailed-design.md`。AI用のルールは `beginner_version/CLAUDE.md`
-    - サーバー：Controller → Service → Repository の3層、パッケージは機能ごと（`io.github.keiwebcreate.taskboard`）、DTO は record、エンティティは子→親の `@ManyToOne` だけ（ボード画面はSQL 3回）、所有者の確認は「ID＋持ち主」で探す Repository のメソッド、エラーは独自の例外＋`@RestControllerAdvice`、セッションは Spring Session JDBC（MySQL）、Gradle、Lombok なし、テストDBは Testcontainers
+    - サーバー：Controller → Service → Repository の3層、パッケージは機能ごと（`io.github.keiwebcreate.taskboard`）、DTO は record、エンティティは子→親の `@ManyToOne` だけ（ボード画面はSQL 3回）、所有者の確認は「ID＋持ち主」で探す Repository のメソッド、エラーは独自の例外＋`@RestControllerAdvice`、セッションは Spring Session JDBC（PostgreSQL）、Gradle、Lombok なし、テストDBは Testcontainers
     - 画面：TypeScript、`useReducer`＋Context、CSS Modules、フォルダは機能ごと（`features/`・`shared/`）、React Router、fetch を包んだ自作の関数
     - ゲストのサンプルデータはモックアップと同じ中身に決定
 
+14. **DBを MySQL から PostgreSQL 18 に変更**（2026-10-25。講座の指定を勘違いしていた）
+    - 決定：ローカルは Windows に直接入れる／バージョン18／日時は `TIMESTAMPTZ`（Java は `Instant`）／更新日時はDBのトリガー／MySQL 8.4 は止めて残す
+    - `database-design.md` を PostgreSQL 向けに書き直した（自動採番は IDENTITY、照合順序の注意は不要に、色のチェックは `~`）。ほかの設計書・CLAUDE.md の MySQL も直した
+
 ## 次にやること
 
-1. **Spring Boot と React のひな形を作る**（`backend/`・`frontend/`。詳細設計書 2章・3.1・4.1）。Flyway の V1（テーブル）・V2（セッション）を実際の MySQL（3307）で流して確かめる。Testcontainers には Docker が必要
-2. 未決事項：AWSの構成、回数制限の実装方法（`api-design.md` 8章・`detailed-design.md` 7章）
+1. **PostgreSQL 18 を入れる**（私が操作する）：公式インストーラーで入れ、`task_app_user` と `task_app` を作る。MySQL84 のサービスを止めて「手動」にする
+2. **Spring Boot と React のひな形を作る**（`backend/`・`frontend/`。詳細設計書 2章・3.1・4.1）。Flyway の V1（テーブル）・V2（セッション）を実際の PostgreSQL で流して確かめる。Testcontainers には Docker が必要
+3. 未決事項：AWSの構成、回数制限の実装方法（`api-design.md` 8章・`detailed-design.md` 7章）
 
 ### 見直しで残っている項目（急がない）
-- 🟡 要件・テーブル：すべて完了。CREATE TABLE のSQLはまだ実際のMySQLで流していないので、Flyway を作るときに確かめる
+- 🟡 要件・テーブル：すべて完了。CREATE TABLE のSQL（PostgreSQL 版）は、Docker の一時的な PostgreSQL 18 で流して確認済み（2026-10-25）。Flyway を作るときに、ローカルの PostgreSQL でもう一度確かめる
 - ⚪ 要件：改訂履歴、前提条件と制約、非機能要件のID、受け入れ基準
 - ⚪ テーブル：論理名と物理名、CRUD表
 

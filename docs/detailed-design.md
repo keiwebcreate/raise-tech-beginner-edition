@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-10-25
+最終更新：2026-10-25（DBを PostgreSQL 18 に変更）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -19,7 +19,7 @@
 | 8 | React の状態管理 | `useReducer`＋Context | 追加のライブラリがいらず、モックアップの `board-store.js` と同じ考え方。API設計書 6章の流れにそのまま合う |
 | 9 | React のCSS | CSS Modules。共通の色などは CSS 変数にまとめる | モックアップの `style.css` を部品ごとに切り分けて移せる。クラス名がぶつからない |
 | 10 | React のフォルダ | 機能ごと（`features/auth`・`board`・`card`・`label`）と共通（`shared`） | サーバー側と同じ考え方にそろえる |
-| 11 | セッションの置き場所 | MySQL（Spring Session JDBC） | サーバーを再起動してもログイン状態が残る。API設計書の Cookie 名 `SESSION` とも合う |
+| 11 | セッションの置き場所 | PostgreSQL（Spring Session JDBC） | サーバーを再起動してもログイン状態が残る。API設計書の Cookie 名 `SESSION` とも合う |
 | 12 | ビルドツール | Gradle | Spring Initializr の初期値。設定が短く書ける |
 | 13 | Lombok | 使わない | 書いたコードがそのまま動くので説明しやすい。DTO は record なので、getter が必要なのはエンティティだけ |
 
@@ -31,7 +31,7 @@
 | 画面の切り替え | React Router |
 | APIの呼び出し | ブラウザ標準の `fetch` を包んだ関数を自作する（axios は使わない） |
 | フォーム | `useState` で自作する（フォーム用のライブラリは使わない。入力欄が少ないため） |
-| サーバーのテスト用DB | Testcontainers（テストのたびに Docker で MySQL を立ち上げる）。本番と同じ MySQL で確かめられ、GitHub Actions でも動く |
+| サーバーのテスト用DB | Testcontainers（テストのたびに Docker で PostgreSQL 18 を立ち上げる）。本番と同じ PostgreSQL で確かめられ、GitHub Actions でも動く |
 | ゲストのサンプルデータ | モックアップの `mockup/js/sample-data.js` の `createGuestSampleBoard` と同じ中身（`database-design.md` 11章の未決事項） |
 | バージョン | Spring Boot・React などは、ひな形を作るときの最新の安定版にする |
 
@@ -111,7 +111,7 @@ io.github.keiwebcreate.taskboard
 
 - `@ManyToOne` は `fetch = FetchType.LAZY`（必要になるまで親を読まない）にする
 - `Level`（`HIGH`・`MEDIUM`・`LOW`）は `@Enumerated(EnumType.STRING)` で文字列として保存する
-- `created_at`・`updated_at` は DB が自動で入れるので、Java からは書き込まない（`insertable = false, updatable = false`）
+- `created_at`・`updated_at` は DB が自動で入れる（更新日時はトリガー。テーブル設計書 3.8）ので、Java からは書き込まない（`insertable = false, updatable = false`）。型は `Instant`
 - setter は作らず、変えてよい項目だけを変えるメソッドを用意する（例：`Card.update(title, description, ...)`、`Card.moveTo(column, position)`）
 - 削除は DB の `ON DELETE CASCADE` に任せる。JPA の `cascade` 設定は使わない
 - 設定 `spring.jpa.open-in-view: false`（画面に返したあとで勝手にSQLが走るのを防ぐ）、`spring.jpa.hibernate.ddl-auto: validate`（テーブルは Flyway だけが作る。JPA はクラスとテーブルが合っているかを確かめるだけ）
@@ -209,8 +209,8 @@ Spring が投げる例外も同じ形にそろえる：
 | 設定 | 値 |
 |---|---|
 | DBの接続先・ユーザー・パスワード | 環境変数 `DB_URL`・`DB_USERNAME`・`DB_PASSWORD` から読む。コードやGitには書かない |
-| DBの接続URL（ローカル） | `jdbc:mysql://localhost:3307/task_app?connectionTimeZone=UTC`（ポートは 3307。3306 は別のプロジェクトが使用中） |
-| JVMのタイムゾーン | UTC（テーブル設計書 6章） |
+| DBの接続URL（ローカル） | `jdbc:postgresql://localhost:5432/task_app` |
+| JVMのタイムゾーン | UTC（ログの時刻などをそろえるため。テーブル設計書 6章） |
 | セッション | `spring.session.timeout: 30m`（要件 U-09）。保存先は JDBC。テーブルは Flyway で作る（3.9） |
 | 上限 | `app.limits.columns: 20`・`cards-per-column: 100`・`labels: 30`。`LimitsProperties`（`@ConfigurationProperties`）で読む（要件 3.7） |
 | Flyway | `src/main/resources/db/migration/` の SQL を起動時に流す |
@@ -250,7 +250,7 @@ sequenceDiagram
     participant R as React
     participant C as AuthController
     participant M as AuthenticationManager
-    participant S as セッション（MySQL）
+    participant S as セッション（PostgreSQL）
 
     R->>C: POST /api/auth/login（email, password, X-XSRF-TOKEN）
     C->>M: authenticate(メールアドレス（小文字）, パスワード)
@@ -306,12 +306,12 @@ sequenceDiagram
 
 | ファイル | 内容 |
 |---|---|
-| `V1__create_tables.sql` | テーブル設計書 10章の CREATE TABLE |
-| `V2__create_session_tables.sql` | Spring Session JDBC のテーブル（`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES`）。Spring Session に入っている MySQL 用の SQL を元にする |
+| `V1__create_tables.sql` | テーブル設計書 10章の CREATE TABLE と、更新日時のトリガー |
+| `V2__create_session_tables.sql` | Spring Session JDBC のテーブル（`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES`）。Spring Session に入っている PostgreSQL 用の SQL（`schema-postgresql.sql`）を元にする |
 
 ### 3.10 テスト（要件 5.5）
 
-- JUnit 5 と Spring Boot のテスト機能を使う。DBは Testcontainers で MySQL 8.4 を立ち上げる（Flyway でテーブルも作る）
+- JUnit 5 と Spring Boot のテスト機能を使う。DBは Testcontainers で PostgreSQL 18 を立ち上げる（Flyway でテーブルも作る）
 - APIを実際に呼ぶ形のテスト（MockMvc）を中心にする。確かめること：所有者の確認（他人のIDで 404）、並び順の振り直し、上限、入力チェック、ログイン・ログアウト・ゲストの削除、CSRF
 - 並び順の振り直しなど、ロジックだけの部品は、DBを使わない単体テストも書く
 
@@ -413,8 +413,8 @@ Vitest で、ロジックのある部分だけを自動テストする。
 
 | 区分 | ライブラリ | 用途 |
 |---|---|---|
-| サーバー | Spring Web、Spring Data JPA、Spring Security、Spring Session JDBC、Validation、Flyway（MySQL 用も）、MySQL Connector/J | 本体 |
-| サーバーのテスト | Spring Boot Test、Spring Security Test、Testcontainers（MySQL） | テスト |
+| サーバー | Spring Web、Spring Data JPA、Spring Security、Spring Session JDBC、Validation、Flyway（PostgreSQL 用も）、PostgreSQL JDBC Driver | 本体 |
+| サーバーのテスト | Spring Boot Test、Spring Security Test、Testcontainers（PostgreSQL） | テスト |
 | 画面 | React、React Router、@hello-pangea/dnd | 本体 |
 | 画面の開発 | Vite、TypeScript、Vitest、ESLint | 開発・テスト |
 

@@ -26,7 +26,8 @@
 | `mockup/` | モックアップ | `npx serve mockup`（`beginner_version` で実行） | なし |
 
 - 開発中は `http://localhost:5173` を開く。`/api` は Vite が Spring Boot（8080）へ転送する
-- ローカルの MySQL はポート **3307**、DB は `task_app`。**3306 は別のプロジェクトの Docker なので触らない**
+- DB は PostgreSQL 18（Windows のサービス。ポート 5432）、DB名は `task_app`、アプリ用ユーザーは `task_app_user`
+- MySQL 8.4（サービス `MySQL84`・ポート 3307）は使わない（止めて残してある）。3306 は別のプロジェクトの Docker なので触らない
 - DBのパスワードなどの秘密情報は、コードにもGitにも書かない。環境変数（`DB_URL`・`DB_USERNAME`・`DB_PASSWORD`）で渡す
 
 ## サーバー（Spring Boot）のルール
@@ -53,6 +54,6 @@
 
 ## テスト
 
-- サーバーは JUnit（DBは Testcontainers の MySQL）。所有者の確認・並び順・上限・入力チェック・ログインを中心に書く
+- サーバーは JUnit（DBは Testcontainers の PostgreSQL）。所有者の確認・並び順・上限・入力チェック・ログインを中心に書く
 - 画面は Vitest で、ロジックのある部分（期限の表示、URLのリンク化、入力チェック、`boardReducer`）だけ
 - 変更したら、関係するテストを実行して結果を報告する
