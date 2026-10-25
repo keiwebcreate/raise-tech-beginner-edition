@@ -7,3 +7,11 @@ spring:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/task_app}
     username: ${DB_USERNAME:task_app_user}
     password: ${DB_PASSWORD}
+  jpa:
+    # 画面に返したあとで勝手に SQL が走るのを防ぐ（詳細設計書 3.3）
+    open-in-view: false
+    # テーブルは Flyway だけが作る。JPA はクラスとテーブルが合っているかを起動時に確かめるだけ
+    hibernate:
+      ddl-auto: validate
+    # JPA が実行した SQL をログに出す（勉強用。開発中だけ）
+    show-sql: true
