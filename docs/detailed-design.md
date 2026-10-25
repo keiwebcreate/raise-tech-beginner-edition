@@ -33,7 +33,7 @@
 | フォーム | `useState` で自作する（フォーム用のライブラリは使わない。入力欄が少ないため） |
 | サーバーのテスト用DB | Testcontainers（テストのたびに Docker で PostgreSQL 18 を立ち上げる）。本番と同じ PostgreSQL で確かめられ、GitHub Actions でも動く |
 | ゲストのサンプルデータ | モックアップの `mockup/js/sample-data.js` の `createGuestSampleBoard` と同じ中身（`database-design.md` 11章の未決事項） |
-| バージョン | Spring Boot・React などは、ひな形を作るときの最新の安定版にする |
+| バージョン | Java は 25（最新のLTS。講座の指定）。Spring Boot・Gradle・React などは、ひな形を作るときの最新の安定版にする（Java 25 には Gradle 9.1 以上が必要） |
 
 ## 2. 全体の構成
 

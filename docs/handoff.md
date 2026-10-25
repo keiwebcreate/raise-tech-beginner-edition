@@ -2,18 +2,17 @@
 
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
-**最初に読むファイル**（すべて `beginner_version/docs/`）
-1. `handoff.md`（このファイル）
-2. `requirements.md`：要件定義書
-3. `database-design.md`：テーブル設計書（ER図は2章）
-4. `screen-design.md`：画面設計書（画面遷移図は3章）
-5. `api-design.md`：API設計書
-6. `wireframes.html`：ワイヤーフレーム（ブラウザで開く。中身は読まなくても `screen-design.md` で足りる）
+**最初に読むファイル**（すべて `beginner_version/` の中）
+1. `docs/handoff.md`（このファイル）
+2. `CLAUDE.md`：AI が守るルール（進め方・コードの書き方・コマンド）
+3. `docs/detailed-design.md`：詳細設計書（ひな形作りと実装の中心）
+4. 必要に応じて：`docs/requirements.md`（要件）、`docs/database-design.md`（テーブル。SQLは10章）、`docs/api-design.md`（API）、`docs/screen-design.md`（画面）、`mockup/`（動くモックアップ）
 
 ## プロジェクト
-- 講座の課題で、トレロ風のタスク管理アプリを作っている。作業フォルダは `beginner_version/`。完成したらポートフォリオとして公開する
+- 講座の課題で、トレロ風のタスク管理アプリ「TaskBoard」（仮）を作っている。作業フォルダは `beginner_version/`。完成したらポートフォリオとして公開する
 - 講座の目的は、AIと相談しながら「要件定義 → 設計 → 環境構築 → 実装 → テスト → デプロイ」を一通り経験すること。締め切りはない
-- 技術スタックは講座の指定で、Java 21 / Spring Boot、React（Vite）、**PostgreSQL 18**（2026-10-25 に MySQL から変更）、AWS
+- 技術スタックは講座の指定で、**Java 25（最新のLTS）** / Spring Boot、React（Vite・TypeScript）、**PostgreSQL 18**、AWS
+  - 2026-10-25 に訂正：DBは MySQL ではなく PostgreSQL、Java は 21 ではなく最新の LTS（＝25）だった
 - 私（ユーザー）はWeb制作の経験はあるが、プログラミングは未経験。コードは基本的にAIに書いてもらう。ただし自分で説明できるように、何をしているかを解説してほしい
 
 ## 進め方の希望
@@ -21,100 +20,72 @@
 - 決まったことは、毎回「ここまでの決定」としてまとめてほしい
 - 勉強のため、あえて難しいほうを選ぶことがある
 
-## 完了したこと
-1. **要件定義**：確定済み。詳しくは `beginner_version/docs/requirements.md` を必ず読むこと
-   - ボードはユーザーごとに1つ
-   - リストは追加・名前変更・削除・ドラッグ＆ドロップでの並び替えができる。初期状態は「未着手／作業中／完了」
-   - カードの項目はタイトル・説明文・重要度・緊急度・期限・ラベル（複数）（2026-10-25 に「優先度」を「重要度」に改め、「緊急度」を追加）。タイトルだけで追加し、詳細はモーダルで編集する
-   - ラベルは自由に追加・編集・削除できる
-   - メールアドレスとパスワードでログインする。ゲストログインあり
-   - 後回し：複数ボード、パスワード再設定、検索・絞り込み
-2. **開発環境の構築**（Windows 11）
-   - Node.js v26 / npm、Git、VS Code：インストール済み
-   - JDK：Eclipse Temurin 21。JAVA_HOME は設定済み
-   - **PostgreSQL 18：これから入れる**（Windows に直接。下の「次にやること」1）。ポートは 5432、DB は `task_app`、アプリ用ユーザーは `task_app_user`。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと
-   - MySQL 8.4.9（Windowsサービス `MySQL84`、ポート3307）は、DBを PostgreSQL に変えたので使わない。サービスを止めて残す（自動起動しない設定）。PostgreSQL でアプリが動いたら、削除するか決める
-   - Docker：入っている（別プロジェクトで使用）。テスト用の Testcontainers で使う
-   - **注意**：ポート3306は別プロジェクト（cytech_step9_app）の Docker MySQL が使っている。触らないこと
+## 開発環境（Windows 11）
+| もの | 状態 |
+|---|---|
+| Node.js v26 / npm、Git、VS Code | インストール済み |
+| Docker | 入っている（別プロジェクトでも使用）。テストの Testcontainers で使う。PostgreSQL 18 のイメージは取得済み |
+| JDK | Temurin 21 が入っていて、JAVA_HOME も 21 を指している。**Java 25 に入れ替える必要がある**（次にやること 1） |
+| PostgreSQL 18 | **これから入れる**（Windows に直接。次にやること 2）。ポート 5432、DB `task_app`、アプリ用ユーザー `task_app_user`。パスワードは私だけが知っている。コードやGitには書かず、環境変数で渡すこと |
+| MySQL 8.4.9 | 使わない（サービス `MySQL84`・ポート3307）。サービスを止めて「手動」にして残す。PostgreSQL でアプリが動いたら削除するか決める |
 
-3. **テーブル設計**：確定済み。詳しくは `beginner_version/docs/database-design.md` を必ず読むこと
-   - テーブルは users / boards / board_columns / cards / labels / card_labels
-   - 主キーは BIGINT AUTO_INCREMENT、並び順は 0 からの連番、削除は ON DELETE CASCADE
-   - ゲストはログインのたびに一時ユーザーを作る（is_guest 列＋ダミーメール）
-   - テーブル作成は Flyway で管理する
+- **注意**：ポート3306は別プロジェクト（cytech_step9_app）の Docker MySQL が使っている。触らないこと
+- Git Bash で `docker exec` にコンテナ内のパスを渡すときは `MSYS_NO_PATHCONV=1` が必要（パスが Windows 形式に変換されるため）
 
-4. **要件定義書・テーブル設計の見直し（🔴 必須項目）**：完了。要件定義書の U-01〜U-10・3.7、テーブル設計書の6〜8章に反映済み
-   - パスワード8〜64文字（半角のみ）、メールは小文字にそろえる、登録後は自動ログイン
-   - 認証はセッション方式（CSRF対策あり）、無操作30分でログアウト
-   - IPごとの回数制限（ログイン失敗15分10回、ゲスト作成1時間10回）
-   - 上限：リスト20／カード100／ラベル30
-   - ゲストはログアウトで即削除＋1時間ごとに24時間たったものを削除
-   - DBの日時はUTC。所有者は毎回たどって確認し、他人のデータには404を返す
+## 完了したこと（すべて 2026-10-25）
 
-5. **画面設計**：完了。`screen-design.md`（画面一覧・遷移図・項目・メッセージ一覧）と `wireframes.html`（ブラウザで開く）
-   - 図は Mermaid（VS Code の拡張機能 Markdown Preview Mermaid Support で表示）、ワイヤーフレームは HTML
-   - 雰囲気はシンプルな業務ツール風（白とグレー基調）。アプリ名は仮に「TaskBoard」
-   - ボード名はクリックで変更可（要件 B-01）。カード詳細は保存ボタンでまとめて保存
-   - リストは0個も可。説明文は改行反映＋http/https のURLをリンク化。期限は年が違うときだけ年を表示
-   - ラベルの色は8色（screen-design.md 6章）
+| # | 工程 | 成果物 | 要点 |
+|---|---|---|---|
+| 1 | 要件定義 | `docs/requirements.md` | ボードは1人1つ。リストの追加・名前変更・削除・並び替え。カードはタイトル・説明・重要度・緊急度・期限・ラベル。ラベルは自由に管理。メール＋パスワードでログイン、ゲストあり、退会あり（U-11）。上限はリスト20／カード100／ラベル30。非機能要件・テスト方針は5章 |
+| 2 | テーブル設計 | `docs/database-design.md` | PostgreSQL 18。主キーは IDENTITY、並び順は0からの連番、削除は ON DELETE CASCADE、日時は TIMESTAMPTZ、更新日時はトリガー。SQLは Docker の PostgreSQL 18 で流して確認済み |
+| 3 | 画面設計 | `docs/screen-design.md`・`docs/wireframes.html` | シンプルな業務ツール風。メッセージ一覧は7章、ラベルの8色は6章 |
+| 4 | API設計 | `docs/api-design.md` | REST形式。`GET /api/board` 1回でまとめて取得。エラーは Problem Details＋`code`。CSRF は Cookie `XSRF-TOKEN` → ヘッダー `X-XSRF-TOKEN` |
+| 5 | モックアップ | `mockup/`（開き方は `mockup/README.md`） | HTML・CSS・JS で動く試作品。私が触って「今の形でOK」。見つかった動きは設計書に反映済み（要件 C-09：カードに説明を3行表示、など） |
+| 6 | 詳細設計 | `docs/detailed-design.md`・`CLAUDE.md` | 下の表 |
+| 7 | DB・Java の訂正 | 各設計書 | MySQL → PostgreSQL 18、Java 21 → 25 |
 
-6. **API設計**：完了。`api-design.md`（API一覧は3章、エラーは4章）
-   - REST形式・浅い入れ子。ボードは `/api/board`（IDなし）
-   - `GET /api/board` の1回でボード・リスト・カード・ラベルをまとめて返す。カードはラベルIDだけを持つ
-   - 並び替えは、動かしたもの1件と移動先の位置（0から）を送り、振り直しはサーバーが行う
-   - エラーは Problem Details（RFC 9457）＋ `code`・`errors`
-   - CSRFは Cookie `XSRF-TOKEN` → ヘッダー `X-XSRF-TOKEN`
-   - ログインはJSONを受け取るAPIを自作（`AuthenticationManager` を使う）
-
-7. **退会**：要件 U-11 として追加。ヘッダーのメールアドレスを押すとメニュー（ログアウト・退会する）。退会はパスワードで本人確認（画面 W-08、API A-19 `POST /api/auth/withdraw`）。ゲストには出さない。メールアドレス・パスワードの変更は後回し
-
-8. **非機能要件・テスト方針**：要件定義書5章に反映済み
-   - AWSは無料枠の範囲だけ（AWS Budgets で通知）。無料枠の条件はアカウント作成時期で違うので、AWS構成のときに確かめる
-   - バックアップは1日1回・7日分
-   - ログはエラーとセキュリティ関係を記録し、秘密情報・メールアドレスは残さない。14日で削除
-   - セキュリティは OWASP Top 10 を一通りカバー（5.2の表）
-   - 性能はカード2,000枚のボードで表示1秒以内・その他0.5秒以内、同時10人
-   - テストはサーバーは JUnit 中心、React はロジック部分だけ Vitest、画面全体は手動。GitHub Actions で自動実行
-
-9. **ドラッグ＆ドロップのライブラリ**：@hello-pangea/dnd に決定（要件定義書6章）。候補は dnd-kit（core・react）、Pragmatic drag and drop と比べた。ボード専用で書く量が少なく、説明しやすいため
-
-10. **緊急度の追加**：ワイヤーフレームを見て追加した
-    - 「優先度」を「重要度」に改め、別に「緊急度」（高・中・低、初期値は中）を追加（要件 C-06・C-08）
-    - カードの左端の帯は重要度。緊急度が「高」のときだけ「至急」の札（赤い文字＋赤い枠）を出す
-    - DBの列は `importance`・`urgency`、APIの項目名も同じ
-
-11. **モックアップ**：完了（2026-10-25、私が触って「今の形でOK」と確認）。場所は `beginner_version/mockup/`（開き方は `mockup/README.md`）
-    - 決定：ボード・カード詳細・ラベル管理・確認ダイアログは本物どおりに動かし、ログイン・登録・退会は画面と入力チェックだけ／localStorage に保存／ドラッグ＆ドロップは SortableJS（CDN）／JS は部品ごとに分けて ES モジュールでつなぐ／確認は `npx serve mockup`
-    - `js/api.js` はニセのサーバー。API設計書の A-01〜A-19 と同じ関数・同じ形（Problem Details のエラーも同じ）。React に移すときは fetch に置き換える
-    - 左下の「モック操作」パネルで、通信の遅れ・失敗・セッション切れを起こせる
-    - 画面のロボット操作（Chrome を画面なしで動かす）で、主な操作41項目が期待どおり動くことを確認済み
-
-12. **モックアップで決まったことを設計書に反映**：完了（2026-10-25）
-    - 要件 C-09 を追加：カードに説明文を3行まで表示し、長いときは「もっと見る」でカードの中に全文を開く（「≡ 説明あり」はやめた）
-    - `screen-design.md` に細かい動きを追記：名前変更は外をクリックでも確定（空なら元に戻す）、リスト追加後も入力欄を開いたまま、上限はリスト・カードは右下の通知・ラベルは入力欄の下、カード詳細の上にラベル管理を重ねて開く、ログイン失敗でパスワード欄を空にする、ボードの読み込み失敗の表示、入力チェックは送信時、日本語入力の Enter の扱い（5章）
-    - `wireframes.html` の W-03 を、カードに説明を表示する形に直した
-
-13. **詳細設計**：完了（2026-10-25）。`docs/detailed-design.md`。AI用のルールは `beginner_version/CLAUDE.md`
-    - サーバー：Controller → Service → Repository の3層、パッケージは機能ごと（`io.github.keiwebcreate.taskboard`）、DTO は record、エンティティは子→親の `@ManyToOne` だけ（ボード画面はSQL 3回）、所有者の確認は「ID＋持ち主」で探す Repository のメソッド、エラーは独自の例外＋`@RestControllerAdvice`、セッションは Spring Session JDBC（PostgreSQL）、Gradle、Lombok なし、テストDBは Testcontainers
-    - 画面：TypeScript、`useReducer`＋Context、CSS Modules、フォルダは機能ごと（`features/`・`shared/`）、React Router、fetch を包んだ自作の関数
-    - ゲストのサンプルデータはモックアップと同じ中身に決定
-
-14. **DBを MySQL から PostgreSQL 18 に変更**（2026-10-25。講座の指定を勘違いしていた）
-    - 決定：ローカルは Windows に直接入れる／バージョン18／日時は `TIMESTAMPTZ`（Java は `Instant`）／更新日時はDBのトリガー／MySQL 8.4 は止めて残す
-    - `database-design.md` を PostgreSQL 向けに書き直した（自動採番は IDENTITY、照合順序の注意は不要に、色のチェックは `~`）。ほかの設計書・CLAUDE.md の MySQL も直した
+詳細設計の決定（くわしくは `detailed-design.md` 1章）：
+- サーバー：Controller → Service → Repository の3層、パッケージは機能ごと（`io.github.keiwebcreate.taskboard`）、DTO は record、エンティティは子→親の `@ManyToOne` だけ（ボード画面はSQL 3回）、所有者の確認は「ID＋持ち主」で探す Repository のメソッド、エラーは独自の例外＋`@RestControllerAdvice`、セッションは Spring Session JDBC（PostgreSQL）、Gradle、Lombok なし、テストDBは Testcontainers
+- 画面：TypeScript、`useReducer`＋Context、CSS Modules、フォルダは機能ごと（`features/`・`shared/`）、React Router、fetch を包んだ自作の関数、ドラッグ＆ドロップは @hello-pangea/dnd
+- ゲストのサンプルデータはモックアップと同じ中身
 
 ## 次にやること
 
-1. **PostgreSQL 18 を入れる**（私が操作する）：公式インストーラーで入れ、`task_app_user` と `task_app` を作る。MySQL84 のサービスを止めて「手動」にする
-2. **Spring Boot と React のひな形を作る**（`backend/`・`frontend/`。詳細設計書 2章・3.1・4.1）。Flyway の V1（テーブル）・V2（セッション）を実際の PostgreSQL で流して確かめる。Testcontainers には Docker が必要
-3. 未決事項：AWSの構成、回数制限の実装方法（`api-design.md` 8章・`detailed-design.md` 7章）
+### 1. Java 25 を入れる（私が操作する）
+1. https://adoptium.net/ から **Temurin 25（LTS）の Windows x64 の .msi** をダウンロードして実行する
+2. インストールの途中の「Set JAVA_HOME variable」を **「Will be installed on local hard drive」** にする（JAVA_HOME を 25 に切り替える）
+3. VS Code とターミナルを開き直し、`java -version` で `25` と出ればOK
+- Temurin 21 は残しておいてよい（使わなくなったら削除してよい）
+- 注意：Java 25 を使うには **Gradle 9.1 以上**、**Spring Boot は Java 25 に対応した版** が必要。ひな形を作るときに確かめる
+
+### 2. PostgreSQL 18 を入れる（私が操作する）
+1. https://www.postgresql.org/download/windows/ の「Download the installer」から 18.x の Windows x86-64 版を入れる。PostgreSQL Server・pgAdmin 4・Command Line Tools にチェック、**Stack Builder は外す**。管理者（postgres）のパスワードを決めて控える。ポートは 5432、Locale は Default のまま
+2. 「SQL Shell (psql)」を開き（Enter で初期値のまま進み、管理者のパスワードを入れる）、次を実行する
+   ```sql
+   CREATE USER task_app_user WITH PASSWORD '自分で決めたパスワード';
+   CREATE DATABASE task_app OWNER task_app_user;
+   ```
+   `\l task_app` で Encoding が UTF8 なら完成。`\q` で終わる
+3. 管理者の PowerShell で MySQL を止める
+   ```powershell
+   Stop-Service MySQL84
+   Set-Service MySQL84 -StartupType Manual
+   ```
+
+### 3. Spring Boot と React のひな形を作る（AI）
+- `backend/`・`frontend/` を作る（詳細設計書 2章・3.1・4.1、`CLAUDE.md` のコマンド）
+- Flyway の V1（テーブル。`database-design.md` 10章）・V2（Spring Session のテーブル）を、ローカルの PostgreSQL で流して確かめる
+- バージョンは、そのときの最新の安定版（Java 25 に対応しているもの）にする
+
+### 4. その後
+- 実装（API → 画面の順を想定）、テスト、GitHub Actions
+- 未決事項：AWSの構成、回数制限の実装方法（`api-design.md` 8章・`detailed-design.md` 7章）
 
 ### 見直しで残っている項目（急がない）
-- 🟡 要件・テーブル：すべて完了。CREATE TABLE のSQL（PostgreSQL 版）は、Docker の一時的な PostgreSQL 18 で流して確認済み（2026-10-25）。Flyway を作るときに、ローカルの PostgreSQL でもう一度確かめる
 - ⚪ 要件：改訂履歴、前提条件と制約、非機能要件のID、受け入れ基準
 - ⚪ テーブル：論理名と物理名、CRUD表
 
 ## Git
 - `beginner_version/` が Git リポジトリ。ブランチは `main`、リモートは `https://github.com/keiwebcreate/raise-tech-beginner-edition.git`
 - `beginner_version/CLAUDE.md` に「add・commit・push・ブランチ操作は承認なしで許可」と書いてある
-- 2026-10-25 時点で、設計書とモックアップはすべてコミットして GitHub にプッシュ済み
+- 2026-10-25 時点で、設計書・モックアップ・CLAUDE.md はすべてコミットして GitHub にプッシュ済み

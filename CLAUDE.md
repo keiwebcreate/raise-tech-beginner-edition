@@ -21,7 +21,7 @@
 
 | フォルダ | 中身 | 起動 | テスト |
 |---|---|---|---|
-| `backend/` | Spring Boot（Java 21・Gradle） | `./gradlew bootRun` | `./gradlew test` |
+| `backend/` | Spring Boot（Java 25・Gradle） | `./gradlew bootRun` | `./gradlew test` |
 | `frontend/` | React（Vite・TypeScript） | `npm run dev` | `npm test` |
 | `mockup/` | モックアップ | `npx serve mockup`（`beginner_version` で実行） | なし |
 

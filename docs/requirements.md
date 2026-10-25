@@ -189,7 +189,7 @@ Webアプリの代表的な脆弱性の一覧（OWASP Top 10）を一通りカ�
 |---|---|
 | フロントエンド | React（Vite・TypeScript） |
 | ドラッグ＆ドロップ | @hello-pangea/dnd（Trello のようなボード向け。リスト・カードの並び替えと別のリストへの移動、アニメーション、キーボード操作が標準で付いている。最後の更新は 2025年2月なので、使えなくなったらドラッグの部分だけ別のライブラリに入れ替える） |
-| バックエンド | Java 21 / Spring Boot（Gradle） |
+| バックエンド | Java 25（最新のLTS） / Spring Boot（Gradle） |
 | データベース | PostgreSQL 18 |
 | 認証 | Spring Security（セッション方式。セッションは Spring Session JDBC で PostgreSQL に保存） |
 | インフラ | AWS |
