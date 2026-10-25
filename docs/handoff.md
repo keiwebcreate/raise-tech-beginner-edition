@@ -4,7 +4,7 @@
 
 ## ⚠ 場所の移動（2026-10-25）
 - OneDrive がビルドのファイルをつかんで Gradle が失敗する（`Failed to clean up stale outputs`・`Unable to delete directory ...build\test-results\test\binary`）ため、`Raise_Tech` フォルダごと **OneDrive の外の `C:\dev\Raise_Tech`** に移すと決めた（移すのは私が操作する）
-- 新しいチャットを始めたら、まず今いる場所が `C:\dev\Raise_Tech` であることを確かめる。移した後に、`backend` で `.\gradlew.bat test` を実行して **全部のテストが通るか**（`TaskBoardApplicationTests` も含めて）を確かめるところから再開する
+- 移動は済み（2026-10-25）。移した直後は `build` の中のフォルダに読み取り専用の印が付いていて Gradle が失敗したため、`attrib -R "build\*" /S /D` で外した。その後 `.\gradlew.bat test` で全部のテスト（`TaskBoardApplicationTests` 1件・`UserRepositoryTest` 3件）が通ることを確認
 - Docker の DB（`compose.yaml`）はプロジェクト名 `taskboard` を固定しているので、フォルダを移してもデータ（ボリューム `taskboard_db-data`）はそのまま使える
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
@@ -68,7 +68,7 @@
 - 済み：Flyway の V1（`database-design.md` 10章の SQL と同じ）を置き、起動時に Docker の DB に6テーブル＋トリガー5つができることを確認
 - 済み：講義は JPA の ddl-auto: update でテーブルを作るが、このプロジェクトは **Flyway のまま＋JPA は ddl-auto: validate で確かめる** と決定（2026-10-25）。`user/User`（エンティティ）・`UserRepository`（findByEmail・existsByEmail）を作り、`open-in-view: false`・`show-sql: true` を設定。起動時の validate が通ることを確認
 - 済み：`UserRepositoryTest`（`@DataJpaTest`＋Testcontainers）を追加。3つとも成功し、`show-sql` で JPA が作った insert・select がログに出ることを確認（講義の「ログで確かめる」にあたる）。`TestcontainersConfiguration` は public にした
-- 未確認：全部のテストをまとめて実行すること（OneDrive のせいで失敗したため。移動後にやる）
+- 済み：`C:\dev\Raise_Tech` へ移した後、全部のテストをまとめて実行して成功
 - 次の一歩の候補：V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、React（`frontend/`）のひな形
 - バージョンは、そのときの最新の安定版にする
 
