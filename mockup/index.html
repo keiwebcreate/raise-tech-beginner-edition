@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TaskBoard（モックアップ）</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- ドラッグ＆ドロップのライブラリ。モックアップだけで使う（本番は @hello-pangea/dnd） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+  <!-- type="module" にすると import / export が使える -->
+  <script type="module" src="js/main.js"></script>
+</head>
+<body>
+  <!-- 画面（ログイン・ボードなど）はここに入る -->
+  <div id="app"></div>
+  <!-- モーダル・通知・モック操作パネルは、画面の上に重ねる -->
+  <div id="modal-root"></div>
+  <div id="toast-root"></div>
+  <div id="mock-root"></div>
+  <noscript>このモックアップを見るには JavaScript を有効にしてください。</noscript>
+</body>
+</html>
