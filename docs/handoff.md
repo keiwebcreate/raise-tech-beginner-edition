@@ -61,8 +61,10 @@
 
 ### 3. 続き（AI）
 - 済み：Flyway の V1（`database-design.md` 10章の SQL と同じ）を置き、起動時に Docker の DB に6テーブル＋トリガー5つができることを確認
-- 次の一歩：V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、`open-in-view: false`・`ddl-auto: validate` などの設定、React（`frontend/`）のひな形
+- 済み：講義は JPA の ddl-auto: update でテーブルを作るが、このプロジェクトは **Flyway のまま＋JPA は ddl-auto: validate で確かめる** と決定（2026-10-25）。`user/User`（エンティティ）・`UserRepository`（findByEmail・existsByEmail）を作り、`open-in-view: false`・`show-sql: true` を設定。起動時の validate が通ることを確認
+- 次の一歩の候補：UserRepository で保存・検索するテスト（Testcontainers）で JPA の読み書きと SQL のログを確かめる。または V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、React（`frontend/`）のひな形
 - バージョンは、そのときの最新の安定版にする
+- 注意：プロジェクトが OneDrive の中にあるため、Gradle が `Failed to clean up stale outputs` で失敗することがある（同期中のファイルロック）。もう一度実行すれば通る
 
 ### 4. その後
 - 実装（API → 画面の順を想定）、テスト、GitHub Actions
