@@ -112,7 +112,7 @@
 
 ## 4. 画面一覧
 
-画面の詳細は `screen-design.md`、画面イメージは `wireframes.html` を参照。
+画面の詳細は `screen-design.md`、画面イメージは `wireframes.html`、APIは `api-design.md` を参照。
 
 | 画面 | URL（案） | 内容 |
 |---|---|---|
@@ -167,5 +167,5 @@
 - ~~ラベルの色の選択肢~~ → 8色（`screen-design.md` 6章で決定）
 - ~~並び順の持たせ方~~ → 連番方式（`database-design.md` で決定）
 - ドラッグ＆ドロップに使うライブラリ
-- ~~テーブル設計~~（`database-design.md` で決定）とAPI設計
+- ~~テーブル設計~~（`database-design.md` で決定）~~とAPI設計~~（`api-design.md` で決定）
 - AWSの構成（EC2・RDS・ReactをどこからHTTPSで配信するか・ドメイン）
