@@ -233,7 +233,7 @@ erDiagram
 ### 9.2 ゲストログイン時（要件 U-06）
 
 - users に1行（`is_guest = true`、ダミーのメールアドレス）
-- 9.1 と同じボードとリストに加えて、サンプルのカードとラベル。中身は実装時に決める
+- 9.1 と同じボードとリストに加えて、サンプルのカードとラベル。中身はモックアップ（`mockup/js/sample-data.js` の `createGuestSampleBoard`）と同じにする（`detailed-design.md` 1章）
 
 ## 10. テーブル作成SQL（Flyway の `V1__create_tables.sql` の原案）
 
@@ -321,6 +321,8 @@ CREATE TABLE card_labels (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 ```
 
+セッション（ログイン状態）を保存する Spring Session JDBC のテーブルは、`V2__create_session_tables.sql` で作る（`detailed-design.md` 3.9）。
+
 ## 11. まだ決めていないこと
 
-- ゲストのサンプルデータの中身
+- ~~ゲストのサンプルデータの中身~~ → モックアップと同じ（2026-10-25 決定）

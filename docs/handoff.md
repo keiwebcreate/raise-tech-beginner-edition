@@ -93,18 +93,15 @@
     - `screen-design.md` に細かい動きを追記：名前変更は外をクリックでも確定（空なら元に戻す）、リスト追加後も入力欄を開いたまま、上限はリスト・カードは右下の通知・ラベルは入力欄の下、カード詳細の上にラベル管理を重ねて開く、ログイン失敗でパスワード欄を空にする、ボードの読み込み失敗の表示、入力チェックは送信時、日本語入力の Enter の扱い（5章）
     - `wireframes.html` の W-03 を、カードに説明を表示する形に直した
 
+13. **詳細設計**：完了（2026-10-25）。`docs/detailed-design.md`。AI用のルールは `beginner_version/CLAUDE.md`
+    - サーバー：Controller → Service → Repository の3層、パッケージは機能ごと（`io.github.keiwebcreate.taskboard`）、DTO は record、エンティティは子→親の `@ManyToOne` だけ（ボード画面はSQL 3回）、所有者の確認は「ID＋持ち主」で探す Repository のメソッド、エラーは独自の例外＋`@RestControllerAdvice`、セッションは Spring Session JDBC（MySQL）、Gradle、Lombok なし、テストDBは Testcontainers
+    - 画面：TypeScript、`useReducer`＋Context、CSS Modules、フォルダは機能ごと（`features/`・`shared/`）、React Router、fetch を包んだ自作の関数
+    - ゲストのサンプルデータはモックアップと同じ中身に決定
+
 ## 次にやること
 
-1. **詳細設計**（軽めに作る。下の「詳細設計で決めること」）。AI用のルールを書いた `CLAUDE.md` もここで作る（中身が詳細設計と重なるため）
-2. Spring Boot と React のひな形を作る
-3. 未決事項：AWSの構成、回数制限の実装方法（`api-design.md` 8章）
-
-### 詳細設計で決めること（案）
-基本設計（画面・テーブル・API）は終わっているので、「中の作り」を決める。
-- Spring Boot のパッケージ（フォルダ）とクラスの分け方（例：Controller → Service → Repository の3層、機能ごとに分けるか）
-- React のフォルダと部品（コンポーネント）の分け方。モックアップの `mockup/js/` の分け方を下書きにする
-- 難しい処理の手順：並び替えの番号の振り直し、ログインとセッション・CSRFの流れ、ゲストの削除、所有者の確認
-- 書き方のルール（名前の付け方、エラーの返し方、テストの書き方）→ `CLAUDE.md` にまとめる
+1. **Spring Boot と React のひな形を作る**（`backend/`・`frontend/`。詳細設計書 2章・3.1・4.1）。Flyway の V1（テーブル）・V2（セッション）を実際の MySQL（3307）で流して確かめる。Testcontainers には Docker が必要
+2. 未決事項：AWSの構成、回数制限の実装方法（`api-design.md` 8章・`detailed-design.md` 7章）
 
 ### 見直しで残っている項目（急がない）
 - 🟡 要件・テーブル：すべて完了。CREATE TABLE のSQLはまだ実際のMySQLで流していないので、Flyway を作るときに確かめる
