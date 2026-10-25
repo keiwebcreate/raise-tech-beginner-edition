@@ -70,7 +70,8 @@
 - 済み：`UserRepositoryTest`（`@DataJpaTest`＋Testcontainers）を追加。3つとも成功し、`show-sql` で JPA が作った insert・select がログに出ることを確認（講義の「ログで確かめる」にあたる）。`TestcontainersConfiguration` は public にした
 - 済み：`C:\dev\Raise_Tech` へ移した後、全部のテストをまとめて実行して成功
 - 済み：講義と同じく、Docker の DB に `docker exec ... psql` で直接 SQL を打って確認。`users` に登録・検索・更新・削除ができ、更新日時のトリガーと ON DELETE CASCADE（ユーザーを消すとボードも消える）が動くことを確認。試したデータは消してある（ID は1から使ったので、次は2から始まる）
-- 次の一歩の候補：V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、React（`frontend/`）のひな形
+- 済み：Flyway の V2（`V2__create_session_tables.sql`。Spring Session JDBC 4.1.1 の `schema-postgresql.sql` と同じ）を置いた。テストが通り、起動時に Docker の DB が version 2 になって `spring_session`・`spring_session_attributes` ができ、毎分のエラーが消えたことを確認
+- 次の一歩の候補：React（`frontend/`）のひな形
 - バージョンは、そのときの最新の安定版にする
 
 ### 4. その後
