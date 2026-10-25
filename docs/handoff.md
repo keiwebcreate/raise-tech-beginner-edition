@@ -60,8 +60,8 @@
 - 進め方の希望：**Spring Boot のセットアップは最小限で、少しずつ進める**
 
 ### 3. 続き（AI）
-- 次の一歩：Flyway の V1（`database-design.md` 10章の SQL をそのまま）を `backend/src/main/resources/db/migration/` に置き、起動時にテーブルができるか確かめる
-- その後：V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、`open-in-view: false`・`ddl-auto: validate` などの設定、React（`frontend/`）のひな形
+- 済み：Flyway の V1（`database-design.md` 10章の SQL と同じ）を置き、起動時に Docker の DB に6テーブル＋トリガー5つができることを確認
+- 次の一歩：V2（Spring Session のテーブル。今は無いので、起動中に毎分 `spring_session does not exist` のエラーがログに出るが、V2 を置けば消える）、`open-in-view: false`・`ddl-auto: validate` などの設定、React（`frontend/`）のひな形
 - バージョンは、そのときの最新の安定版にする
 
 ### 4. その後
