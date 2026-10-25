@@ -290,6 +290,7 @@
     <li><a href="#w05">W-05 ラベル管理</a></li>
     <li><a href="#w06">W-06 確認ダイアログ</a></li>
     <li><a href="#common">共通の表示・W-07</a></li>
+    <li><a href="#w08">W-08 退会の確認</a></li>
   </ul>
 
   <!-- ================= W-01 ログイン ================= -->
@@ -391,8 +392,7 @@
         <div class="header-right">
           <button class="btn">ラベル管理</button>
           <span class="pin inline">2</span>
-          <span class="user">taro@example.com</span>
-          <button class="btn btn-ghost">ログアウト</button>
+          <button class="btn btn-ghost user">taro@example.com ▾</button>
         </div>
       </header>
 
@@ -466,7 +466,7 @@
     </div></div>
     <ol class="annot">
       <li><span class="pin">1</span><span>ボード名。クリックするとその場で入力欄に変わる（1〜50文字）</span></li>
-      <li><span class="pin">2</span><span>ログイン中のメールアドレス。ゲストのときは「ゲスト」の札に変わる</span></li>
+      <li><span class="pin">2</span><span>ログイン中のメールアドレス。押すと「ログアウト」「退会する」のメニューが開く（W-08 を参照）。ゲストのときは「ゲスト」の札と「ログアウト」ボタンに変わる</span></li>
       <li><span class="pin">3</span><span>リスト名（クリックで変更）、カードの枚数、「…」メニュー（リストを削除）。見出しをドラッグしてリストを並び替える</span></li>
       <li><span class="pin">4</span><span>カード：左端の帯が優先度（高＝赤・中＝黄・低＝グレー）。期限は期限切れ＝赤、今日・明日＝黄、それ以外＝グレー。年が違うときだけ年を表示。クリックでカード詳細</span></li>
       <li><span class="pin">5</span><span>リストが0個でも常に表示する。上限（20個）に達していたら、押したときにメッセージを出す</span></li>
@@ -744,6 +744,56 @@
       <li><span class="pin">1</span><span>ボードを最初に開いたときは、リストの形をした灰色の枠（スケルトン）を出す</span></li>
       <li><span class="pin">2</span><span>通信エラー・サーバーエラーは右下に5秒間通知する（G-03）</span></li>
       <li><span class="pin">3</span><span>W-07。ログインしていなければ「トップへ戻る」でログイン画面へ移動する</span></li>
+    </ol>
+  </section>
+
+  <!-- ================= W-08 退会の確認 ================= -->
+  <section class="frame" id="w08">
+    <h2>W-08 退会の確認（モーダル）</h2>
+    <p class="lead">左：ヘッダーのメニューを開いた状態 ／ 右：退会の確認でパスワードを間違えたとき</p>
+    <div class="viewport"><div class="screen split" style="min-height:420px">
+      <div>
+        <span class="tag">メニュー</span>
+        <header class="app-header" style="margin-top:44px">
+          <span class="app-name">TaskBoard</span>
+          <div class="header-right">
+            <button class="btn btn-ghost user" style="background:var(--list-bg)">taro@example.com ▾</button>
+          </div>
+        </header>
+        <div class="menu" style="right:20px; top:100px">
+          <button>ログアウト</button>
+          <button class="danger">退会する</button>
+        </div>
+        <span class="pin" style="right:226px; top:104px">1</span>
+      </div>
+      <div>
+        <span class="tag">退会の確認</span>
+        <div class="overlay" style="padding-top:80px">
+          <div class="modal" style="width:400px">
+            <div class="modal-body" style="padding:24px 24px 8px">
+              <h3 style="margin:0 0 8px; font-size:16px">退会しますか？</h3>
+              <p style="margin:0 0 16px" class="muted">アカウントと、すべてのリスト・カード・ラベルを削除します。この操作は取り消せません。</p>
+              <div class="field" style="position:relative">
+                <label>パスワード</label>
+                <input class="input is-error" type="password" value="password">
+                <div class="error">パスワードが正しくありません</div>
+                <span class="pin" style="left:-34px; top:24px">2</span>
+              </div>
+            </div>
+            <div class="modal-foot" style="border-top:0; padding:8px 24px 20px">
+              <span class="spacer"></span>
+              <button class="btn" style="box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--primary)">キャンセル</button>
+              <button class="btn btn-danger">退会する</button>
+              <span class="pin" style="right:-10px; top:2px">3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <ol class="annot">
+      <li><span class="pin">1</span><span>ヘッダーのメールアドレスを押すと開くメニュー。「退会する」は赤字。ゲストには出さない（U-11）</span></li>
+      <li><span class="pin">2</span><span>パスワードで本人か確かめる。間違っていたら入力欄の下に赤字で表示する</span></li>
+      <li><span class="pin">3</span><span>最初に選ばれているのは「キャンセル」。パスワードが空のときは「退会する」を押せない。成功したらログイン画面へ移動し「退会しました。ご利用ありがとうございました」と表示する</span></li>
     </ol>
   </section>
 
