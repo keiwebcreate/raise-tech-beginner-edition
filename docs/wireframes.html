@@ -189,6 +189,11 @@
   .due.overdue { background: var(--red); color: #fff; }
   .due.soon { background: var(--yellow); color: #1c2024; }
   .desc-icon { color: var(--muted); font-size: 12px; }
+  .card-desc {
+    margin: 4px 0 0; font-size: 12px; line-height: 1.6; color: var(--muted); white-space: pre-wrap;
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden;
+  }
+  .desc-toggle { display: block; margin-top: 2px; font-size: 12px; color: var(--primary); }
   .urgent {
     display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px;
     font-size: 11px; font-weight: 700; color: var(--red); border: 1px solid var(--red); background: #fff;
@@ -411,7 +416,12 @@
             <div class="card p-high">
               <div class="labels"><span class="lbl lbl-blue">仕事</span></div>
               <p class="card-title">企画書のドラフトを作る</p>
-              <div class="card-meta"><span class="due overdue">10/24</span><span class="desc-icon">≡ 説明あり</span></div>
+              <div class="card-desc">来週の会議で使う。
+・目的
+・スケジュール
+・予算</div>
+              <span class="desc-toggle">▼ もっと見る</span>
+              <div class="card-meta"><span class="due overdue">10/24</span></div>
             </div>
             <div class="card p-mid">
               <p class="card-title">歯医者の予約を取る</p>
@@ -435,7 +445,8 @@
               <span class="pin" style="left:-10px; top:-8px">4</span>
               <div class="labels"><span class="lbl lbl-purple">学習</span><span class="lbl lbl-blue">仕事</span></div>
               <p class="card-title">ポートフォリオのREADMEを書く。スクリーンショットと技術構成図も入れる</p>
-              <div class="card-meta"><span class="due">11/3</span><span class="desc-icon">≡ 説明あり</span></div>
+              <div class="card-desc">見る人が最初に読む場所なので、わかりやすく書く。</div>
+              <div class="card-meta"><span class="due">11/3</span></div>
             </div>
             <div class="card p-mid">
               <div class="labels"><span class="lbl lbl-purple">学習</span></div>
@@ -472,7 +483,7 @@
       <li><span class="pin">1</span><span>ボード名。クリックするとその場で入力欄に変わる（1〜50文字）</span></li>
       <li><span class="pin">2</span><span>ログイン中のメールアドレス。押すと「ログアウト」「退会する」のメニューが開く（W-08 を参照）。ゲストのときは「ゲスト」の札と「ログアウト」ボタンに変わる</span></li>
       <li><span class="pin">3</span><span>リスト名（クリックで変更）、カードの枚数、「…」メニュー（リストを削除）。見出しをドラッグしてリストを並び替える</span></li>
-      <li><span class="pin">4</span><span>カード：左端の帯が重要度（高＝赤・中＝黄・低＝グレー）。緊急度が「高」のときだけ「至急」の札（赤い文字＋赤い枠）を出す。期限は期限切れ＝赤、今日・明日＝黄、それ以外＝グレー。年が違うときだけ年を表示。クリックでカード詳細</span></li>
+      <li><span class="pin">4</span><span>カード：左端の帯が重要度（高＝赤・中＝黄・低＝グレー）。緊急度が「高」のときだけ「至急」の札（赤い文字＋赤い枠）を出す。期限は期限切れ＝赤、今日・明日＝黄、それ以外＝グレー。年が違うときだけ年を表示。説明文は3行まで表示し、長いときだけ「もっと見る」でカードの中に全文を開く（C-09）。クリックでカード詳細</span></li>
       <li><span class="pin">5</span><span>リストが0個でも常に表示する。上限（20個）に達していたら、押したときにメッセージを出す</span></li>
     </ol>
   </section>
