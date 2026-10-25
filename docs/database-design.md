@@ -15,10 +15,13 @@
 | 削除 | 外部キーに `ON DELETE CASCADE` を付け、DBに任せる | 消し忘れが起きない。ゲストデータも users の1行を消すだけで済む |
 | 優先度 | 文字列 `HIGH` / `MEDIUM` / `LOW`（Javaは enum） | DBを見ても意味がわかる |
 | ラベルの色 | 色コード（`#e5484d` 形式） | DBを見て色がわかる。選択肢の一覧は Java と React の両方に持ち、サーバーでも一覧にない色を受け付けない |
+| ラベルの持ち主 | ユーザー単位（`labels.user_id`）。ボード単位にはしない | 今は1人1ボードなので、どちらでも同じ動きになる。ユーザー単位なら、所有者の確認が `labels.user_id` を見るだけで済む。複数ボードを追加したときも、同じラベルを全ボードで共通に使える。ボードごとに分けたくなったら、`board_id` 列を追加する |
 | ラベル名 | ユーザーごとに重複不可 | カード詳細で同じ名前が並ばないようにする |
+| CHECK制約 | 基本的なものだけ付ける（3.7） | Java のチェックをすり抜けた値を、DBが最後の砦として止める |
+| ストレージエンジン | InnoDB（CREATE TABLE に明記する） | 外部キーとトランザクションが使える。MySQLの標準だが、設定に左右されないように明記する |
 | ゲスト | ゲストログインのたびに一時ユーザーを作る | 通常ユーザーと同じ仕組みで動かせる（5章） |
 | テーブル作成 | Flyway で管理する | SQLファイルで変更履歴が残り、ローカルとAWSで同じテーブルを作れる |
-| 文字コード | `utf8mb4`（照合順序はMySQL 8.4の標準 `utf8mb4_0900_ai_ci`） | 日本語・絵文字を保存できる |
+| 文字コード | `utf8mb4`（照合順序はMySQL 8.4の標準 `utf8mb4_0900_ai_ci`）。CREATE TABLE に明記する | 日本語・絵文字を保存できる。DBやサーバーの設定が違っても同じになるように明記する |
 | 日時 | UTCで保存する | AWSの標準とそろえ、ローカルと本番で動きを変えないため（6章） |
 | 所有者の確認 | 毎回、持ち主をたどって確認する（テーブルに user_id を重複して持たせない） | 同じ情報を何か所にも持つと、食い違いが起きるため（7章） |
 
@@ -147,6 +150,20 @@ erDiagram
 主キー：`(card_id, label_id)`（同じカードに同じラベルを二重に付けられない）
 インデックス：`(label_id)`（ラベルからカードを探すため）
 
+### 3.7 CHECK制約
+
+| テーブル | ルール |
+|---|---|
+| boards | `name` が空（空白だけ）でない |
+| board_columns | `name` が空でない。`position` が0以上 |
+| cards | `title` が空でない。`position` が0以上。`priority` が `HIGH`・`MEDIUM`・`LOW` のどれか |
+| labels | `name` が空でない。`color` が `#` と小文字の英数字6桁（例：`#e5484d`） |
+
+- 文字数の上限は列の型（`VARCHAR(50)` など）で決まるので、CHECK制約には書かない
+- 色は「色コードの形」だけを確かめ、「8色のどれか」は Java で確かめる。8色をDBで決めると、色を変えるたびにテーブルの変更が必要になるため
+- 色の確認には `REGEXP_LIKE(color, '^#[0-9a-f]{6}$', 'c')` を使う。最後の `'c'` は大文字・小文字を区別する指定。`color` 列の照合順序（`utf8mb4_0900_ai_ci`）のままだと区別されず、`#E5484D` も通ってしまうため
+- CHECK制約に引っかかるのは Java のチェック漏れ（バグ）なので、そのときは500エラーになる
+
 ## 4. 並び順（position）のルール
 
 - リストはボード内で、カードはリスト内で、0, 1, 2 … と隙間なく番号を振る
@@ -229,7 +246,7 @@ CREATE TABLE users (
     PRIMARY KEY (id),
     UNIQUE KEY uk_users_email (email),
     KEY idx_users_guest_created (is_guest, created_at)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE boards (
     id         BIGINT      NOT NULL AUTO_INCREMENT,
@@ -239,8 +256,9 @@ CREATE TABLE boards (
     updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_boards_user (user_id),
-    CONSTRAINT fk_boards_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
+    CONSTRAINT fk_boards_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT chk_boards_name CHECK (CHAR_LENGTH(TRIM(name)) > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE board_columns (
     id         BIGINT      NOT NULL AUTO_INCREMENT,
@@ -251,8 +269,10 @@ CREATE TABLE board_columns (
     updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_board_columns_board_position (board_id, position),
-    CONSTRAINT fk_board_columns_board FOREIGN KEY (board_id) REFERENCES boards (id) ON DELETE CASCADE
-);
+    CONSTRAINT fk_board_columns_board FOREIGN KEY (board_id) REFERENCES boards (id) ON DELETE CASCADE,
+    CONSTRAINT chk_board_columns_name CHECK (CHAR_LENGTH(TRIM(name)) > 0),
+    CONSTRAINT chk_board_columns_position CHECK (position >= 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE cards (
     id          BIGINT        NOT NULL AUTO_INCREMENT,
@@ -266,8 +286,11 @@ CREATE TABLE cards (
     updated_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     KEY idx_cards_column_position (column_id, position),
-    CONSTRAINT fk_cards_column FOREIGN KEY (column_id) REFERENCES board_columns (id) ON DELETE CASCADE
-);
+    CONSTRAINT fk_cards_column FOREIGN KEY (column_id) REFERENCES board_columns (id) ON DELETE CASCADE,
+    CONSTRAINT chk_cards_title CHECK (CHAR_LENGTH(TRIM(title)) > 0),
+    CONSTRAINT chk_cards_position CHECK (position >= 0),
+    CONSTRAINT chk_cards_priority CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE labels (
     id         BIGINT      NOT NULL AUTO_INCREMENT,
@@ -278,8 +301,10 @@ CREATE TABLE labels (
     updated_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
     UNIQUE KEY uk_labels_user_name (user_id, name),
-    CONSTRAINT fk_labels_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
-);
+    CONSTRAINT fk_labels_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE,
+    CONSTRAINT chk_labels_name CHECK (CHAR_LENGTH(TRIM(name)) > 0),
+    CONSTRAINT chk_labels_color CHECK (REGEXP_LIKE(color, '^#[0-9a-f]{6}$', 'c'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE card_labels (
     card_id    BIGINT   NOT NULL,
@@ -289,7 +314,7 @@ CREATE TABLE card_labels (
     KEY idx_card_labels_label (label_id),
     CONSTRAINT fk_card_labels_card  FOREIGN KEY (card_id)  REFERENCES cards (id)  ON DELETE CASCADE,
     CONSTRAINT fk_card_labels_label FOREIGN KEY (label_id) REFERENCES labels (id) ON DELETE CASCADE
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 ```
 
 ## 11. まだ決めていないこと
