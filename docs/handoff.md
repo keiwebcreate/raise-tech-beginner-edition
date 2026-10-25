@@ -3,7 +3,7 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 ## ⚠ 場所の移動（2026-10-25）
-- OneDrive がビルドのファイルをつかんで Gradle が失敗する（`Failed to clean up stale outputs`・`Unable to delete directory ...build	est-results	estinary`）ため、`Raise_Tech` フォルダごと **OneDrive の外の `C:\dev\Raise_Tech`** に移すと決めた（移すのは私が操作する）
+- OneDrive がビルドのファイルをつかんで Gradle が失敗する（`Failed to clean up stale outputs`・`Unable to delete directory ...build\test-results\test\binary`）ため、`Raise_Tech` フォルダごと **OneDrive の外の `C:\dev\Raise_Tech`** に移すと決めた（移すのは私が操作する）
 - 新しいチャットを始めたら、まず今いる場所が `C:\dev\Raise_Tech` であることを確かめる。移した後に、`backend` で `.\gradlew.bat test` を実行して **全部のテストが通るか**（`TaskBoardApplicationTests` も含めて）を確かめるところから再開する
 - Docker の DB（`compose.yaml`）はプロジェクト名 `taskboard` を固定しているので、フォルダを移してもデータ（ボリューム `taskboard_db-data`）はそのまま使える
 
