@@ -15,7 +15,7 @@ import { openWithdrawModal } from '../modals/withdraw-modal.js';
 import { navigate } from '../router.js';
 import { confirmDialog, focusAuto } from '../ui/modal.js';
 import { showToast } from '../ui/toast.js';
-import { dueStatus, escapeHtml, formatDue, isEnterKey, labelChipHtml } from '../utils.js';
+import { dueStatus, escapeHtml, formatDue, isEnterKey, labelChipHtml, linkify } from '../utils.js';
 import { validateText } from '../validation.js';
 
 const IMPORTANCE_CLASS = { HIGH: 'p-high', MEDIUM: 'p-mid', LOW: 'p-low' };
@@ -49,6 +49,7 @@ export async function boardScreen(root) {
     addList: null, // リストの追加 { value, error, saving }
     menuColumnId: null, // 「…」メニューを開いているリスト
     userMenuOpen: false, // ヘッダーのメニュー
+    expandedCardIds: new Set(), // 説明を全文表示しているカード（保存はしない）
   };
   let sortables = [];
   let rendering = false;
@@ -71,6 +72,7 @@ export async function boardScreen(root) {
         </div>
       </main>`;
     setupSortable();
+    updateDescriptionToggles();
     focusAuto(root);
     rendering = false;
   }
@@ -157,13 +159,32 @@ export async function boardScreen(root) {
     if (card.dueDate) {
       meta.push(`<span class="due ${dueStatus(card.dueDate)}" title="期限">${formatDue(card.dueDate)}</span>`);
     }
-    if (card.description) meta.push('<span class="desc-icon" title="説明あり">≡ 説明あり</span>');
     return `
       <article class="card ${IMPORTANCE_CLASS[card.importance]}" data-action="open-card" data-card-id="${card.id}" tabindex="0">
         ${labels.length ? `<div class="labels">${labels.map((label) => labelChipHtml(label)).join('')}</div>` : ''}
         <p class="card-title">${escapeHtml(card.title)}</p>
+        ${card.description ? cardDescriptionHtml(card) : ''}
         ${meta.length ? `<div class="card-meta">${meta.join('')}</div>` : ''}
       </article>`;
+  }
+
+  // 説明は3行まで表示し、長いときは「もっと見る」で開く。
+  // 3行を超えるかどうかは、描いたあとに実際の高さで判断する（updateDescriptionToggles）
+  function cardDescriptionHtml(card) {
+    const expanded = ui.expandedCardIds.has(card.id);
+    return `
+      <div class="card-desc ${expanded ? 'is-expanded' : ''}">${linkify(card.description)}</div>
+      <button class="desc-toggle" data-action="toggle-description" data-card-id="${card.id}"
+        aria-expanded="${expanded}" hidden>${expanded ? '▲ 閉じる' : '▼ もっと見る'}</button>`;
+  }
+
+  // 3行に収まらず切れている説明にだけ「もっと見る」を出す
+  function updateDescriptionToggles() {
+    root.querySelectorAll('.card-desc').forEach((desc) => {
+      const toggle = desc.nextElementSibling;
+      const cut = desc.scrollHeight > desc.clientHeight + 1;
+      toggle.hidden = !(desc.classList.contains('is-expanded') || cut);
+    });
   }
 
   function addCardHtml(column) {
@@ -442,6 +463,7 @@ export async function boardScreen(root) {
   // ===== イベント =====
 
   root.addEventListener('click', (e) => {
+    if (e.target.closest('a')) return; // 説明文のリンクはそのまま開き、カード詳細は開かない
     const target = e.target.closest('[data-action]');
     const action = target?.dataset.action;
     const columnId = Number(target?.dataset.columnId);
@@ -518,6 +540,14 @@ export async function boardScreen(root) {
       case 'open-card':
         openCardModal(Number(target.dataset.cardId));
         break;
+      case 'toggle-description': {
+        // ボタンはカードの中にあるが、いちばん近い data-action はこのボタンなので、カード詳細は開かない
+        const cardId = Number(target.dataset.cardId);
+        if (ui.expandedCardIds.has(cardId)) ui.expandedCardIds.delete(cardId);
+        else ui.expandedCardIds.add(cardId);
+        render();
+        break;
+      }
       case 'open-labels':
         openLabelModal();
         break;
