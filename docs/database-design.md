@@ -13,7 +13,7 @@
 | 主キー | `BIGINT AUTO_INCREMENT` | 一般的で扱いやすい。IDを推測されても、所有者チェック（要件 U-05）で守る |
 | 並び順 | `position` 列に 0 から始まる連番 | 仕組みがわかりやすい。移動したら同じリスト内を振り直す（4章） |
 | 削除 | 外部キーに `ON DELETE CASCADE` を付け、DBに任せる | 消し忘れが起きない。ゲストデータも users の1行を消すだけで済む |
-| 優先度 | 文字列 `HIGH` / `MEDIUM` / `LOW`（Javaは enum） | DBを見ても意味がわかる |
+| 重要度・緊急度 | 列 `importance`・`urgency`。どちらも文字列 `HIGH` / `MEDIUM` / `LOW`（Javaは共通の enum） | DBを見ても意味がわかる |
 | ラベルの色 | 色コード（`#e5484d` 形式） | DBを見て色がわかる。選択肢の一覧は Java と React の両方に持ち、サーバーでも一覧にない色を受け付けない |
 | ラベルの持ち主 | ユーザー単位（`labels.user_id`）。ボード単位にはしない | 今は1人1ボードなので、どちらでも同じ動きになる。ユーザー単位なら、所有者の確認が `labels.user_id` を見るだけで済む。複数ボードを追加したときも、同じラベルを全ボードで共通に使える。ボードごとに分けたくなったら、`board_id` 列を追加する |
 | ラベル名 | ユーザーごとに重複不可 | カード詳細で同じ名前が並ばないようにする |
@@ -58,7 +58,8 @@ erDiagram
         BIGINT column_id FK
         VARCHAR title
         VARCHAR description
-        VARCHAR priority
+        VARCHAR importance
+        VARCHAR urgency
         DATE due_date
         INT position
     }
@@ -121,7 +122,8 @@ erDiagram
 | column_id | BIGINT | 不可 | | `board_columns.id` への外部キー |
 | title | VARCHAR(100) | 不可 | | タイトル。1〜100文字 |
 | description | VARCHAR(2000) | 可 | NULL | 説明文。2000文字まで |
-| priority | VARCHAR(10) | 不可 | MEDIUM | `HIGH` / `MEDIUM` / `LOW` |
+| importance | VARCHAR(10) | 不可 | MEDIUM | 重要度。`HIGH` / `MEDIUM` / `LOW` |
+| urgency | VARCHAR(10) | 不可 | MEDIUM | 緊急度。`HIGH` / `MEDIUM` / `LOW` |
 | due_date | DATE | 可 | NULL | 期限（時刻なし） |
 | position | INT | 不可 | | リスト内の並び順。0から始まる連番 |
 
@@ -156,7 +158,7 @@ erDiagram
 |---|---|
 | boards | `name` が空（空白だけ）でない |
 | board_columns | `name` が空でない。`position` が0以上 |
-| cards | `title` が空でない。`position` が0以上。`priority` が `HIGH`・`MEDIUM`・`LOW` のどれか |
+| cards | `title` が空でない。`position` が0以上。`importance`・`urgency` が `HIGH`・`MEDIUM`・`LOW` のどれか |
 | labels | `name` が空でない。`color` が `#` と小文字の英数字6桁（例：`#e5484d`） |
 
 - 文字数の上限は列の型（`VARCHAR(50)` など）で決まるので、CHECK制約には書かない
@@ -279,7 +281,8 @@ CREATE TABLE cards (
     column_id   BIGINT        NOT NULL,
     title       VARCHAR(100)  NOT NULL,
     description VARCHAR(2000) NULL,
-    priority    VARCHAR(10)   NOT NULL DEFAULT 'MEDIUM',
+    importance  VARCHAR(10)   NOT NULL DEFAULT 'MEDIUM',
+    urgency     VARCHAR(10)   NOT NULL DEFAULT 'MEDIUM',
     due_date    DATE          NULL,
     position    INT           NOT NULL,
     created_at  DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -289,7 +292,8 @@ CREATE TABLE cards (
     CONSTRAINT fk_cards_column FOREIGN KEY (column_id) REFERENCES board_columns (id) ON DELETE CASCADE,
     CONSTRAINT chk_cards_title CHECK (CHAR_LENGTH(TRIM(title)) > 0),
     CONSTRAINT chk_cards_position CHECK (position >= 0),
-    CONSTRAINT chk_cards_priority CHECK (priority IN ('HIGH', 'MEDIUM', 'LOW'))
+    CONSTRAINT chk_cards_importance CHECK (importance IN ('HIGH', 'MEDIUM', 'LOW')),
+    CONSTRAINT chk_cards_urgency CHECK (urgency IN ('HIGH', 'MEDIUM', 'LOW'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 CREATE TABLE labels (

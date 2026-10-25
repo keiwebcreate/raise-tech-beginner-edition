@@ -189,6 +189,10 @@
   .due.overdue { background: var(--red); color: #fff; }
   .due.soon { background: var(--yellow); color: #1c2024; }
   .desc-icon { color: var(--muted); font-size: 12px; }
+  .urgent {
+    display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; color: var(--red); border: 1px solid var(--red); background: #fff;
+  }
 
   .add-card {
     display: block; width: 100%; text-align: left; margin-top: 8px; padding: 6px 8px;
@@ -411,7 +415,7 @@
             </div>
             <div class="card p-mid">
               <p class="card-title">歯医者の予約を取る</p>
-              <div class="card-meta"><span class="due soon">10/26</span></div>
+              <div class="card-meta"><span class="urgent">至急</span><span class="due soon">10/26</span></div>
             </div>
             <div class="card p-low">
               <div class="labels"><span class="lbl lbl-green">買い物</span></div>
@@ -468,7 +472,7 @@
       <li><span class="pin">1</span><span>ボード名。クリックするとその場で入力欄に変わる（1〜50文字）</span></li>
       <li><span class="pin">2</span><span>ログイン中のメールアドレス。押すと「ログアウト」「退会する」のメニューが開く（W-08 を参照）。ゲストのときは「ゲスト」の札と「ログアウト」ボタンに変わる</span></li>
       <li><span class="pin">3</span><span>リスト名（クリックで変更）、カードの枚数、「…」メニュー（リストを削除）。見出しをドラッグしてリストを並び替える</span></li>
-      <li><span class="pin">4</span><span>カード：左端の帯が優先度（高＝赤・中＝黄・低＝グレー）。期限は期限切れ＝赤、今日・明日＝黄、それ以外＝グレー。年が違うときだけ年を表示。クリックでカード詳細</span></li>
+      <li><span class="pin">4</span><span>カード：左端の帯が重要度（高＝赤・中＝黄・低＝グレー）。緊急度が「高」のときだけ「至急」の札（赤い文字＋赤い枠）を出す。期限は期限切れ＝赤、今日・明日＝黄、それ以外＝グレー。年が違うときだけ年を表示。クリックでカード詳細</span></li>
       <li><span class="pin">5</span><span>リストが0個でも常に表示する。上限（20個）に達していたら、押したときにメッセージを出す</span></li>
     </ol>
   </section>
@@ -587,10 +591,14 @@
                 <div style="border-top:1px solid var(--border); margin-top:6px; padding-top:6px"><a class="link" href="#w05">ラベルを管理</a></div>
               </div>
             </div>
-            <div class="grid-2">
+            <div class="grid-2" style="grid-template-columns:1fr 1fr 1.4fr">
               <div class="field">
-                <label>優先度</label>
-                <select class="select"><option>高</option><option>中</option><option>低</option></select>
+                <label>重要度</label>
+                <select class="select"><option selected>高</option><option>中</option><option>低</option></select>
+              </div>
+              <div class="field">
+                <label>緊急度</label>
+                <select class="select"><option>高</option><option selected>中</option><option>低</option></select>
               </div>
               <div class="field">
                 <label>期限</label>

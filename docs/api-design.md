@@ -25,7 +25,7 @@
 - 送る・返すデータは JSON（`Content-Type: application/json`）。エラーだけ `application/problem+json`
 - JSONの項目名はキャメルケース（`dueDate`・`labelIds`）。Java の書き方に合わせる
 - 日付は `"2026-10-30"` の形（時刻なし）。値がない項目は `null`
-- 優先度は `"HIGH"` / `"MEDIUM"` / `"LOW"`
+- 重要度・緊急度は `"HIGH"` / `"MEDIUM"` / `"LOW"`
 - 一覧の並びは、配列の順番そのものが並び順。`position` の数字は返さない
 
 ### 2.2 ログインとセッション
@@ -66,7 +66,7 @@
 | A-04 | POST | `/api/auth/logout` | ログアウト。ゲストならデータを削除 | U-04, U-08 |
 | A-05 | GET | `/api/auth/me` | ログイン中のユーザーを返す | U-05, U-07 |
 | A-19 | POST | `/api/auth/withdraw` | 退会する（アカウントとすべてのデータを削除） | U-11 |
-| A-06 | GET | `/api/board` | ボードの中身（リスト・カード・ラベル）をまとめて返す | L-01, C-05〜C-07 |
+| A-06 | GET | `/api/board` | ボードの中身（リスト・カード・ラベル）をまとめて返す | L-01, C-05〜C-08 |
 | A-07 | PATCH | `/api/board` | ボード名を変更する | B-01 |
 | A-08 | POST | `/api/columns` | リストを追加する（右端） | L-02 |
 | A-09 | PATCH | `/api/columns/{id}` | リスト名を変更する | L-03 |
@@ -236,7 +236,8 @@ A-19（退会）もログイン関係なので、この節に置く。
           "id": 100,
           "title": "牛乳を買う",
           "description": null,
-          "priority": "MEDIUM",
+          "importance": "MEDIUM",
+          "urgency": "HIGH",
           "dueDate": "2026-10-30",
           "labelIds": [6]
         }
@@ -317,7 +318,8 @@ A-19（退会）もログイン関係なので、この節に置く。
   "id": 100,
   "title": "牛乳を買う",
   "description": null,
-  "priority": "MEDIUM",
+  "importance": "MEDIUM",
+  "urgency": "MEDIUM",
   "dueDate": null,
   "labelIds": []
 }
@@ -331,7 +333,7 @@ A-19（退会）もログイン関係なので、この節に置く。
 { "title": "牛乳を買う" }
 ```
 
-- 成功：201 ＋ カード。リストの一番下に追加する。優先度は「中」、ほかは空
+- 成功：201 ＋ カード。リストの一番下に追加する。重要度・緊急度は「中」、ほかは空
 - 失敗：400 VALIDATION_ERROR（1〜100文字）、404 NOT_FOUND（リスト）、409 LIMIT_EXCEEDED（1リストに100枚まで）
 
 #### A-13 カードの保存 `PUT /api/cards/{id}`
@@ -342,7 +344,8 @@ A-19（退会）もログイン関係なので、この節に置く。
 {
   "title": "牛乳を買う",
   "description": "低脂肪のもの\nhttps://example.com",
-  "priority": "HIGH",
+  "importance": "HIGH",
+  "urgency": "LOW",
   "dueDate": "2026-10-30",
   "labelIds": [5, 6]
 }
@@ -357,7 +360,8 @@ A-19（退会）もログイン関係なので、この節に置く。
 |---|---|
 | title | 必須。1〜100文字 |
 | description | 2000文字まで。`null` または空文字なら説明文なし |
-| priority | 必須。`HIGH` / `MEDIUM` / `LOW` |
+| importance | 必須。重要度。`HIGH` / `MEDIUM` / `LOW` |
+| urgency | 必須。緊急度。`HIGH` / `MEDIUM` / `LOW` |
 | dueDate | 日付または `null` |
 | labelIds | 必須（空の配列は可）。重複したIDは1つとみなす |
 
