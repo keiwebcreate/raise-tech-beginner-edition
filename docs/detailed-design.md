@@ -421,6 +421,47 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | 画面の開発 | Vite、TypeScript、Vitest、oxlint | 開発・テスト。リンターは Vite のひな形に入っている oxlint を使う（2026-10-31 に ESLint から変更） |
 | 画面の開発（一時的） | MSW（Mock Service Worker） | ログインと `BoardController` ができるまで、ブラウザの中で `GET /api/board` を横取りしてサンプルの JSON を返す。本物の API につないだら外す（2026-10-31） |
 
+### 5.1 使っているバージョン（2026-10-31 時点）
+
+1章のとおり、Java 25 と PostgreSQL 18 は講座の指定、それ以外はひな形を作ったときの最新の安定版。正確な値は `backend/build.gradle`（Gradle が決める）と `frontend/package.json`・`package-lock.json` が持つ。この表は人が読むための一覧なので、バージョンを上げたらここも直す。
+
+**サーバー（`backend/`）**
+
+| もの | バージョン | 備考 |
+|---|---|---|
+| Java（Eclipse Temurin） | 25.0.4 | 最新の LTS（講座の指定） |
+| Gradle | 9.8.2 | Groovy 形式（`build.gradle`） |
+| Spring Boot | 4.1.2 | |
+| Spring Framework（Spring Web MVC） | 7.0.10 | Spring Boot が決める |
+| Spring Security | 7.1.2 | Spring Boot が決める |
+| Spring Session JDBC | 4.1.1 | Spring Boot が決める |
+| Hibernate ORM（Spring Data JPA の中身） | 7.4.13 | Spring Boot が決める |
+| Flyway | 12.4.0 | Spring Boot が決める |
+| PostgreSQL JDBC Driver | 42.7.14 | Spring Boot が決める |
+| Jackson（JSON の変換） | 3.1.7 | Spring Boot が決める |
+| JUnit | 6.0.3 | Spring Boot が決める |
+| Testcontainers | 2.0.5 | Spring Boot が決める |
+
+**データベース**
+
+| もの | バージョン | 備考 |
+|---|---|---|
+| PostgreSQL | 18.6 | 開発中は Docker の `postgres:18`（`compose.yaml`）。テストも Testcontainers で `postgres:18` |
+
+**画面（`frontend/`）**
+
+| もの | バージョン | 備考 |
+|---|---|---|
+| Node.js ／ npm | 26.12.1 ／ 11.10.0 | 開発する人のパソコンに入れるもの |
+| React（react-dom も同じ） | 19.3.1 | |
+| React Router | 8.5.1 | |
+| TypeScript | 7.0.2 | |
+| Vite | 8.3.5 | ひな形は create-vite 9.3.3（`react-ts`） |
+| Vitest | 5.0.5 | |
+| oxlint | 1.90.0 | |
+| MSW | 3.0.3 | 開発中だけ。本物の API につないだら外す |
+| @hello-pangea/dnd | （まだ入れていない） | ドラッグ＆ドロップを作るときに入れる |
+
 ## 6. 書き方のルール
 
 AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめる（この設計書の要点と、コマンドの一覧）。
