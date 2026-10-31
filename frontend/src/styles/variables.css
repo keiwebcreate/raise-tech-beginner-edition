@@ -1,0 +1,20 @@
+/* 色・影・角の丸みなどの共通の値（画面設計書 1章・6章。モックアップの style.css から移した）
+   部品の CSS Modules では、色を直接書かずにこの変数を使う（例：color: var(--muted);） */
+:root {
+  --app-bg: #f4f5f7;
+  --surface: #ffffff;
+  --list-bg: #ebecf0;
+  --border: #dfe1e6;
+  --text: #1c2024;
+  --muted: #6b6f76;
+  --primary: #3e63dd;
+  --primary-hover: #3358d4;
+  --danger: #e5484d;
+  --red: #e5484d;
+  --yellow: #ffc53d;
+
+  --radius: 8px;
+  --shadow-card: 0 1px 1px rgba(16, 24, 40, .08), 0 0 0 1px rgba(16, 24, 40, .04);
+  --shadow-modal: 0 16px 40px rgba(16, 24, 40, .22);
+  --focus-ring: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
+}

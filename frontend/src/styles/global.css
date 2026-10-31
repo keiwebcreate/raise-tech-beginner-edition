@@ -1,0 +1,15 @@
+/* body など、画面全体の設定（モックアップの style.css から移した） */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--app-bg);
+  color: var(--text);
+  font-family: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+#root { min-height: 100%; display: flex; flex-direction: column; }
