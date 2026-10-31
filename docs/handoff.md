@@ -74,7 +74,10 @@
 - 済み（2026-10-31）：講義（初級編11）に合わせて GitHub の運用ルールを決めた（下の「Git」）。イシュー #1
 - 済み（2026-10-31）：**API実装①（Read）**（イシュー #3）。講義は先に Read の API を少し作る。このプロジェクトの Read（`GET /api/board`・`GET /api/auth/me`）はログインが前提なので、**案A** に決定：Board・BoardColumn・Card（＋Level）・Label のエンティティと Repository、DTO、`NotFoundException`、`BoardService.getBoard(userId)` まで作り、`BoardServiceTest`（テストデータは `src/test/resources/board/board-test-data.sql`）4件で確かめた。SQL は4回で済むことをログで確認。Controller はログインを作るときにつなぎ、そのとき API に通信して確かめる
   - `labels.color` は CHAR(7) なので、`Label` に `@JdbcTypeCode(SqlTypes.CHAR)` が必要だった（ないと validate で止まる）
-- 次の一歩の候補：React（`frontend/`）のひな形、またはログイン（`auth`）。講義の次の回に合わせて決める
+- 講義の次の回は「React でのデータ表示」。本物の API はまだ呼べない（Controller がなく、Spring Security の設定もないので全部 401）ため、**偽の API（MSW）** でボードのデータを返して画面を作ると決定（2026-10-31）。作業は2つのイシューに分けた
+  - 済み（2026-10-31）：**① フロントエンドの環境**（イシュー #5）。`frontend/` を create-vite 9.3.3（React 19・TypeScript 7・Vite 8）で作成。Vitest 5 を追加（`npm test` ＝ `vitest run`）。`/api` は 8080 へ転送。`styles/variables.css`・`global.css` はモックアップから移した。リンターはひな形の **oxlint** のまま（設計書の ESLint から変更）
+  - 次の一歩：**② ボード画面にデータを表示する**：`api/types.ts`・`client.ts`・`boardApi`、MSW（サンプルはモックアップのゲスト用と同じ中身）、`BoardContext`＋`boardReducer`（`loaded` だけ）、`BoardPage`・`Column`・`CardItem`（表示だけ）
+  - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ
 - バージョンは、そのときの最新の安定版にする
 
 ### 4. その後

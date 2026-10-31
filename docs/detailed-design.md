@@ -418,7 +418,8 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | サーバー | Spring Web、Spring Data JPA、Spring Security、Spring Session JDBC、Validation、Flyway（PostgreSQL 用も）、PostgreSQL JDBC Driver | 本体 |
 | サーバーのテスト | Spring Boot Test、Spring Security Test、Testcontainers（PostgreSQL） | テスト |
 | 画面 | React、React Router、@hello-pangea/dnd | 本体 |
-| 画面の開発 | Vite、TypeScript、Vitest、ESLint | 開発・テスト |
+| 画面の開発 | Vite、TypeScript、Vitest、oxlint | 開発・テスト。リンターは Vite のひな形に入っている oxlint を使う（2026-10-31 に ESLint から変更） |
+| 画面の開発（一時的） | MSW（Mock Service Worker） | ログインと `BoardController` ができるまで、ブラウザの中で `GET /api/board` を横取りしてサンプルの JSON を返す。本物の API につないだら外す（2026-10-31） |
 
 ## 6. 書き方のルール
 
