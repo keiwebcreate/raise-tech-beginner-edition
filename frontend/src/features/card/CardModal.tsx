@@ -120,7 +120,12 @@ export function CardModal({ cardId, onClose }: Props) {
 
     setSaving(true)
     try {
-      const saved = await cardApi.saveCard(cardId, { ...draft, dueDate: draft.dueDate || null })
+      // 画面と同じく、タイトルは前後の空白を除いた値を送る（サーバーは受け取った値で文字数を数えるため）
+      const saved = await cardApi.saveCard(cardId, {
+        ...draft,
+        title: draft.title.trim(),
+        dueDate: draft.dueDate || null,
+      })
       dispatch({ type: 'cardSaved', card: saved })
       onClose()
     } catch (e) {
@@ -155,7 +160,7 @@ export function CardModal({ cardId, onClose }: Props) {
               className={`input ${styles.titleInput} ${errors.title ? 'is-error' : ''}`}
               value={draft.title}
               onChange={(e) => update('title', e.target.value)}
-              autoFocus
+              data-autofocus // 開いたときに、ここにカーソルを置く（Modal が探して置く）
             />
             {errors.title && <div className="error">{errors.title}</div>}
           </div>
@@ -235,19 +240,14 @@ export function CardModal({ cardId, onClose }: Props) {
             ) : (
               <>
                 {/* 保存した説明は、改行を反映して URL をリンクにして見せる。クリックすると入力欄に戻る */}
-                <div
-                  className={styles.descView}
-                  role="button"
-                  tabIndex={0}
-                  aria-label="説明を編集"
-                  onClick={() => setEditingDescription(true)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault()
-                      setEditingDescription(true)
-                    }
-                  }}
-                >
+                {/* 中にリンクがあるので全体をボタンにはできない。見えないボタンを全体に重ね、リンクはその上に出す */}
+                <div className={styles.descView}>
+                  <button
+                    type="button"
+                    className={styles.descEdit}
+                    aria-label="説明を編集"
+                    onClick={() => setEditingDescription(true)}
+                  />
                   <LinkifiedText text={draft.description} linkClassName={styles.link} />
                 </div>
                 <div className="help">クリックすると編集できます</div>

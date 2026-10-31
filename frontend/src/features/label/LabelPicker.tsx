@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { LabelResponse } from '../../api/types.ts'
+import { useEscapeKey } from '../../shared/lib/useEscapeKey.ts'
 import { useOutsideClick } from '../../shared/lib/useOutsideClick.ts'
 import { LabelChip } from './LabelChip.tsx'
 import styles from './LabelPicker.module.css'
@@ -18,21 +19,13 @@ export function LabelPicker({ labels, selectedIds, onToggle }: Props) {
   const rootRef = useRef<HTMLDivElement>(null)
   const selected = labels.filter((label) => selectedIds.includes(label.id))
 
-  // 一覧の外をクリックしたら閉じる
+  // 一覧の外をクリックするか Esc で閉じる（Esc でカード詳細は閉じない）
   const close = useCallback(() => setOpen(false), [])
   useOutsideClick(rootRef, open, close)
+  useEscapeKey(open, close)
 
   return (
-    <div
-      ref={rootRef}
-      className={styles.root}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && open) {
-          e.stopPropagation() // モーダルは閉じず、一覧だけを閉じる
-          setOpen(false)
-        }
-      }}
-    >
+    <div ref={rootRef} className={styles.root}>
       <div className={styles.chips}>
         {selected.map((label) => (
           <LabelChip key={label.id} label={label} />

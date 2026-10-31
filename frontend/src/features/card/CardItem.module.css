@@ -43,6 +43,30 @@
   margin: 2px 0;
   word-break: break-word;
 }
+/* タイトルのボタン。見た目はふつうの文字のまま */
+.open {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  word-break: break-word;
+}
+/* ボタンの見えない部分をカード全体に広げ、どこを押してもカード詳細が開くようにする */
+.open::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius);
+}
+/* キーボードで選んだときの枠は、カード全体に出す */
+.open:focus-visible {
+  box-shadow: none;
+}
+.open:focus-visible::after {
+  box-shadow: var(--focus-ring);
+}
 .meta {
   display: flex;
   align-items: center;

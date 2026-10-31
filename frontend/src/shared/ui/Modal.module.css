@@ -1,25 +1,24 @@
-/* モーダル（モックアップの style.css から移した） */
-.overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  overflow-y: auto;
-  background: rgba(16, 24, 40, 0.45);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 48px 16px;
-}
+/* モーダル（<dialog>）。上下の位置と大きさは、モックアップの style.css に合わせた */
 .modal {
-  position: relative;
-  max-width: 100%;
+  max-width: calc(100% - 32px);
+  max-height: calc(100% - 96px);
+  margin: 48px auto auto;
+  padding: 0;
+  border: none;
+  overflow-y: auto;
+  color: inherit;
   background: var(--surface);
   border-radius: 12px;
   box-shadow: var(--shadow-modal);
 }
+/* 後ろの画面を暗くする */
+.modal::backdrop {
+  background: rgba(16, 24, 40, 0.45);
+}
 
 @media (max-width: 640px) {
-  .overlay {
-    padding: 16px;
+  .modal {
+    max-height: calc(100% - 32px);
+    margin-top: 16px;
   }
 }

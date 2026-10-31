@@ -45,13 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const logout = useCallback(async () => {
-    try {
-      await authApi.logout()
-    } finally {
-      // 通信に失敗しても、画面はログアウトした状態にする
-      navigate('/login', { replace: true })
-      setUser(null)
-    }
+    // 通信に失敗しても、画面はログアウトした状態にする（失敗はここで受け止め、呼んだ側には伝えない）
+    await authApi.logout().catch(() => {})
+    navigate('/login', { replace: true })
+    setUser(null)
   }, [navigate])
 
   return <AuthContext value={{ user, loggedIn, logout }}>{children}</AuthContext>

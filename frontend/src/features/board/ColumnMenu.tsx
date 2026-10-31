@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { useEscapeKey } from '../../shared/lib/useEscapeKey.ts'
 import { useOutsideClick } from '../../shared/lib/useOutsideClick.ts'
 import styles from './ColumnMenu.module.css'
 
@@ -9,15 +10,10 @@ export function ColumnMenu({ onDelete }: { onDelete: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null)
   const close = useCallback(() => setOpen(false), [])
   useOutsideClick(rootRef, open, close)
+  useEscapeKey(open, close)
 
   return (
-    <div
-      ref={rootRef}
-      className={styles.anchor}
-      onKeyDown={(e) => {
-        if (e.key === 'Escape') setOpen(false)
-      }}
-    >
+    <div ref={rootRef} className={styles.anchor}>
       <button
         type="button"
         className="icon-btn"

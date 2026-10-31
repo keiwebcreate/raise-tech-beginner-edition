@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -96,14 +97,16 @@ class DeleteApiTest {
 	void ラベルの付いたカードも削除でき_ラベル自体は残る() throws Exception {
 		Cookie session = signup();
 		long cardId = addCard(session, columnId(session, 0), "ラベル付き");
-		long labelId = jdbcTemplate.queryForObject(
+		// queryForObject は null を返すこともある（型の上では）ので、null でないことを確かめてから使う
+		long labelId = Objects.requireNonNull(jdbcTemplate.queryForObject(
 				"INSERT INTO labels (user_id, name, color) VALUES (?, '仕事', '#3e63dd') RETURNING id",
-				Long.class, userId(session));
+				Long.class, userId(session)));
 		jdbcTemplate.update("INSERT INTO card_labels (card_id, label_id) VALUES (?, ?)", cardId, labelId);
 
 		deleteCard(session, cardId).andExpect(status().isNoContent());
 
-		assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM card_labels WHERE card_id = ?", Long.class, cardId))
+		assertThat(jdbcTemplate.queryForObject(
+				"SELECT count(*) FROM card_labels WHERE card_id = ?", Long.class, cardId))
 				.isZero();
 		mockMvc.perform(get("/api/board").cookie(session))
 				.andExpect(jsonPath("$.labels.length()").value(1));

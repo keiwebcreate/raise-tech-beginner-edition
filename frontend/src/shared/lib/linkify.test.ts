@@ -31,6 +31,24 @@ describe('linkify', () => {
     expect(linkify('ftp://example.com')).toEqual([{ text: 'ftp://example.com', isUrl: false }])
   })
 
+  it('URL のすぐ後ろに続く日本語は、リンクに含めない', () => {
+    expect(linkify('詳しくはhttps://example.com/a?b=1を見る。')).toEqual([
+      { text: '詳しくは', isUrl: false },
+      { text: 'https://example.com/a?b=1', isUrl: true },
+      { text: 'を見る。', isUrl: false },
+    ])
+    expect(linkify('（https://a.example）')).toEqual([
+      { text: '（', isUrl: false },
+      { text: 'https://a.example', isUrl: true },
+      { text: '）', isUrl: false },
+    ])
+  })
+
+  it('URL に使える記号（% など）は、URL に含める', () => {
+    const url = 'https://example.com/path_1/~user/a-b.c?q=%E3%81%82&x=1#top'
+    expect(linkify(url)).toEqual([{ text: url, isUrl: true }])
+  })
+
   it('HTML のタグは、ただの文字として扱う', () => {
     expect(linkify('<b>太字</b>')).toEqual([{ text: '<b>太字</b>', isUrl: false }])
   })

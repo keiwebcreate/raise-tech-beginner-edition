@@ -13,8 +13,6 @@ spring:
     # テーブルは Flyway だけが作る。JPA はクラスとテーブルが合っているかを起動時に確かめるだけ
     hibernate:
       ddl-auto: validate
-    # JPA が実行した SQL をログに出す（勉強用。開発中だけ）
-    show-sql: true
   session:
     # 何も操作しない時間が30分続いたら、ログアウトした状態にする（要件 U-09）
     timeout: 30m

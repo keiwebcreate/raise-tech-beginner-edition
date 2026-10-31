@@ -22,8 +22,6 @@
 	<!-- ファイル全体 -->
 	<module name="NewlineAtEndOfFile"/>
 	<module name="LineLength">
-		<!-- 今のコードに違反があるので、直すまでは警告にする（イシュー #27 の次のイシューで error に戻す） -->
-		<property name="severity" value="warning"/>
 		<property name="max" value="120"/>
 		<property name="ignorePattern" value="^(package|import) "/>
 	</module>

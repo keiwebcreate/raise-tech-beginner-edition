@@ -17,7 +17,10 @@
   -webkit-line-clamp: unset;
   line-clamp: none;
 }
+/* リンクと「もっと見る」は、カード全体に広げたボタン（CardItem）の上に重ねて、押せるようにする */
 .link {
+  position: relative;
+  z-index: 1;
   color: var(--primary);
   text-decoration: none;
 }
@@ -25,6 +28,8 @@
   text-decoration: underline;
 }
 .toggle {
+  position: relative;
+  z-index: 1;
   display: block;
   margin-top: 2px;
   padding: 0;

@@ -38,7 +38,7 @@ export function AddColumnForm({ columnCount, isOpen, onOpen, onClose }: Props) {
       return ''
     }
     try {
-      const column = await columnApi.addColumn(value)
+      const column = await columnApi.addColumn(value.trim())
       dispatch({ type: 'columnAdded', column })
       // 足したリストの右にこの入力欄が来るので、見えるところまで横にスクロールする
       requestAnimationFrame(() => ref.current?.scrollIntoView({ inline: 'end', block: 'nearest' }))
