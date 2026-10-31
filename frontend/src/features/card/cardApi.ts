@@ -17,3 +17,8 @@ export function saveCard(cardId: number, request: CardRequest): Promise<CardResp
 export function deleteCard(cardId: number): Promise<void> {
   return apiFetch<void>(`/api/cards/${cardId}`, 'DELETE')
 }
+
+// A-15 カードの並び替え・別のリストへの移動（position は、移動したあとの移動先のリストで上から何番目か）
+export function moveCard(cardId: number, columnId: number, position: number): Promise<void> {
+  return apiFetch<void>(`/api/cards/${cardId}/position`, 'PUT', { columnId, position })
+}

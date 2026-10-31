@@ -17,3 +17,8 @@ export function renameColumn(columnId: number, name: string): Promise<ColumnResp
 export function deleteColumn(columnId: number): Promise<void> {
   return apiFetch<void>(`/api/columns/${columnId}`, 'DELETE')
 }
+
+// A-11 リストの並び替え（position は、移動したあとの並びで左から何番目か）
+export function moveColumn(columnId: number, position: number): Promise<void> {
+  return apiFetch<void>(`/api/columns/${columnId}/position`, 'PUT', { position })
+}

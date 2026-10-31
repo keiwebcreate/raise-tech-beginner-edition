@@ -5,6 +5,12 @@
   border-radius: 10px;
   padding: 8px;
   position: relative;
+  /* リストの間。ドラッグのライブラリは gap を数えないので margin で空ける（BoardPage.module.css の .columns） */
+  margin-right: 12px;
+}
+/* ドラッグ中のリスト */
+.dragging {
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.24);
 }
 .head {
   display: flex;
@@ -40,9 +46,19 @@
   padding: 0 8px;
   border-radius: 999px;
 }
+/* カードの並び（ドラッグの置き場所）。空のリストにも置けるように、高さを少し残す */
 .cards {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 8px;
+  min-height: 24px;
+  border-radius: 6px;
+  transition: background-color 0.15s;
+}
+/* カードを上に持ってきているとき */
+.over {
+  background: rgba(0, 0, 0, 0.04);
+}
+/* カードの間。ライブラリは gap を数えないので margin で空ける */
+.cardSlot {
+  margin-bottom: 8px;
 }

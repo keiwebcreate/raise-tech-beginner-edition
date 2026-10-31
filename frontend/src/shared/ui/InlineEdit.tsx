@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type KeyboardEvent } from 'react'
 import { isSubmitEnter } from '../lib/keyboard.ts'
 import styles from './InlineEdit.module.css'
 
@@ -14,14 +14,22 @@ type Props = {
   onSave: (value: string) => Promise<string | null>
   displayClassName: string // 名前を表示しているときの見た目
   inputClassName?: string // 入力欄の入れ物の見た目（幅など）
+  // 名前のボタンに足す属性（リスト名では、ドラッグでつかむところにするために使う）
+  displayProps?: Omit<ComponentProps<'button'>, 'type' | 'className' | 'onClick' | 'title' | 'children'>
 }
 
 // その場での名前の変更（リスト名・ボード名。画面設計書 W-03）
 // 名前をクリックすると入力欄に変わる。Enter で確定、Esc で取り消し、入力欄の外をクリックしても確定する
-export function InlineEdit({ isEditing, value, onStartEdit, displayClassName, ...editProps }: Props) {
+export function InlineEdit({ isEditing, value, onStartEdit, displayClassName, displayProps, ...editProps }: Props) {
   if (!isEditing) {
     return (
-      <button type="button" className={displayClassName} onClick={onStartEdit} title="クリックして名前を変更">
+      <button
+        type="button"
+        className={displayClassName}
+        onClick={onStartEdit}
+        title="クリックして名前を変更"
+        {...displayProps}
+      >
         {value}
       </button>
     )
@@ -37,7 +45,7 @@ function EditingInput({
   validate,
   onSave,
   inputClassName,
-}: Omit<Props, 'isEditing' | 'onStartEdit' | 'displayClassName'>) {
+}: Omit<Props, 'isEditing' | 'onStartEdit' | 'displayClassName' | 'displayProps'>) {
   const [draft, setDraft] = useState(value)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)

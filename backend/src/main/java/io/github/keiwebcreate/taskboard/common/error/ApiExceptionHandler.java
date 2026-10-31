@@ -64,6 +64,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.badRequest().body(body);
 	}
 
+	@ExceptionHandler(InvalidPositionException.class)
+	ResponseEntity<ProblemDetail> handleInvalidPosition(InvalidPositionException e) {
+		return problem(HttpStatus.BAD_REQUEST, "INVALID_POSITION", e.getMessage());
+	}
+
 	@ExceptionHandler(LimitExceededException.class)
 	ResponseEntity<ProblemDetail> handleLimitExceeded(LimitExceededException e) {
 		return problem(HttpStatus.CONFLICT, "LIMIT_EXCEEDED", e.getMessage());

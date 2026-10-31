@@ -10,6 +10,13 @@
   padding: 16px 20px 80px;
   width: max-content;
 }
+/* リストの並び（ドラッグの置き場所）。ライブラリは gap を数えないので、間はリストの margin で空ける（Column.module.css）。
+   最後のリストの右の margin を打ち消し、「＋ リストを追加」との間を .board の gap だけにする */
+.columns {
+  display: flex;
+  align-items: flex-start;
+  margin-right: -12px;
+}
 
 /* 読み込み中 */
 .skeletonList {
