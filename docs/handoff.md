@@ -1,4 +1,4 @@
-# 引き継ぎ書（2026-10-25 更新）
+# 引き継ぎ書（2026-10-31 更新）
 
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
@@ -71,7 +71,9 @@
 - 済み：`C:\dev\Raise_Tech` へ移した後、全部のテストをまとめて実行して成功
 - 済み：講義と同じく、Docker の DB に `docker exec ... psql` で直接 SQL を打って確認。`users` に登録・検索・更新・削除ができ、更新日時のトリガーと ON DELETE CASCADE（ユーザーを消すとボードも消える）が動くことを確認。試したデータは消してある（ID は1から使ったので、次は2から始まる）
 - 済み：Flyway の V2（`V2__create_session_tables.sql`。Spring Session JDBC 4.1.1 の `schema-postgresql.sql` と同じ）を置いた。テストが通り、起動時に Docker の DB が version 2 になって `spring_session`・`spring_session_attributes` ができ、毎分のエラーが消えたことを確認
-- 次の一歩の候補：React（`frontend/`）のひな形
+- 済み（2026-10-31）：講義（初級編11）に合わせて GitHub の運用ルールを決めた（下の「Git」）。イシュー #1
+- 次の一歩：**API実装①（Read）**。講義は先に Read の API を少し作る。このプロジェクトの Read（`GET /api/board`・`GET /api/auth/me`）はログインが前提なので、**案A** に決定（2026-10-31）：Board・Column・Card・Label のエンティティと Repository、`BoardService`（ユーザーIDを渡すとボードが返る）まで作ってテストで確かめる。Controller はログインを作るときにつなぐ
+- その次：React（`frontend/`）のひな形
 - バージョンは、そのときの最新の安定版にする
 
 ### 4. その後
@@ -86,3 +88,7 @@
 - `beginner_version/` が Git リポジトリ。ブランチは `main`、リモートは `https://github.com/keiwebcreate/raise-tech-beginner-edition.git`
 - `beginner_version/CLAUDE.md` に「add・commit・push・ブランチ操作は承認なしで許可」と書いてある
 - 2026-10-25 時点で、設計書・モックアップ・CLAUDE.md・backend のひな形・compose.yaml はすべてコミットして GitHub にプッシュ済み
+- 2026-10-31 から **イシュー → ブランチ → PR → 私が GitHub の画面でマージ** の流れで進める（くわしくは `CLAUDE.md` の「GitHub の運用ルール」）。GitHub の操作は `gh` コマンドで行う
+  - ブランチ名は `種類/イシュー番号-内容`、マージは Squash and merge だけ、マージしたブランチは自動で削除
+  - `main` はルールセット「main を保護」で守っている：PR 必須（承認0人）、強制プッシュと削除の禁止、管理者も例外なし
+  - テストの成功を必須にする設定は、GitHub Actions を作るときに足す
