@@ -46,6 +46,7 @@
 }
 
 .descView {
+  position: relative;
   border-radius: 6px;
   padding: 10px 12px;
   background: #f6f7f9;
@@ -57,7 +58,20 @@
 .descView:hover {
   background: #eef0f3;
 }
+/* 説明の全体に重ねた、見えない「説明を編集」のボタン */
+.descEdit {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  cursor: text;
+}
+/* リンクは見えないボタンの上に出して、押せるようにする */
 .link {
+  position: relative;
+  z-index: 1;
   color: var(--primary);
   text-decoration: none;
 }

@@ -1,11 +1,6 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import styles from './Modal.module.css'
-
-// 開いているモーダルの順番（後ろほど上）。Esc は一番上のモーダルにだけ効かせる
-// （例：カード詳細の上に確認ダイアログが開いているときは、確認ダイアログだけが閉じる）
-const openStack: number[] = []
-let nextId = 1
 
 type Props = {
   width?: number
@@ -15,51 +10,80 @@ type Props = {
   children: ReactNode
 }
 
-// モーダルの土台。画面全体を薄暗くして、その上に中身を出す
+// モーダルの土台。HTML の <dialog> を showModal() で開く（品質チェック #31）
+// ブラウザが、いちばん上に出す・後ろの画面を操作できなくする（Tab でも後ろに移らない）・背景を暗くする（::backdrop）
+// 開いたら、中の data-autofocus の付いた部品（なければ最初の部品）にカーソルを置く
 // 閉じたら、開く前にカーソルがあった場所（押したボタンなど）にカーソルを戻す
 export function Modal({ width = 480, labelledBy, onRequestClose, children }: Props) {
-  const [id] = useState(() => nextId++)
-  // いちばん新しい onRequestClose を Esc の処理から呼べるように、覚えておく
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  // いちばん新しい onRequestClose を、ブラウザのイベントの処理から呼べるように覚えておく
   const requestCloseRef = useRef(onRequestClose)
   useEffect(() => {
     requestCloseRef.current = onRequestClose
   }, [onRequestClose])
 
   useEffect(() => {
-    openStack.push(id)
+    const dialog = dialogRef.current
+    if (!dialog) return
     const previousFocus = document.activeElement as HTMLElement | null
+    let closing = false
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && openStack[openStack.length - 1] === id) {
-        event.preventDefault()
-        requestCloseRef.current()
-      }
+    dialog.showModal()
+    dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
+
+    // Esc でブラウザが閉じようとしたら止める（閉じるかどうかは onRequestClose で呼んだ側が決める）
+    function handleCancel(event: Event) {
+      event.preventDefault()
     }
-    document.addEventListener('keydown', handleKeyDown)
+    // それでもブラウザが閉じてしまったとき（Esc の連打など）は、開き直して画面の状態とそろえる
+    function handleClose() {
+      if (!closing) dialog?.showModal()
+    }
+    // 背景（::backdrop）のクリックで閉じる。背景を押すと、クリックの対象は <dialog> そのものになる
+    // 中で押して外で離した（文字を選んでいた）ときは閉じない
+    let pressedOnBackdrop = false
+    function handleMouseDown(event: MouseEvent) {
+      pressedOnBackdrop = event.target === dialog
+    }
+    function handleClick(event: MouseEvent) {
+      if (pressedOnBackdrop && event.target === dialog) requestCloseRef.current()
+    }
+
+    dialog.addEventListener('cancel', handleCancel)
+    dialog.addEventListener('close', handleClose)
+    dialog.addEventListener('mousedown', handleMouseDown)
+    dialog.addEventListener('click', handleClick)
     return () => {
-      document.removeEventListener('keydown', handleKeyDown)
-      openStack.splice(openStack.indexOf(id), 1)
+      closing = true
+      dialog.removeEventListener('cancel', handleCancel)
+      dialog.removeEventListener('close', handleClose)
+      dialog.removeEventListener('mousedown', handleMouseDown)
+      dialog.removeEventListener('click', handleClick)
+      dialog.close()
       if (previousFocus?.isConnected) previousFocus.focus()
     }
-  }, [id])
+  }, [])
 
-  // 背景のクリックで閉じる。中で押して外で離した（文字を選んでいた）ときは閉じない
-  const pressedOnOverlay = useRef(false)
+  // Esc は、カーソルのあるモーダル（いちばん上）にだけ届く
+  // 中の部品（ラベルの一覧など）が先に Esc を使ったとき（preventDefault 済み）は何もしない
+  function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    if (event.key === 'Escape' && !event.defaultPrevented) {
+      event.preventDefault() // ブラウザの「Esc で閉じる」を止める
+      onRequestClose()
+    }
+  }
 
+  // body の直下に出す（置いた場所の CSS を受け継がないように）
   return createPortal(
-    <div
-      className={styles.overlay}
-      onMouseDown={(e) => {
-        pressedOnOverlay.current = e.target === e.currentTarget
-      }}
-      onClick={(e) => {
-        if (pressedOnOverlay.current && e.target === e.currentTarget) onRequestClose()
-      }}
+    <dialog
+      ref={dialogRef}
+      className={styles.modal}
+      style={{ width }}
+      aria-labelledby={labelledBy}
+      onKeyDown={handleKeyDown}
     >
-      <div className={styles.modal} style={{ width }} role="dialog" aria-modal="true" aria-labelledby={labelledBy}>
-        {children}
-      </div>
-    </div>,
+      {children}
+    </dialog>,
     document.body,
   )
 }

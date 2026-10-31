@@ -20,8 +20,8 @@ export function ConfirmDialog({ title, message, okText = '削除する', onAnswe
         <p className="muted">{message}</p>
       </div>
       <div className={styles.foot}>
-        {/* autoFocus：開いたときに、このボタンにカーソルを置く */}
-        <button type="button" className="btn" autoFocus onClick={() => onAnswer(false)}>
+        {/* data-autofocus：開いたときに、このボタンにカーソルを置く（Modal が探して置く） */}
+        <button type="button" className="btn" data-autofocus onClick={() => onAnswer(false)}>
           キャンセル
         </button>
         <button type="button" className="btn btn-danger" onClick={() => onAnswer(true)}>

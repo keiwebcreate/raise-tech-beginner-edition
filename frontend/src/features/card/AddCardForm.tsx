@@ -39,7 +39,7 @@ export function AddCardForm({ column, isOpen, onOpen, onClose }: Props) {
     }
     try {
       // API が成功してから、返ってきたカードで画面を変える（API設計書 6.3）
-      const card = await cardApi.addCard(column.id, value)
+      const card = await cardApi.addCard(column.id, value.trim())
       dispatch({ type: 'cardAdded', columnId: column.id, card })
       return null
     } catch (e) {

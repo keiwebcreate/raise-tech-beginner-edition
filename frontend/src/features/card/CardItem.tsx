@@ -17,23 +17,16 @@ type Props = {
   onOpen: () => void // カード詳細を開く
 }
 
-// リストの中のカード1枚。クリック（または Tab で選んで Enter）でカード詳細を開く
+// リストの中のカード1枚。どこをクリックしても（または Tab で選んで Enter・Space で）カード詳細を開く
+// 押せるのはタイトルのボタンで、その見えない部分（::after）をカード全体に広げている（品質チェック #31）
+// 「もっと見る」と URL のリンクは、その上に重ねてあるので、それぞれの動きをする
 export function CardItem({ card, labels, onOpen }: Props) {
   // ボードのラベルの順番のまま、このカードに付いているものだけを選ぶ
   const cardLabels = labels.filter((label) => card.labelIds.includes(label.id))
   const showMeta = card.urgency === 'HIGH' || card.dueDate !== null
 
   return (
-    <article
-      className={`${styles.card} ${IMPORTANCE_CLASS[card.importance]}`}
-      tabIndex={0}
-      aria-label={`${card.title}（クリックで詳細を開く）`}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        // カードの中のボタン（もっと見る）やリンクで押した Enter は、それぞれの動きに任せる
-        if (e.key === 'Enter' && e.target === e.currentTarget) onOpen()
-      }}
-    >
+    <article className={`${styles.card} ${IMPORTANCE_CLASS[card.importance]}`}>
       {cardLabels.length > 0 && (
         <div className={styles.labels}>
           {cardLabels.map((label) => (
@@ -41,7 +34,11 @@ export function CardItem({ card, labels, onOpen }: Props) {
           ))}
         </div>
       )}
-      <p className={styles.title}>{card.title}</p>
+      <p className={styles.title}>
+        <button type="button" className={styles.open} aria-haspopup="dialog" onClick={onOpen}>
+          {card.title}
+        </button>
+      </p>
       {card.description && <CardDescription text={card.description} />}
       {showMeta && (
         <div className={styles.meta}>

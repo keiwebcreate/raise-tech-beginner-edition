@@ -1,4 +1,4 @@
-import { useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { isSubmitEnter } from '../lib/keyboard.ts'
 import styles from './InlineEdit.module.css'
 
@@ -43,6 +43,12 @@ function EditingInput({
   const [saving, setSaving] = useState(false)
   // 保存中に入力欄から外れても（押せない状態にすると外れる）、二重に保存しないための目印
   const savingRef = useRef(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 開いたときにカーソルを置く（InlineForm と同じやり方）
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
 
   async function commit(trigger: 'enter' | 'blur') {
     if (savingRef.current) return
@@ -83,6 +89,7 @@ function EditingInput({
   return (
     <span className={`${styles.wrap} ${inputClassName ?? ''}`}>
       <input
+        ref={inputRef}
         className={`input ${styles.input} ${error ? 'is-error' : ''}`}
         aria-label={label}
         value={draft}
@@ -90,8 +97,7 @@ function EditingInput({
         onKeyDown={handleKeyDown}
         onBlur={() => commit('blur')}
         disabled={saving}
-        // 開いたときにカーソルを置き、文字の最後に合わせる
-        autoFocus
+        // カーソルが来たら、文字の最後に合わせる
         onFocus={(e) => e.currentTarget.setSelectionRange(e.currentTarget.value.length, e.currentTarget.value.length)}
       />
       {error && <span className={`error ${styles.error}`}>{error}</span>}
