@@ -64,12 +64,28 @@ export function Modal({ width = 480, labelledBy, onRequestClose, children }: Pro
     }
   }, [])
 
-  // Esc は、カーソルのあるモーダル（いちばん上）にだけ届く
-  // 中の部品（ラベルの一覧など）が先に Esc を使ったとき（preventDefault 済み）は何もしない
+  // キーはカーソルのあるモーダル（いちばん上）にだけ届く
   function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
+    // Esc で閉じる。中の部品（ラベルの一覧など）が先に Esc を使ったとき（preventDefault 済み）は何もしない
     if (event.key === 'Escape' && !event.defaultPrevented) {
       event.preventDefault() // ブラウザの「Esc で閉じる」を止める
       onRequestClose()
+      return
+    }
+    // Tab でモーダルの外に出ないように、最後の部品の次は最初へ、最初の部品の前は最後へ戻す
+    // （<dialog> だけだと、最後の部品の次でブラウザのアドレスバーなどに移ってしまう）
+    if (event.key === 'Tab') {
+      const items = focusableItems(event.currentTarget)
+      if (items.length === 0) return
+      const first = items[0]
+      const last = items[items.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
     }
   }
 
@@ -85,5 +101,14 @@ export function Modal({ width = 480, labelledBy, onRequestClose, children }: Pro
       {children}
     </dialog>,
     document.body,
+  )
+}
+
+// モーダルの中で、Tab で移れる部品（押せない状態のもの・見えないものは除く）
+const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])'
+
+function focusableItems(dialog: HTMLElement): HTMLElement[] {
+  return [...dialog.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+    (el) => !el.matches(':disabled') && el.getClientRects().length > 0,
   )
 }
