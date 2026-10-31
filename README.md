@@ -20,6 +20,7 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 - リスト名・ボード名を、クリックしてその場で変更
 - カードとリストの削除（確認ダイアログを出してから。リストを消すと中のカードも消える）
 - 30分操作しないとログアウトし、次の操作でログイン画面に戻る
+- コードの自動チェック（サーバーは Checkstyle・SpotBugs、画面は oxlint・Prettier）
 
 **これから作るもの**
 
@@ -36,7 +37,8 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 | サーバー | Java 25・Spring Boot 4.1（Spring Web MVC・Spring Data JPA・Spring Security・Spring Session JDBC）・Gradle 9 |
 | データベース | PostgreSQL 18・Flyway（テーブルの作成と変更の管理） |
 | テスト | JUnit 6・MockMvc・Testcontainers（サーバー）、Vitest 5（画面） |
-| その他 | Docker（開発用の DB）、oxlint、GitHub（イシュー・プルリクエスト） |
+| コードのチェック | Checkstyle・SpotBugs（サーバー）、oxlint・Prettier（画面） |
+| その他 | Docker（開発用の DB）、GitHub（イシュー・プルリクエスト） |
 
 細かいバージョンの一覧は [詳細設計書 5.1](docs/detailed-design.md#51-使っているバージョン2026-10-31-時点) にあります。
 
@@ -132,13 +134,15 @@ npm run dev
 ```bash
 # サーバー（Docker が必要。テスト用の PostgreSQL を自動で立ち上げる）
 cd backend
-./gradlew test
+./gradlew test           # 自動テスト
+./gradlew check          # 自動テストとコードのチェック（Checkstyle・SpotBugs）
 
 # 画面
 cd frontend
-npm test          # 自動テスト
-npm run lint      # コードのチェック
-npm run build     # 本番用のファイルを作る
+npm test              # 自動テスト
+npm run lint          # コードのチェック（oxlint）
+npm run format:check  # 書き方がそろっているかのチェック（Prettier。直すときは npm run format）
+npm run build         # 本番用のファイルを作る
 ```
 
 ## フォルダ

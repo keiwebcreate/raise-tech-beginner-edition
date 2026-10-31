@@ -1,7 +1,20 @@
-.wrap { position: relative; display: block; }
-.input { height: 32px; font-weight: 600; }
+.wrap {
+  position: relative;
+  display: block;
+}
+.input {
+  height: 32px;
+  font-weight: 600;
+}
 /* エラーは入力欄の下に重ねて出す（まわりの並びを崩さないため） */
 .error {
-  position: absolute; left: 0; top: 100%; z-index: 6; white-space: nowrap;
-  background: #fff; padding: 2px 8px; border-radius: 4px; box-shadow: var(--shadow-card);
+  position: absolute;
+  left: 0;
+  top: 100%;
+  z-index: 6;
+  white-space: nowrap;
+  background: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  box-shadow: var(--shadow-card);
 }

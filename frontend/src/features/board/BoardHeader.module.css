@@ -1,28 +1,86 @@
 .header {
-  position: sticky; top: 0; z-index: 5; flex: none;
-  min-height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 20px;
-  background: var(--surface); border-bottom: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  flex: none;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
 }
-.appName { font-weight: 700; font-size: 16px; }
-.sep { width: 1px; height: 20px; background: var(--border); }
-.heading { margin: 0; font-size: 16px; min-width: 0; }
+.appName {
+  font-weight: 700;
+  font-size: 16px;
+}
+.sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+.heading {
+  margin: 0;
+  font-size: 16px;
+  min-width: 0;
+}
 /* ボード名（クリックすると入力欄に変わる） */
 .boardName {
-  display: block; font-weight: 600; font-size: 16px; padding: 2px 6px; border-radius: 4px;
-  border: 0; background: transparent; max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: block;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 0;
+  background: transparent;
+  max-width: 40vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.boardName:hover { background: var(--list-bg); }
-.boardNameEdit { width: 280px; }
-.boardNameEdit input { font-size: 16px; }
+.boardName:hover {
+  background: var(--list-bg);
+}
+.boardNameEdit {
+  width: 280px;
+}
+.boardNameEdit input {
+  font-size: 16px;
+}
 
-.right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-.user { color: var(--muted); font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.user {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 /* スマートフォン（要件 5.1） */
 @media (max-width: 640px) {
-  .header { flex-wrap: wrap; gap: 8px 12px; padding: 8px 16px; }
-  .sep { display: none; }
-  .boardNameEdit { width: 100%; }
-  .right { gap: 8px; }
-  .user { max-width: 160px; }
+  .header {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding: 8px 16px;
+  }
+  .sep {
+    display: none;
+  }
+  .boardNameEdit {
+    width: 100%;
+  }
+  .right {
+    gap: 8px;
+  }
+  .user {
+    max-width: 160px;
+  }
 }

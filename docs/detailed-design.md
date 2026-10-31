@@ -417,8 +417,9 @@ Vitest で、ロジックのある部分だけを自動テストする。
 |---|---|---|
 | サーバー | Spring Web、Spring Data JPA、Spring Security、Spring Session JDBC、Validation、Flyway（PostgreSQL 用も）、PostgreSQL JDBC Driver | 本体 |
 | サーバーのテスト | Spring Boot Test、Spring Security Test、Testcontainers（PostgreSQL） | テスト |
+| サーバーのチェック | Checkstyle、SpotBugs | 書き方と、不具合になりやすい書き方のチェック（5.2） |
 | 画面 | React、React Router、@hello-pangea/dnd | 本体 |
-| 画面の開発 | Vite、TypeScript、Vitest、oxlint | 開発・テスト。リンターは Vite のひな形に入っている oxlint を使う（2026-10-31 に ESLint から変更） |
+| 画面の開発 | Vite、TypeScript、Vitest、oxlint、Prettier | 開発・テスト・チェック。リンターは Vite のひな形に入っている oxlint を使う（2026-10-31 に ESLint から変更）。書き方は Prettier でそろえる（5.2） |
 | （外した） | MSW（Mock Service Worker） | ログインと `BoardController` ができるまで、ブラウザの中で `GET /api/board` を横取りしてサンプルの JSON を返していた。画面のログインを作ったときに外した（2026-10-31） |
 
 ### 5.1 使っているバージョン（2026-10-31 時点）
@@ -441,6 +442,8 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | Jackson（JSON の変換） | 3.1.7 | Spring Boot が決める |
 | JUnit | 6.0.3 | Spring Boot が決める |
 | Testcontainers | 2.0.5 | Spring Boot が決める |
+| Checkstyle | 14.3.0 | Gradle に最初から入っているプラグイン（`checkstyle`）で動かす |
+| SpotBugs | 4.10.5 | Gradle のプラグイン `com.github.spotbugs` 6.5.13 で動かす |
 
 **データベース**
 
@@ -459,7 +462,33 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | Vite | 8.3.5 | ひな形は create-vite 9.3.3（`react-ts`） |
 | Vitest | 5.0.5 | |
 | oxlint | 1.90.0 | |
+| Prettier | 3.9.10 | |
 | @hello-pangea/dnd | （まだ入れていない） | ドラッグ＆ドロップを作るときに入れる |
+
+### 5.2 コードのチェック（2026-10-31 に追加。イシュー #27）
+
+講義（初級編16）の品質チェックに合わせて、コードを道具で自動的に確かめる。
+
+| 場所 | 道具 | 確かめること | 設定のファイル | コマンド |
+|---|---|---|---|---|
+| サーバー | Checkstyle | 書き方（import の並び、名前の付け方、波かっこ、空白、1行120文字など） | `backend/config/checkstyle/checkstyle.xml`（規則）、`suppressions.xml`（例外） | `./gradlew check` |
+| サーバー | SpotBugs | 不具合になりやすい書き方（null の扱いなど）。コンパイルしたクラスを調べる | `backend/config/spotbugs/exclude.xml`（調べない指摘） | `./gradlew check`（結果は `build/reports/spotbugs/`） |
+| 画面 | oxlint | React の決まり（フックの使い方・依存の漏れ）、アクセシビリティ（jsx-a11y）、import の循環など | `frontend/.oxlintrc.json` | `npm run lint` |
+| 画面 | Prettier | 書き方（セミコロンなし、シングルクォート、1行120文字）。CSS・JSON も対象 | `frontend/.prettierrc.json`、`.prettierignore` | `npm run format:check`（確かめる）、`npm run format`（直す） |
+
+`./gradlew check` はテストも一緒に走らせる（`./gradlew build` でも走る）。
+
+**規則の選び方**
+- Checkstyle：有名な Google や Sun の規則は、タブでの字下げがすべて違反になるので使わない。今のコードの書き方（Spring のひな形と同じタブ、Eclipse・Spring と同じ import の並び）に合わせて、このプロジェクト用に選んだ
+- Checkstyle の例外：テストのメソッド名は日本語で書くので、名前の規則から外す。Spring Boot の起動クラス（`TaskBoardApplication`）は `main` を持つ public なクラスにする決まりなので、「ユーティリティクラス」の規則から外す
+- SpotBugs で調べない指摘：`EI_EXPOSE_REP`・`EI_EXPOSE_REP2`（List を持つ record や、コンストラクタで Service を受け取る DI がすべて当てはまる。Spring の標準の書き方）、`VA_FORMAT_STRING_USES_NEWLINE`（テストで送る JSON の `\n`）
+- oxlint：分類 correctness（明らかな間違い）と suspicious（間違いの疑い）をエラーにする。`react/react-in-jsx-scope`（React 17 より前の規則）と `import/no-unassigned-import`（`import './global.css'` を違反にしてしまう）は使わない
+- Prettier：Windows の Git が改行を CRLF に変えるので、`endOfLine` は `auto`（今の改行のまま）にする
+
+**入れた時点の指摘**：入れたときに見つかった指摘は、次のイシューで直す。それまでは、その規則を「警告」（失敗にしない）にしてある。直したら、次の3つを元に戻す。
+- `checkstyle.xml` の `LineLength` の `severity="warning"`
+- `build.gradle` の SpotBugs の `ignoreFailures = true`
+- `.oxlintrc.json` で `"warn"` にした規則（`react/exhaustive-effect-dependencies` など8つ）
 
 ## 6. 書き方のルール
 

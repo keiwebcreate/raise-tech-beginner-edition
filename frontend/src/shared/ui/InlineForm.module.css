@@ -1,5 +1,17 @@
-.form { margin-top: 8px; }
-.form :global(.input) { margin-bottom: 8px; }
-.error { margin: -4px 0 8px; }
-.row { display: flex; gap: 6px; align-items: center; }
-.row :global(.help) { margin: 0; }
+.form {
+  margin-top: 8px;
+}
+.form :global(.input) {
+  margin-bottom: 8px;
+}
+.error {
+  margin: -4px 0 8px;
+}
+.row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.row :global(.help) {
+  margin: 0;
+}
