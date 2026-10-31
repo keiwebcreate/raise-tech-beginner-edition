@@ -1,0 +1,17 @@
+.header {
+  position: sticky; top: 0; z-index: 5; flex: none;
+  min-height: 52px; display: flex; align-items: center; gap: 16px; padding: 0 20px;
+  background: var(--surface); border-bottom: 1px solid var(--border);
+}
+.appName { font-weight: 700; font-size: 16px; }
+.sep { width: 1px; height: 20px; background: var(--border); }
+.boardName {
+  margin: 0; font-weight: 600; font-size: 16px; padding: 2px 6px;
+  max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* スマートフォン（要件 5.1） */
+@media (max-width: 640px) {
+  .header { flex-wrap: wrap; gap: 8px 12px; padding: 8px 16px; }
+  .sep { display: none; }
+}
