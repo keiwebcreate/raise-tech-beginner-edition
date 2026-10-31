@@ -507,6 +507,21 @@ Vitest で、ロジックのある部分だけを自動テストする。
 **入れた時点の指摘**：入れたときに見つかった指摘は、#31 ですべて直し、一時的に「警告」にしていた規則も「エラー」に戻した（2026-10-31）。今は、指摘が1件でもあるとチェックが失敗する。
 - oxlint の `react/memo-dependencies` は、`try … finally` の `finally` の中で使った値を「余分」と誤って判定する（2026-10-31、oxlint 1.90.0 で確認）。`finally` を使わない書き方にして避けた
 
+### 5.3 自動テスト（GitHub Actions。2026-10-31 に追加。イシュー #39）
+
+`.github/workflows/ci.yml`。PR を作ったとき・PR のブランチに push したときと、`main` に反映したとき（マージ）に走る。
+
+| ジョブ | 動く環境 | すること |
+|---|---|---|
+| `backend` | Ubuntu、Java 25（Temurin） | `./gradlew check`（テスト・Checkstyle・SpotBugs）。DB は Testcontainers が Docker で立ち上げる（GitHub の Ubuntu には Docker が入っている）。失敗したときは `build/reports/` を GitHub の画面からダウンロードできる（7日間） |
+| `frontend` | Ubuntu、Node.js 26 | `npm ci` → `npm run lint` → `npm run format:check` → `npm test` → `npm run build` |
+
+- 2つのジョブは同時に走る。同じ PR に続けて push したら、前の実行は止める
+- 使う部品（アクション）：`actions/checkout@v7`、`actions/setup-java@v6`、`gradle/actions/setup-gradle@v6`（Gradle とライブラリを次回のために取っておく）、`actions/setup-node@v7`（npm のパッケージを取っておく）、`actions/upload-artifact@v7`
+- `main` のルールセット「main を保護」で、`backend` と `frontend` の成功を必須にしている。ジョブの名前を変えるときは、ルールセットも直す
+- `backend/gradlew` には Git の実行権限の印を付けている（`git update-index --chmod=+x`。Windows では付かないため）
+- `.github/workflows/` のファイルを変える push には、GitHub の `workflow` の権限が要る。この PC の Git は Git Credential Manager のログイン（権限なし）を使うので、そのときだけ `gh` のログインで送る：`git -c credential.helper= -c "credential.https://github.com.helper=!gh auth git-credential" push`
+
 ## 6. 書き方のルール
 
 AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめる（この設計書の要点と、コマンドの一覧）。

@@ -1,5 +1,7 @@
 # TaskBoard（仮）
 
+[![CI](https://github.com/keiwebcreate/raise-tech-beginner-edition/actions/workflows/ci.yml/badge.svg)](https://github.com/keiwebcreate/raise-tech-beginner-edition/actions/workflows/ci.yml)
+
 Trello のような、カンバン方式のタスク管理 Web アプリです。ボードにリスト（列）を並べ、タスクをカードとして管理します。
 
 > **開発中です。** ログイン、ゲストログイン、ボードの表示、カードとリストの追加・変更・削除、ラベル管理、ドラッグ＆ドロップまでできています。退会や公開は、これから作ります（[進み具合](#進み具合)）。
@@ -24,11 +26,12 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 - ドラッグ＆ドロップ：カードの並び替えと別のリストへの移動、リストの並び替え。キーボード（スペースキーでつかみ、矢印キーで動かす）でもできる。保存に失敗したら元の並びに戻す
 - 30分操作しないとログアウトし、次の操作でログイン画面に戻る
 - コードの自動チェック（サーバーは Checkstyle・SpotBugs、画面は oxlint・Prettier）
+- GitHub Actions：PR とマージのたびに、テストとコードのチェックを自動で走らせる。成功しない PR はマージできない
 
 **これから作るもの**
 
 - 退会、ログイン失敗・ゲスト作成の回数制限
-- GitHub Actions での自動テスト、AWS への公開
+- AWS への公開
 
 ## 使っている技術
 

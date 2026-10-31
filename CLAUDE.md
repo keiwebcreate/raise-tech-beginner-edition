@@ -30,7 +30,8 @@ GitHub の操作（イシュー・PR・設定）は `gh` コマンドで行う�
 - 本文には「やったこと」「確認したこと」（実行したテストと結果）を書き、最後に `Closes #番号` を書いてイシューと結びつける
 
 ### GitHub の設定（2026-10-31）
-- `main` のルールセット：PR 必須（承認は0人）、強制プッシュと削除の禁止。管理者も例外なし
+- `main` のルールセット：PR 必須（承認は0人）、GitHub Actions の `backend`・`frontend` の成功が必須（2026-10-31 に追加）、強制プッシュと削除の禁止。管理者も例外なし
+- `.github/workflows/` を変えた push は、Git Credential Manager のログインでは断られる（`workflow` の権限がない）。そのときだけ `git -c credential.helper= -c "credential.https://github.com.helper=!gh auth git-credential" push` で送る（`docs/detailed-design.md` 5.3）
 - マージ方法は Squash and merge だけ。マージしたブランチは自動で削除される
 
 ## このプロジェクト
