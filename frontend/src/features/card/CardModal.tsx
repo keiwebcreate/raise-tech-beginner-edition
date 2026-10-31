@@ -46,9 +46,9 @@ type Props = {
   onClose: () => void
 }
 
-// W-04 カード詳細（モーダル。要件 C-02）
+// W-04 カード詳細（モーダル。要件 C-02・C-03）
 // 開いたときのカードの値を「下書き（draft）」にコピーし、入力は下書きだけを変える。「保存」でまとめて送る（A-13）
-// カードの削除ボタンは、Delete を作るときに足す
+// 「カードを削除」は、確認してから削除する（A-14）
 export function CardModal({ cardId, onClose }: Props) {
   const { board, dispatch } = useBoard()
   const { showApiError } = useToast()
@@ -60,7 +60,8 @@ export function CardModal({ cardId, onClose }: Props) {
   const [editingDescription, setEditingDescription] = useState(original?.description === '')
   const [errors, setErrors] = useState<Errors>({})
   const [saving, setSaving] = useState(false)
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
+  // 開いている確認ダイアログ：変更の破棄 か カードの削除
+  const [confirming, setConfirming] = useState<'discard' | 'delete' | null>(null)
 
   // カードが見つからなければ（開いている間に消えたなど）閉じる
   useEffect(() => {
@@ -85,10 +86,23 @@ export function CardModal({ cardId, onClose }: Props) {
   function requestClose() {
     if (saving) return
     if (original && draft && !isSame(original, draft)) {
-      setConfirmingDiscard(true)
+      setConfirming('discard')
       return
     }
     onClose()
+  }
+
+  // A-14 カードの削除（確認ダイアログで「削除する」を押したあと。要件 C-03）
+  async function deleteCard() {
+    setSaving(true)
+    try {
+      await cardApi.deleteCard(cardId)
+      dispatch({ type: 'cardDeleted', cardId })
+      onClose()
+    } catch (e) {
+      setSaving(false)
+      showApiError(e)
+    }
   }
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
@@ -244,6 +258,15 @@ export function CardModal({ cardId, onClose }: Props) {
         </div>
 
         <div className={styles.foot}>
+          <button
+            type="button"
+            className="btn btn-text-danger"
+            disabled={saving}
+            onClick={() => setConfirming('delete')}
+          >
+            カードを削除
+          </button>
+          <span className={styles.spacer} />
           <button type="button" className="btn" onClick={requestClose}>
             キャンセル
           </button>
@@ -253,14 +276,24 @@ export function CardModal({ cardId, onClose }: Props) {
         </div>
       </form>
 
-      {confirmingDiscard && (
+      {confirming === 'discard' && (
         <ConfirmDialog
           title="変更を破棄しますか？"
           message="保存していない変更は失われます。"
           okText="破棄する"
           onAnswer={(ok) => {
-            setConfirmingDiscard(false)
+            setConfirming(null)
             if (ok) onClose()
+          }}
+        />
+      )}
+      {confirming === 'delete' && (
+        <ConfirmDialog
+          title="カードを削除しますか？"
+          message={`「${original.title}」を削除します。この操作は取り消せません。`}
+          onAnswer={(ok) => {
+            setConfirming(null)
+            if (ok) deleteCard()
           }}
         />
       )}

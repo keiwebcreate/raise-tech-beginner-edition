@@ -10,6 +10,7 @@ import io.github.keiwebcreate.taskboard.column.dto.ColumnResponse;
 import io.github.keiwebcreate.taskboard.common.config.LimitsProperties;
 import io.github.keiwebcreate.taskboard.common.error.LimitExceededException;
 import io.github.keiwebcreate.taskboard.common.error.NotFoundException;
+import io.github.keiwebcreate.taskboard.common.position.Positions;
 
 /**
  * リストの処理。
@@ -59,6 +60,23 @@ public class ColumnService {
 				.orElseThrow(NotFoundException::new);
 		column.rename(request.name().strip());
 		return ColumnResponse.from(column);
+	}
+
+	/**
+	 * A-10 リストの削除（要件 L-04）。中のカードも消え、残ったリストの並び順を振り直す。
+	 * リストは0個になってもよい。
+	 *
+	 * @throws NotFoundException 他人のリスト・存在しないリストのとき
+	 */
+	@Transactional
+	public void delete(Long userId, Long columnId) {
+		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
+				.orElseThrow(NotFoundException::new);
+		Long boardId = column.getBoard().getId();
+
+		// 中のカード（とラベルとのつながり）は、DB の ON DELETE CASCADE で一緒に消える（テーブル設計書 5章）
+		boardColumnRepository.delete(column);
+		Positions.renumber(boardColumnRepository.findByBoardIdOrderByPosition(boardId));
 	}
 
 }

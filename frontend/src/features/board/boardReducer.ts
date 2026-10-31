@@ -16,10 +16,14 @@ export type BoardAction =
   | { type: 'columnAdded'; column: ColumnResponse }
   // A-09 リスト名の変更が成功した
   | { type: 'columnRenamed'; column: ColumnResponse }
+  // A-10 リストの削除が成功した（中のカードも一緒に消える）
+  | { type: 'columnDeleted'; columnId: number }
   // A-12 カードの追加が成功した（そのリストの一番下に足す）
   | { type: 'cardAdded'; columnId: number; card: CardResponse }
   // A-13 カードの保存が成功した（同じ ID のカードを置き換える。場所は変わらない）
   | { type: 'cardSaved'; card: CardResponse }
+  // A-14 カードの削除が成功した
+  | { type: 'cardDeleted'; cardId: number }
 
 export function boardReducer(state: BoardState, action: BoardAction): BoardState {
   if (action.type === 'loaded') return action.board
@@ -40,6 +44,9 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
         ),
       }
 
+    case 'columnDeleted':
+      return { ...state, columns: state.columns.filter((column) => column.id !== action.columnId) }
+
     case 'cardAdded':
       return {
         ...state,
@@ -54,6 +61,16 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
         columns: state.columns.map((column) =>
           column.cards.some((card) => card.id === action.card.id)
             ? { ...column, cards: column.cards.map((card) => (card.id === action.card.id ? action.card : card)) }
+            : column,
+        ),
+      }
+
+    case 'cardDeleted':
+      return {
+        ...state,
+        columns: state.columns.map((column) =>
+          column.cards.some((card) => card.id === action.cardId)
+            ? { ...column, cards: column.cards.filter((card) => card.id !== action.cardId) }
             : column,
         ),
       }

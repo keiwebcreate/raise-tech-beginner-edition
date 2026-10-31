@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import io.github.keiwebcreate.taskboard.column.BoardColumn;
+import io.github.keiwebcreate.taskboard.common.position.Positioned;
 import io.github.keiwebcreate.taskboard.label.Label;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,7 +27,7 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "cards")
-public class Card {
+public class Card implements Positioned {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -106,8 +107,15 @@ public class Card {
 		return dueDate;
 	}
 
+	@Override
 	public int getPosition() {
 		return position;
+	}
+
+	// 並び順の振り直し（Positions から呼ぶ）
+	@Override
+	public void changePosition(int position) {
+		this.position = position;
 	}
 
 	// 外から勝手に足したり消したりできないよう、読むだけの形で返す

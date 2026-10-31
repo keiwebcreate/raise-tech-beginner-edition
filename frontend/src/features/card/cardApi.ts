@@ -12,3 +12,8 @@ export function addCard(columnId: number, title: string): Promise<CardResponse> 
 export function saveCard(cardId: number, request: CardRequest): Promise<CardResponse> {
   return apiFetch<CardResponse>(`/api/cards/${cardId}`, 'PUT', request)
 }
+
+// A-14 カードの削除
+export function deleteCard(cardId: number): Promise<void> {
+  return apiFetch<void>(`/api/cards/${cardId}`, 'DELETE')
+}

@@ -28,6 +28,8 @@ button { cursor: pointer; }
 .btn-block { width: 100%; height: 40px; }
 .btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .btn-danger:hover { background: #dc3e42; }
+.btn-text-danger { border-color: transparent; background: transparent; color: var(--danger); }
+.btn-text-danger:hover { background: #fff0f0; }
 .btn-ghost { border-color: transparent; background: transparent; }
 .btn-ghost:hover { background: var(--list-bg); }
 

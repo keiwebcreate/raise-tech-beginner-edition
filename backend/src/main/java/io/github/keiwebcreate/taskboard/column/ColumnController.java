@@ -2,6 +2,7 @@ package io.github.keiwebcreate.taskboard.column;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,6 +41,13 @@ public class ColumnController {
 	public ColumnResponse rename(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId,
 			@Valid @RequestBody ColumnRequest request) {
 		return columnService.rename(loginUser.getId(), columnId, request);
+	}
+
+	// A-10 リストの削除。成功したら 204（中身なし）
+	@DeleteMapping("/{columnId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId) {
+		columnService.delete(loginUser.getId(), columnId);
 	}
 
 }

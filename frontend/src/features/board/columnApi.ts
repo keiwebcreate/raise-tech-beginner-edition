@@ -12,3 +12,8 @@ export function addColumn(name: string): Promise<ColumnResponse> {
 export function renameColumn(columnId: number, name: string): Promise<ColumnResponse> {
   return apiFetch<ColumnResponse>(`/api/columns/${columnId}`, 'PATCH', { name })
 }
+
+// A-10 リストの削除（中のカードも消える）
+export function deleteColumn(columnId: number): Promise<void> {
+  return apiFetch<void>(`/api/columns/${columnId}`, 'DELETE')
+}

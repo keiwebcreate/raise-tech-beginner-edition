@@ -101,6 +101,21 @@ describe('boardReducer', () => {
     expect(next?.columns[1].cards).toEqual([])
   })
 
+  it('cardDeleted：指定したカードだけが消え、ほかのリストは変わらない', () => {
+    const before = boardReducer(sampleBoard(), { type: 'cardAdded', columnId: 1, card: newCard(2, '牛乳を買う') })
+
+    const next = boardReducer(before, { type: 'cardDeleted', cardId: 1 })
+
+    expect(next?.columns[0].cards.map((card) => card.title)).toEqual(['牛乳を買う'])
+    expect(next?.columns[1]).toBe(before?.columns[1])
+  })
+
+  it('columnDeleted：指定したリストが中のカードごと消え、残りの順番は変わらない', () => {
+    const next = boardReducer(sampleBoard(), { type: 'columnDeleted', columnId: 1 })
+
+    expect(next?.columns.map((column) => column.name)).toEqual(['作業中', '完了'])
+  })
+
   it('まだ読み込んでいない（null）ときは何もしない', () => {
     expect(boardReducer(null, { type: 'columnAdded', column: { id: 4, name: '保留' } })).toBeNull()
   })

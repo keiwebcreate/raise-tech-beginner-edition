@@ -1,6 +1,7 @@
 package io.github.keiwebcreate.taskboard.column;
 
 import io.github.keiwebcreate.taskboard.board.Board;
+import io.github.keiwebcreate.taskboard.common.position.Positioned;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -17,7 +18,7 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "board_columns")
-public class BoardColumn {
+public class BoardColumn implements Positioned {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -55,8 +56,15 @@ public class BoardColumn {
 		return name;
 	}
 
+	@Override
 	public int getPosition() {
 		return position;
+	}
+
+	// 並び順の振り直し（Positions から呼ぶ）
+	@Override
+	public void changePosition(int position) {
+		this.position = position;
 	}
 
 	// A-09 リスト名の変更
