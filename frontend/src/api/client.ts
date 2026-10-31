@@ -1,7 +1,7 @@
 // すべての API はこの apiFetch を通して呼ぶ（詳細設計書 4.3）
 // - 変更する通信（POST など）には CSRF のヘッダーを付ける
 // - 失敗したら Problem Details を読んで ApiError を投げる
-// ※ 401 のときにログイン画面へ移す処理は、ログインを作るときに足す
+// - 401 UNAUTHENTICATED（セッション切れなど）のときは、登録された処理（ログイン画面へ移す）を呼ぶ
 
 import { MESSAGES } from '../shared/lib/constants.ts'
 import type { FieldError, ProblemDetail } from './types.ts'
@@ -20,6 +20,22 @@ export class ApiError extends Error {
     this.detail = detail
     this.errors = errors
   }
+}
+
+// API の errors（[{ field, message }]）を { field: message } の形にする。入力欄の下に出すときに使う
+export function fieldErrorsOf(error: ApiError): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const { field, message } of error.errors) {
+    result[field] ??= message
+  }
+  return result
+}
+
+// 401 UNAUTHENTICATED のときに呼ぶ処理。React の画面の移動はここではできないので、AuthProvider が登録する
+let unauthenticatedHandler: (() => void) | null = null
+
+export function setUnauthenticatedHandler(handler: (() => void) | null): void {
+  unauthenticatedHandler = handler
 }
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
@@ -52,6 +68,9 @@ export async function apiFetch<T>(path: string, method: Method = 'GET', body?: u
     return (response.status === 204 ? undefined : await response.json()) as T
   }
   const problem = await readProblem(response)
+  if (problem?.code === 'UNAUTHENTICATED') {
+    unauthenticatedHandler?.()
+  }
   throw new ApiError(
     response.status,
     problem?.code ?? 'INTERNAL_ERROR',

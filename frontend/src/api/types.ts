@@ -1,5 +1,18 @@
 // API の JSON の型（API設計書 5章）。サーバーの DTO（record）と1対1で対応させる
 
+// ログイン中のユーザー（A-01〜A-03・A-05 で返る）
+export type UserResponse = {
+  id: number
+  email: string // ゲストのときはダミーのアドレス
+  isGuest: boolean
+}
+
+// A-01 登録・A-02 ログインで送る
+export type Credentials = {
+  email: string
+  password: string
+}
+
 // 重要度・緊急度
 export type Level = 'HIGH' | 'MEDIUM' | 'LOW'
 
