@@ -3,6 +3,7 @@ package io.github.keiwebcreate.taskboard.auth;
 import java.util.List;
 import java.util.Locale;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -82,7 +83,14 @@ public class AuthService {
 			throw new EmailDuplicatedException();
 		}
 
-		User user = userRepository.save(new User(email, passwordEncoder.encode(request.password()), false));
+		User user;
+		try {
+			user = userRepository.save(new User(email, passwordEncoder.encode(request.password()), false));
+		} catch (DataIntegrityViolationException e) {
+			// 上の確認と保存の間に、同じメールアドレスで登録された（ほぼ同時の登録）。
+			// DB の一意制約（uk_users_email）が2人目を止めるので、確認で見つかったときと同じ 409 にする
+			throw new EmailDuplicatedException();
+		}
 		Board board = boardRepository.save(new Board(user, INITIAL_BOARD_NAME));
 		for (int position = 0; position < INITIAL_COLUMN_NAMES.size(); position++) {
 			boardColumnRepository.save(new BoardColumn(board, INITIAL_COLUMN_NAMES.get(position), position));
@@ -113,8 +121,12 @@ public class AuthService {
 		} catch (AuthenticationException e) {
 			throw new LoginFailedException();
 		}
+		// 照合に成功すると、中身は LoginUserDetailsService が返した LoginUser になる（型の上では null もありうるので確かめる）
+		if (!(authentication.getPrincipal() instanceof LoginUser loginUser)) {
+			throw new LoginFailedException();
+		}
 		startSession(authentication, httpRequest, httpResponse);
-		return UserResponse.from((LoginUser) authentication.getPrincipal());
+		return UserResponse.from(loginUser);
 	}
 
 	/**

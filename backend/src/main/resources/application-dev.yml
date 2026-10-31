@@ -1,0 +1,7 @@
+# 開発のときだけの設定。./gradlew bootRun で起動すると読み込まれる（build.gradle の bootRun）
+# 本番やテストでは読み込まない
+
+logging:
+  level:
+    # JPA が実行した SQL をログに出す（勉強用）
+    org.hibernate.SQL: debug

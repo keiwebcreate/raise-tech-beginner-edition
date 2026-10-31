@@ -45,6 +45,11 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// 開発での起動（./gradlew bootRun）では、開発用の設定 application-dev.yml も読み込む
+tasks.named('bootRun') {
+	systemProperty 'spring.profiles.active', 'dev'
+}
+
 // Checkstyle：書き方のチェック。規則は config/checkstyle/checkstyle.xml
 checkstyle {
 	toolVersion = '14.3.0'
@@ -57,8 +62,6 @@ spotbugs {
 	toolVersion = '4.10.5'
 	// 調べない指摘（Spring の標準の書き方に当てはまるもの）
 	excludeFilter = file('config/spotbugs/exclude.xml')
-	// 今のコードに指摘があるので、直すまでは失敗にしない（イシュー #27 の次のイシューで外す）
-	ignoreFailures = true
 }
 
 tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {

@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import java.util.Objects;
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
@@ -245,9 +246,10 @@ class UpdateApiTest {
 
 	// ラベルを作る API はまだないので、SQL で直接入れて ID を返す
 	private long addLabel(Cookie session, String name, String color) throws Exception {
-		return jdbcTemplate.queryForObject(
+		// queryForObject は null を返すこともある（型の上では）ので、null でないことを確かめてから使う
+		return Objects.requireNonNull(jdbcTemplate.queryForObject(
 				"INSERT INTO labels (user_id, name, color) VALUES (?, ?, ?) RETURNING id",
-				Long.class, userId(session), name, color);
+				Long.class, userId(session), name, color));
 	}
 
 	private static String cardJson(String labelIds) {
