@@ -76,7 +76,8 @@
   - `labels.color` は CHAR(7) なので、`Label` に `@JdbcTypeCode(SqlTypes.CHAR)` が必要だった（ないと validate で止まる）
 - 講義の次の回は「React でのデータ表示」。本物の API はまだ呼べない（Controller がなく、Spring Security の設定もないので全部 401）ため、**偽の API（MSW）** でボードのデータを返して画面を作ると決定（2026-10-31）。作業は2つのイシューに分けた
   - 済み（2026-10-31）：**① フロントエンドの環境**（イシュー #5）。`frontend/` を create-vite 9.3.3（React 19・TypeScript 7・Vite 8）で作成。Vitest 5 を追加（`npm test` ＝ `vitest run`）。`/api` は 8080 へ転送。`styles/variables.css`・`global.css` はモックアップから移した。リンターはひな形の **oxlint** のまま（設計書の ESLint から変更）
-  - 次の一歩：**② ボード画面にデータを表示する**：`api/types.ts`・`client.ts`・`boardApi`、MSW（サンプルはモックアップのゲスト用と同じ中身）、`BoardContext`＋`boardReducer`（`loaded` だけ）、`BoardPage`・`Column`・`CardItem`（表示だけ）
+  - 済み（2026-10-31）：**② ボード画面にデータを表示する**（イシュー #7）：`api/types.ts`・`client.ts`（`ApiError`・CSRF ヘッダー。401 の処理はログインのとき）・`boardApi`、MSW 3（`src/mocks/`。開発中だけ動く。サンプルはモックアップのゲスト用と同じ中身）、`BoardContext`・`BoardProvider`＋`boardReducer`（`loaded` だけ）、React Router 8（`/` と 404）、`BoardPage`・`BoardHeader`・`Column`・`CardItem`・`CardDescription`・`LabelChip`（表示だけ）、`shared/lib` の `due`・`linkify`・`constants`。Vitest 14件
+  - 共通のボタン（`.btn`・`.btn-primary`）と `.muted` は `styles/global.css` に置いた（どの画面でも使うため）
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ
 - バージョンは、そのときの最新の安定版にする
 

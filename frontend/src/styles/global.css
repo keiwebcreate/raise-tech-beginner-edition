@@ -13,3 +13,15 @@ button, input, select, textarea { font: inherit; color: inherit; }
 button { cursor: pointer; }
 :focus-visible { outline: none; box-shadow: var(--focus-ring); }
 #root { min-height: 100%; display: flex; flex-direction: column; }
+.muted { color: var(--muted); }
+
+/* ボタン（どの画面でも使うので、CSS Modules ではなくここに置く） */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 34px; padding: 0 14px; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--surface); white-space: nowrap; text-decoration: none; color: var(--text);
+}
+.btn:hover { background: #f6f7f9; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-hover); }

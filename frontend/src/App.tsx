@@ -1,10 +1,25 @@
-// 画面の切り替えの入口。今は仮の表示だけ（ボード画面はイシュー #6 で作る）
+import { BrowserRouter, Route, Routes } from 'react-router'
+import { BoardPage } from './features/board/BoardPage.tsx'
+import { BoardProvider } from './features/board/BoardProvider.tsx'
+import { NotFoundPage } from './shared/pages/NotFoundPage.tsx'
+
+// URL と画面の結び付け（詳細設計書 4.2）
+// ログインしているかの確認と /login・/signup は、ログインを作るときに足す
 function App() {
   return (
-    <main>
-      <h1>TaskBoard</h1>
-      <p>フロントエンドの環境ができました。</p>
-    </main>
+    <BrowserRouter>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <BoardProvider>
+              <BoardPage />
+            </BoardProvider>
+          }
+        />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </BrowserRouter>
   )
 }
 
