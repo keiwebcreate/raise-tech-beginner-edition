@@ -2,6 +2,9 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.2'
 	id 'io.spring.dependency-management' version '1.1.7'
+	// コードのチェック（イシュー #27）。どちらも ./gradlew check で走る
+	id 'checkstyle'
+	id 'com.github.spotbugs' version '6.5.13'
 }
 
 group = 'io.github.keiwebcreate'
@@ -40,4 +43,28 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+// Checkstyle：書き方のチェック。規則は config/checkstyle/checkstyle.xml
+checkstyle {
+	toolVersion = '14.3.0'
+	// 警告（warning）は結果に出すだけで、失敗にはしない
+	maxWarnings = Integer.MAX_VALUE
+}
+
+// SpotBugs：不具合になりやすい書き方のチェック。結果は build/reports/spotbugs/ に HTML で出る
+spotbugs {
+	toolVersion = '4.10.5'
+	// 調べない指摘（Spring の標準の書き方に当てはまるもの）
+	excludeFilter = file('config/spotbugs/exclude.xml')
+	// 今のコードに指摘があるので、直すまでは失敗にしない（イシュー #27 の次のイシューで外す）
+	ignoreFailures = true
+}
+
+tasks.withType(com.github.spotbugs.snom.SpotBugsTask).configureEach {
+	reports {
+		html {
+			required = true
+		}
+	}
 }
