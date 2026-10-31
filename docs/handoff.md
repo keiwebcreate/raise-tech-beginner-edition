@@ -2,6 +2,10 @@
 
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
+**最初にすること**
+1. PR #34（ラベル管理）がマージ済みかを `gh pr view 34` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 講義の次の回の画面を私が貼るので、それを見て次にやることを決める（下の「次にやること」）
+
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
 2. `CLAUDE.md`：AI が守るルール（GitHub の運用・サーバーのポート・コードの書き方・コマンド）
@@ -21,10 +25,11 @@
 - 作業ごとに **イシュー → ブランチ → PR → 私が GitHub の画面で Squash and merge**（`CLAUDE.md` の「GitHub の運用ルール」）。イシューは作る前に中身を見せる
 - 画面ができたら、私がブラウザで確かめてから PR を作る。確かめる手順（何を押すと何が起きるか）を示してほしい
 - 機能を作ったら、README の「進み具合」と、この引き継ぎ書も直す
+- 応答はすべて日本語（`C:\dev\Raise_Tech\.claude\CLAUDE.md`）
 
 ## 今の状態（2026-10-31）
 
-**できていること**（講義の CRUD はカードとリストについてひととおり完了）
+**できていること**（講義の CRUD はカード・リスト・ラベルについてひととおり完了）
 
 | 機能 | API | 画面 |
 |---|---|---|
@@ -32,18 +37,18 @@
 | ボードの取得・ボード名の変更 | A-06・A-07 | W-03 ボード（ボード名はクリックで変更） |
 | リストの追加・名前の変更・削除 | A-08・A-09・A-10 | 「＋ リストを追加」、名前をクリックで変更、「…」メニューから削除 |
 | カードの追加・保存・削除 | A-12・A-13・A-14 | 「＋ カードを追加」、W-04 カード詳細（全項目の保存・削除） |
-| ラベルの付け外し | A-13 の `labelIds` | カード詳細の「＋」（今あるラベルだけ） |
+| ラベルの付け外し | A-13 の `labelIds` | カード詳細の「＋」 |
+| ラベル管理（追加・変更・削除） | A-16・A-17・A-18 | W-05。ヘッダーの「ラベル管理」と、カード詳細のラベル一覧の下の「ラベルを管理」（カード詳細の上に重ねて開く） |
 
-- テスト：サーバー 57件（`./gradlew test`）、画面 35件（`npm test`）。すべて成功
+- テスト：サーバー 73件（`./gradlew test`）、画面 38件（`npm test`）。すべて成功
 - コードのチェック（#27）：サーバーは Checkstyle・SpotBugs（`./gradlew check`）、画面は oxlint の規則を足し、Prettier を入れた（`npm run lint`・`npm run format:check`）。道具と規則は `detailed-design.md` 5.2
-- 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は SQL で入れたもの（ラベルを作る画面がまだないため）
+- 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は最初に SQL で入れたもの
 
 **まだないもの**
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| **ラベル管理**（追加・変更・削除） | T-01・T-03、W-05、A-16〜A-18 | **次にやる**。入口はヘッダーの「ラベル管理」と、カード詳細のラベル一覧の下の「ラベルを管理」 |
-| ドラッグ＆ドロップ（並び替え・移動） | L-05・C-04、A-11・A-15 | @hello-pangea/dnd。並び順の振り直しの部品 `Positions.renumber` はもうある |
+| **ドラッグ＆ドロップ**（並び替え・移動） | L-05・C-04、A-11・A-15 | **次の候補**。@hello-pangea/dnd。並び順の振り直しの部品 `Positions.renumber` はもうある |
 | ゲストログイン・24時間後の削除 | U-06〜U-08、A-03 | サンプルデータはモックアップのゲスト用と同じ。ログイン画面の「ゲストとして試す」もこのとき |
 | 退会 | U-11、W-08、A-19 | ヘッダーのメニュー（▾）もこのとき |
 | ログイン失敗の回数制限 | U-10 | 方式が未決（`detailed-design.md` 7章） |
@@ -53,12 +58,14 @@
 | 見直し（急がない） | | 要件：改訂履歴・前提条件と制約・非機能要件の ID・受け入れ基準。テーブル：論理名と物理名・CRUD 表 |
 
 ## 次にやること
-**ラベル管理（W-05・A-16 追加・A-17 変更・A-18 削除）**。イシューの案を作って見せるところから（前のチャットで一度見せた案：サーバーと画面を1つのイシューにまとめる形）。
-- 使い回せる部品：`Modal`（`<dialog>`）・`ConfirmDialog`・`useToast`・`useOutsideClick`・`useEscapeKey`・`InlineForm` の考え方、サーバーの `LimitsProperties`（ラベル30個）・`LimitExceededException`
-- 新しく要るもの：`LabelNameDuplicatedException`（409 LABEL_NAME_DUPLICATED）、8色のチェック（`LabelColor`）、`boardReducer` の `labelAdded`・`labelUpdated`・`labelDeleted`（`labelDeleted` はカードの `labelIds` からも外す）
-- ラベル名の重複は、同時に操作されたときに備えて、DB の一意制約（`uk_labels_user_name`）のエラーも 409 にする（ユーザー登録と同じ形。`detailed-design.md` 3.8.5）
-- W-05 はカード詳細の上に重ねて開く（`<dialog>` は重ねて開ける）
+講義の次の回の内容を確かめてから決める。候補は **ドラッグ＆ドロップ**（L-05・C-04、A-11・A-15。講義のアプリにもある機能）。
+- 使い回せる部品：サーバーの `Positions.renumber`（並び順の振り直し）、`InvalidPositionException`（400 INVALID_POSITION。まだ作っていない）、画面の `boardReducer`（`cardMoved` などを足す）
 - 作ったら、スキル `quality-check`（差分だけ）で確かめてから PR を作る
+
+**ラベル管理（#33）で決めたこと**
+- 色の選択肢は HTML のラジオボタン（`ColorSwatches`）。見た目だけを色の四角にする（矢印キーで選べ、読み上げでも伝わる）
+- ラベル管理はカード詳細の上に重ねて開ける。削除したラベルは、カード詳細の下書きからも外して保存する
+- `Modal` の Esc は `<dialog>` の `cancel` で受け取る（カーソルがどこにあっても、いちばん上のモーダルに届く）
 
 **品質チェック（講義 初級編16）で行ったこと**（2026-10-31）
 - #27：チェックの道具を入れた（Checkstyle・SpotBugs・oxlint の規則・Prettier）
@@ -78,7 +85,9 @@
   - ボードのデータは `BoardContext` の `boardReducer` だけで変える。API が成功してから、返ってきたデータで action を送る
   - 共通の部品は `shared/ui/`（`Modal`・`ConfirmDialog`・`InlineForm`・`InlineEdit`・`LinkifiedText`・`ToastProvider`）。共通の見た目（ボタン・入力欄）は `styles/global.css`
   - 一度に開くその場の入力欄は1つだけ（`BoardPage` の `openForm`）
-  - リンターは oxlint（Vite のひな形のまま。ESLint から変更）
+  - モーダルは `shared/ui/Modal`（HTML の `<dialog>` を `showModal()`）。Esc は `cancel` で受け取り、Tab はモーダルの中だけを回す。開いたときのカーソルの位置は `data-autofocus`（`autoFocus` は使わない）
+  - 押せるものは `<button>`。中にリンクがあって全体をボタンにできないとき（カード）は、見えないボタンを全体に広げる。メニュー・一覧の Esc は `useEscapeKey`
+  - チェックは oxlint・Prettier。規則はすべて「エラー」（指摘が1件でも失敗）
 
 ## 開発環境（Windows 11）
 | もの | 状態 |
@@ -95,11 +104,14 @@
   - ポートを使っているプロセスを Claude が止めようとすると、Claude Code の許可で止められることがある。そのときは私に止めてもらう
 - ポート 3306 は別プロジェクト（cytech_step9_app）の Docker MySQL。触らないこと
 - Git Bash で `docker exec` にコンテナ内のパスを渡すときは `MSYS_NO_PATHCONV=1` が必要
+- **画面の動きを自動で確かめる方法**：スクラッチパッド（チャットごとの作業用フォルダ）に `puppeteer-core` を入れ、パソコンの Chrome（`C:/Program Files/Google/Chrome/Application/chrome.exe`）を画面なしで動かした。プロジェクトには入れていない。新しいチャットでは、スクラッチパッドに入れ直す。`demo` のデータを変えないように、毎回新しいユーザーを登録して試す（開発用の DB に `label-（数字）@example.com` などが残っている）
+- サーバーのコードを変えたら、Spring Boot を起動し直す（Vite は自動で読み込むが、Spring Boot は読み込まない）。`bootRun` は開発用の設定（プロファイル `dev`）で起動し、SQL をログに出す
 - 2026-10-25 に、OneDrive のファイルロックで Gradle が失敗したため、フォルダを OneDrive の外（`C:\dev\Raise_Tech`）に移した。OneDrive の中に開発フォルダを置かないこと
 
 ## Git・GitHub
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#32（イシューと PR は番号を共有している）。#31（品質チェックの指摘の修正）の PR が #32
-- パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）
+- これまでのイシューと PR：#1〜#34（イシューと PR は番号を共有している）。#33（ラベル管理）の PR が #34
+- パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
+- `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

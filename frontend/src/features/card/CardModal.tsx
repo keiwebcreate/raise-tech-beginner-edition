@@ -9,6 +9,7 @@ import { Modal } from '../../shared/ui/Modal.tsx'
 import { useToast } from '../../shared/ui/ToastContext.ts'
 import { useBoard } from '../board/BoardContext.ts'
 import { findCard } from '../board/findCard.ts'
+import { LabelModal } from '../label/LabelModal.tsx'
 import { LabelPicker } from '../label/LabelPicker.tsx'
 import * as cardApi from './cardApi.ts'
 import styles from './CardModal.module.css'
@@ -62,6 +63,8 @@ export function CardModal({ cardId, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   // 開いている確認ダイアログ：変更の破棄 か カードの削除
   const [confirming, setConfirming] = useState<'discard' | 'delete' | null>(null)
+  // 上に重ねて開いたラベル管理（W-05）
+  const [managingLabels, setManagingLabels] = useState(false)
 
   // カードが見つからなければ（開いている間に消えたなど）閉じる
   useEffect(() => {
@@ -74,12 +77,15 @@ export function CardModal({ cardId, onClose }: Props) {
     setDraft((current) => (current ? { ...current, [key]: value } : current))
   }
 
+  // ラベルを付ける・外す。続けて押されても取りこぼさないよう、いちばん新しい下書きを元に変える
   function toggleLabel(labelId: number) {
-    if (!draft) return
-    update(
-      'labelIds',
-      draft.labelIds.includes(labelId) ? draft.labelIds.filter((id) => id !== labelId) : [...draft.labelIds, labelId],
-    )
+    setDraft((current) => {
+      if (!current) return current
+      const labelIds = current.labelIds.includes(labelId)
+        ? current.labelIds.filter((id) => id !== labelId)
+        : [...current.labelIds, labelId]
+      return { ...current, labelIds }
+    })
   }
 
   // ×・キャンセル・Esc・背景のクリック。変更があれば確認してから閉じる
@@ -124,6 +130,8 @@ export function CardModal({ cardId, onClose }: Props) {
       const saved = await cardApi.saveCard(cardId, {
         ...draft,
         title: draft.title.trim(),
+        // ラベル管理（上に重ねて開いたもの）で削除したラベルは、下書きからも外して送る
+        labelIds: draft.labelIds.filter((id) => board?.labels.some((label) => label.id === id)),
         dueDate: draft.dueDate || null,
       })
       dispatch({ type: 'cardSaved', card: saved })
@@ -167,7 +175,12 @@ export function CardModal({ cardId, onClose }: Props) {
 
           <div className="field">
             <span className={styles.fieldLabel}>ラベル</span>
-            <LabelPicker labels={board.labels} selectedIds={draft.labelIds} onToggle={toggleLabel} />
+            <LabelPicker
+              labels={board.labels}
+              selectedIds={draft.labelIds}
+              onToggle={toggleLabel}
+              onManage={() => setManagingLabels(true)}
+            />
           </div>
 
           <div className={styles.grid3}>
@@ -276,6 +289,7 @@ export function CardModal({ cardId, onClose }: Props) {
         </div>
       </form>
 
+      {managingLabels && <LabelModal onClose={() => setManagingLabels(false)} />}
       {confirming === 'discard' && (
         <ConfirmDialog
           title="変更を破棄しますか？"

@@ -1,0 +1,39 @@
+.group {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+/* 色の四角。中のラジオボタンは見えなくして、四角を押すと選べるようにする */
+.swatch {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--c);
+  cursor: pointer;
+}
+/* 選んでいる色 */
+.swatch:has(input:checked) {
+  box-shadow:
+    0 0 0 2px #fff,
+    0 0 0 4px var(--text);
+}
+/* キーボードで選んだとき */
+.swatch:has(input:focus-visible) {
+  box-shadow: var(--focus-ring);
+}
+/* 見た目では隠すが、読み上げには残す */
+.hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}

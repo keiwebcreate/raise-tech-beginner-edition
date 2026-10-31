@@ -63,4 +63,10 @@ public class Label {
 		return color;
 	}
 
+	// A-17 ラベルの変更（名前と色）
+	public void update(String name, String color) {
+		this.name = name;
+		this.color = color;
+	}
+
 }

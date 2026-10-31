@@ -14,11 +14,12 @@ type Props = {
   isRenaming?: boolean
   onStartRename?: () => void
   onEndRename?: () => void
+  onOpenLabels?: () => void // 「ラベル管理」（W-05）を開く。読み込み中・失敗したときは undefined（ボタンを出さない）
 }
 
 // 画面の上のヘッダー
-// ラベル管理・メニュー（退会）は、それぞれの機能を作るときに足す
-export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEndRename }: Props) {
+// メニュー（退会）は、退会の機能を作るときに足す
+export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEndRename, onOpenLabels }: Props) {
   const { user, logout } = useAuth()
   const { dispatch } = useBoard()
   const { showApiError } = useToast()
@@ -67,6 +68,11 @@ export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEn
       )}
       {user && (
         <div className={styles.right}>
+          {onOpenLabels && (
+            <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={onOpenLabels}>
+              ラベル管理
+            </button>
+          )}
           <span className={styles.user}>{user.email}</span>
           <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
             ログアウト

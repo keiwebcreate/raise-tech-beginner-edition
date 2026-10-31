@@ -31,9 +31,12 @@ export function Modal({ width = 480, labelledBy, onRequestClose, children }: Pro
     dialog.showModal()
     dialog.querySelector<HTMLElement>('[data-autofocus]')?.focus()
 
-    // Esc でブラウザが閉じようとしたら止める（閉じるかどうかは onRequestClose で呼んだ側が決める）
+    // Esc が押された。ブラウザが閉じるのを止めて、閉じるかどうかは onRequestClose で呼んだ側が決める
+    // cancel はカーソルがどこにあっても、いちばん上のモーダルに届く（中の部品が消えてカーソルが外れたときも）
+    // 中の部品（ラベルの一覧など）が先に Esc を使ったとき（keydown を preventDefault 済み）は、cancel は起きない
     function handleCancel(event: Event) {
       event.preventDefault()
+      requestCloseRef.current()
     }
     // それでもブラウザが閉じてしまったとき（Esc の連打など）は、開き直して画面の状態とそろえる
     function handleClose() {
@@ -64,14 +67,8 @@ export function Modal({ width = 480, labelledBy, onRequestClose, children }: Pro
     }
   }, [])
 
-  // キーはカーソルのあるモーダル（いちばん上）にだけ届く
+  // キーはカーソルのあるモーダル（いちばん上）にだけ届く。Esc は上の cancel で扱う
   function handleKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
-    // Esc で閉じる。中の部品（ラベルの一覧など）が先に Esc を使ったとき（preventDefault 済み）は何もしない
-    if (event.key === 'Escape' && !event.defaultPrevented) {
-      event.preventDefault() // ブラウザの「Esc で閉じる」を止める
-      onRequestClose()
-      return
-    }
     // Tab でモーダルの外に出ないように、最後の部品の次は最初へ、最初の部品の前は最後へ戻す
     // （<dialog> だけだと、最後の部品の次でブラウザのアドレスバーなどに移ってしまう）
     if (event.key === 'Tab') {

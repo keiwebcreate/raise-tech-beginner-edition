@@ -1,0 +1,71 @@
+/* W-05 ラベル管理（モックアップの style.css から移した） */
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 16px 20px 0;
+}
+.title {
+  margin: 0;
+  font-size: 16px;
+}
+.count {
+  font-weight: normal;
+  font-size: 13px;
+}
+.body {
+  padding: 16px 20px;
+}
+
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+/* 一覧のラベルは少し大きく見せる */
+.row > span:first-child {
+  min-width: 120px;
+  height: 26px;
+  font-size: 12px;
+}
+.actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+}
+.editing {
+  display: block;
+}
+.editing > * + * {
+  margin-top: 8px;
+}
+.editActions {
+  display: flex;
+  gap: 6px;
+}
+
+.newLabel {
+  margin-top: 20px;
+}
+.fieldLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+.newRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.error {
+  margin: -4px 0 8px;
+}

@@ -173,6 +173,8 @@ public record CardRequest(
 | `LabelRepository` | `findByIdAndUserId(labelId, userId)` | 自分のラベル1件 |
 | | `findAllByIdInAndUserId(labelIds, userId)` | カードに付けるラベル（全部が自分のものか） |
 | | `findByUserIdOrderById(userId)` | ラベル一覧（作成順） |
+| | `countByUserId(userId)` | ラベルの数（上限の確認） |
+| | `existsByUserIdAndName(userId, name)`、`existsByUserIdAndNameAndIdNot(userId, name, labelId)` | 同じ名前のラベルがあるか（追加のとき・変更のとき。変更では自分自身を除く）。ほぼ同時の操作は DB の一意制約 `uk_labels_user_name` で止め、そのエラーも 409 LABEL_NAME_DUPLICATED にする |
 | | `existsByUserIdAndName(userId, name)` | 名前の重複 |
 | `UserRepository` | `findByEmail(email)`、`existsByEmail(email)` | ログイン・登録 |
 | | `deleteGuestsCreatedBefore(time)`（`@Modifying @Query`） | 古いゲストの削除 |

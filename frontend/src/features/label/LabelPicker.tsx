@@ -9,12 +9,13 @@ type Props = {
   labels: LabelResponse[] // ボードのラベル全部（作成順）
   selectedIds: number[]
   onToggle: (labelId: number) => void
+  onManage: () => void // 「ラベルを管理」（W-05）を開く
 }
 
 // カード詳細のラベル欄（画面設計書 W-04）。付いているラベルと「＋」を並べ、
 // 「＋」で一覧を開いて付ける・外すを切り替える。一覧の外のクリックか Esc で閉じる
-// 「ラベルを管理」（W-05）へのリンクは、ラベル管理を作るときに足す
-export function LabelPicker({ labels, selectedIds, onToggle }: Props) {
+// 一覧の下の「ラベルを管理」で、ラベル管理（W-05）をカード詳細の上に重ねて開く
+export function LabelPicker({ labels, selectedIds, onToggle, onManage }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const selected = labels.filter((label) => selectedIds.includes(label.id))
@@ -43,7 +44,9 @@ export function LabelPicker({ labels, selectedIds, onToggle }: Props) {
       {open && (
         <div className={styles.popover} role="menu">
           <div className={styles.popoverTitle}>ラベルを選ぶ</div>
-          {labels.length === 0 && <p className={`muted ${styles.empty}`}>ラベルがありません</p>}
+          {labels.length === 0 && (
+            <p className={`muted ${styles.empty}`}>ラベルがありません。「ラベルを管理」から作れます。</p>
+          )}
           {labels.map((label) => {
             const on = selectedIds.includes(label.id)
             return (
@@ -60,6 +63,19 @@ export function LabelPicker({ labels, selectedIds, onToggle }: Props) {
               </button>
             )
           })}
+          <div className={styles.foot}>
+            <button
+              type="button"
+              className="link-btn"
+              aria-haspopup="dialog"
+              onClick={() => {
+                setOpen(false)
+                onManage()
+              }}
+            >
+              ラベルを管理
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -22,6 +22,12 @@ export type LabelResponse = {
   color: string // "#e5484d" のような8色のどれか
 }
 
+// A-16 ラベルの追加・A-17 ラベルの変更で送る
+export type LabelRequest = {
+  name: string
+  color: string
+}
+
 export type CardResponse = {
   id: number
   title: string
