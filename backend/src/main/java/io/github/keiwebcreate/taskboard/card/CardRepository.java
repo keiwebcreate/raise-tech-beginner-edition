@@ -23,4 +23,7 @@ public interface CardRepository extends JpaRepository<Card, Long> {
 			""")
 	List<Card> findAllForBoard(Long boardId);
 
+	// リストのカードの数（上限の確認と、一番下に追加するときの位置に使う）
+	long countByColumnId(Long columnId);
+
 }

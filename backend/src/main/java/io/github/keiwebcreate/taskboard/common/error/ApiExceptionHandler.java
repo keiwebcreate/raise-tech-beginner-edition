@@ -45,6 +45,11 @@ public class ApiExceptionHandler {
 		return problem(HttpStatus.CONFLICT, "EMAIL_DUPLICATED", e.getMessage());
 	}
 
+	@ExceptionHandler(LimitExceededException.class)
+	ResponseEntity<ProblemDetail> handleLimitExceeded(LimitExceededException e) {
+		return problem(HttpStatus.CONFLICT, "LIMIT_EXCEEDED", e.getMessage());
+	}
+
 	@ExceptionHandler(LoginFailedException.class)
 	ResponseEntity<ProblemDetail> handleLoginFailed(LoginFailedException e) {
 		return problem(HttpStatus.UNAUTHORIZED, "LOGIN_FAILED", e.getMessage());

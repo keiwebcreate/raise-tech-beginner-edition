@@ -1,16 +1,22 @@
 import { useEffect, useState } from 'react'
 import { ApiError } from '../../api/client.ts'
 import { MESSAGES } from '../../shared/lib/constants.ts'
+import { AddColumnForm } from './AddColumnForm.tsx'
 import { getBoard } from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
 import { BoardHeader } from './BoardHeader.tsx'
 import styles from './BoardPage.module.css'
 import { Column } from './Column.tsx'
 
+// 開いているその場の入力欄。一度に開くのは1つだけ（ほかを開いたら前のものは閉じる）
+type OpenForm = { kind: 'card'; columnId: number } | { kind: 'column' } | null
+
 // W-03 ボード画面
 export function BoardPage() {
   const { board, dispatch } = useBoard()
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [openForm, setOpenForm] = useState<OpenForm>(null)
+  const closeForm = () => setOpenForm(null)
 
   // 画面を開いたときに、ボードを1回読み込む
   useEffect(() => {
@@ -58,8 +64,21 @@ export function BoardPage() {
       <main className={styles.scroll}>
         <div className={styles.board}>
           {board.columns.map((column) => (
-            <Column key={column.id} column={column} labels={board.labels} />
+            <Column
+              key={column.id}
+              column={column}
+              labels={board.labels}
+              isAddingCard={openForm?.kind === 'card' && openForm.columnId === column.id}
+              onOpenAddCard={() => setOpenForm({ kind: 'card', columnId: column.id })}
+              onCloseAddCard={closeForm}
+            />
           ))}
+          <AddColumnForm
+            columnCount={board.columns.length}
+            isOpen={openForm?.kind === 'column'}
+            onOpen={() => setOpenForm({ kind: 'column' })}
+            onClose={closeForm}
+          />
         </div>
       </main>
     </>

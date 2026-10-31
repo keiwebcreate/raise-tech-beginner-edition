@@ -1,0 +1,12 @@
+/* 画面の右下に出す赤い通知（画面設計書 5章。モックアップの style.css から移した） */
+.root { position: fixed; right: 20px; bottom: 20px; z-index: 70; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  width: 360px; max-width: calc(100vw - 32px);
+  background: #fff; border-left: 4px solid var(--danger); border-radius: 8px;
+  box-shadow: var(--shadow-modal); padding: 12px 14px; display: flex; gap: 10px;
+  animation: toast-in .2s ease-out;
+}
+.title { display: block; }
+.detail { font-size: 13px; color: var(--muted); }
+.icon { color: var(--danger); font-weight: 700; }
+@keyframes toast-in { from { transform: translateY(8px); opacity: 0; } to { transform: none; opacity: 1; } }
