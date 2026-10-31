@@ -419,7 +419,7 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | サーバーのテスト | Spring Boot Test、Spring Security Test、Testcontainers（PostgreSQL） | テスト |
 | 画面 | React、React Router、@hello-pangea/dnd | 本体 |
 | 画面の開発 | Vite、TypeScript、Vitest、oxlint | 開発・テスト。リンターは Vite のひな形に入っている oxlint を使う（2026-10-31 に ESLint から変更） |
-| 画面の開発（一時的） | MSW（Mock Service Worker） | ログインと `BoardController` ができるまで、ブラウザの中で `GET /api/board` を横取りしてサンプルの JSON を返す。本物の API につないだら外す（2026-10-31） |
+| （外した） | MSW（Mock Service Worker） | ログインと `BoardController` ができるまで、ブラウザの中で `GET /api/board` を横取りしてサンプルの JSON を返していた。画面のログインを作ったときに外した（2026-10-31） |
 
 ### 5.1 使っているバージョン（2026-10-31 時点）
 
@@ -459,7 +459,6 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | Vite | 8.3.5 | ひな形は create-vite 9.3.3（`react-ts`） |
 | Vitest | 5.0.5 | |
 | oxlint | 1.90.0 | |
-| MSW | 3.0.3 | 開発中だけ。本物の API につないだら外す |
 | @hello-pangea/dnd | （まだ入れていない） | ドラッグ＆ドロップを作るときに入れる |
 
 ## 6. 書き方のルール

@@ -9,9 +9,13 @@
   margin: 0; font-weight: 600; font-size: 16px; padding: 2px 6px;
   max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+.right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+.user { color: var(--muted); font-size: 13px; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* スマートフォン（要件 5.1） */
 @media (max-width: 640px) {
   .header { flex-wrap: wrap; gap: 8px 12px; padding: 8px 16px; }
   .sep { display: none; }
+  .right { gap: 8px; }
+  .user { max-width: 160px; }
 }

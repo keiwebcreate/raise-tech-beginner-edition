@@ -84,7 +84,9 @@
   - 済み（2026-10-31）：**① サーバーのログイン**（イシュー #11）：`SecurityConfig`（`csrf.spa()`＋全レスポンスで XSRF-TOKEN を返す `CsrfCookieFilter`、401・403 は `ApiExceptionHandler` に回す）、`ApiExceptionHandler`、`AuthService`・`AuthController`（A-01 登録・A-02 ログイン・A-04 ログアウト・A-05 自分）、`BoardController`（A-06）、セッション30分。`AuthControllerTest` 12件。起動したサーバーに Vite 経由で登録し、SQL で足したカード2枚が `GET /api/board` で返ることを確認
   - 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる（「未着手」に SQL で足したカードが2枚）
   - まだないもの：ゲスト（A-03）・退会（A-19）・回数制限、`/api/auth/me` でユーザーが消えていたときの処理（ゲストの削除を作るときに足す）
-  - 次の一歩：**② 画面のログイン（W-01・W-02）＋ MSW を外す**。画面で SQL のデータが出ることを確かめる
+  - 済み（2026-10-31）：**② 画面のログイン（W-01・W-02）＋ MSW を外す**（イシュー #15）：`AuthContext`・`AuthProvider`（起動時に `/api/auth/me`、401 UNAUTHENTICATED でセッション切れのお知らせを付けて `/login` へ）、`RequireLogin`・`GuestOnly`（画面の出し分け）、`LoginPage`・`SignupPage`・`FormField`、`authApi`、`shared/lib/validation.ts`、ヘッダーにメールアドレスとログアウト。MSW は `src/mocks`・`public/mockServiceWorker.js`・パッケージごと外した。Vitest 24件
+  - ヘッダーのメニュー（▾ と「退会する」）、ログイン画面の「ゲストとして試す」は、退会・ゲストを作るときに足す
+  - 入力欄（`.field`・`.input`・`.error` など）とボタンの種類（`.btn-block`・`.btn-ghost`）も `styles/global.css` に置いた
 - 済み（2026-10-31）：**使っているバージョンの一覧**を `detailed-design.md` 5.1 にまとめた（イシュー #13）。要件定義書 6章からも参照。バージョンを上げたら 5.1 も直す
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ
 - バージョンは、そのときの最新の安定版にする
