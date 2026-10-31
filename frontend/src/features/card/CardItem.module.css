@@ -1,31 +1,85 @@
 .card {
-  position: relative; background: var(--surface); border-radius: var(--radius);
-  padding: 8px 10px 8px 14px; box-shadow: var(--shadow-card); cursor: pointer;
-  user-select: none; -webkit-user-select: none;
+  position: relative;
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 8px 10px 8px 14px;
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
 }
-.card:hover { box-shadow: 0 1px 3px rgba(16, 24, 40, .16), 0 0 0 1px rgba(16, 24, 40, .06); }
+.card:hover {
+  box-shadow:
+    0 1px 3px rgba(16, 24, 40, 0.16),
+    0 0 0 1px rgba(16, 24, 40, 0.06);
+}
 /* 左端の色の帯が重要度（要件 C-06） */
 .card::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-  border-radius: var(--radius) 0 0 var(--radius); background: var(--band);
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: var(--radius) 0 0 var(--radius);
+  background: var(--band);
 }
-.high { --band: var(--red); }
-.mid { --band: var(--yellow); }
-.low { --band: #c1c4cb; }
+.high {
+  --band: var(--red);
+}
+.mid {
+  --band: var(--yellow);
+}
+.low {
+  --band: #c1c4cb;
+}
 
-.labels { display: flex; gap: 4px; flex-wrap: wrap; }
-.title { margin: 2px 0; word-break: break-word; }
-.meta { display: flex; align-items: center; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+.labels {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.title {
+  margin: 2px 0;
+  word-break: break-word;
+}
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
 
 .urgent {
-  display: inline-flex; align-items: center; height: 20px; padding: 0 6px; border-radius: 4px;
-  font-size: 11px; font-weight: 700; color: var(--red); border: 1px solid var(--red); background: #fff;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--red);
+  border: 1px solid var(--red);
+  background: #fff;
 }
 
 /* 期限。期限切れは赤、今日・明日は黄、それ以外はグレー */
 .due {
-  display: inline-flex; align-items: center; height: 20px; padding: 0 6px;
-  border-radius: 4px; font-size: 11px; background: #eef0f3; color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  background: #eef0f3;
+  color: var(--muted);
 }
-.overdue { background: var(--red); color: #fff; }
-.soon { background: var(--yellow); color: #1c2024; }
+.overdue {
+  background: var(--red);
+  color: #fff;
+}
+.soon {
+  background: var(--yellow);
+  color: #1c2024;
+}

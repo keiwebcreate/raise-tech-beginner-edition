@@ -1,4 +1,23 @@
-.centerBox { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 8px; padding: 48px 16px; }
-.centerBox p { margin: 0 0 12px; }
-.title { margin: 8px 0 0; font-size: 18px; }
-.bigCode { font-size: 64px; font-weight: 700; color: #c1c4cb; line-height: 1; }
+.centerBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  padding: 48px 16px;
+}
+.centerBox p {
+  margin: 0 0 12px;
+}
+.title {
+  margin: 8px 0 0;
+  font-size: 18px;
+}
+.bigCode {
+  font-size: 64px;
+  font-weight: 700;
+  color: #c1c4cb;
+  line-height: 1;
+}

@@ -1,10 +1,27 @@
 /* 「＋ リストを追加」のボタン（リストと同じ幅で、一番右に置く） */
 .open {
-  flex: none; width: 272px; padding: 10px 12px; border-radius: 10px;
-  background: rgba(0, 0, 0, .05); color: var(--muted); border: 0; text-align: left;
+  flex: none;
+  width: 272px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--muted);
+  border: 0;
+  text-align: left;
 }
-.open:hover { background: rgba(0, 0, 0, .08); color: var(--text); }
+.open:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+}
 
 /* 入力欄を開いたとき */
-.formBox { flex: none; width: 272px; padding: 8px; border-radius: 10px; background: var(--list-bg); }
-.formBox > form { margin-top: 0; }
+.formBox {
+  flex: none;
+  width: 272px;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--list-bg);
+}
+.formBox > form {
+  margin-top: 0;
+}
