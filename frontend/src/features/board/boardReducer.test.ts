@@ -116,6 +116,39 @@ describe('boardReducer', () => {
     expect(next?.columns.map((column) => column.name)).toEqual(['作業中', '完了'])
   })
 
+  it('labelAdded：ラベルが一覧の最後に足される', () => {
+    const next = boardReducer(sampleBoard(), { type: 'labelAdded', label: { id: 2, name: '急ぎ', color: '#e5484d' } })
+
+    expect(next?.labels.map((label) => label.name)).toEqual(['仕事', '急ぎ'])
+  })
+
+  it('labelUpdated：同じ ID のラベルの名前と色が変わり、カードはそのまま', () => {
+    const before = sampleBoard()
+    const updated = { id: 1, name: '会社', color: '#30a46c' }
+
+    const next = boardReducer(before, { type: 'labelUpdated', label: updated })
+
+    expect(next?.labels).toEqual([updated])
+    expect(next?.columns).toBe(before.columns)
+  })
+
+  it('labelDeleted：ラベルが消え、付いていたカードからも外れる。付いていないリストは変わらない', () => {
+    const withTwoLabels = boardReducer(sampleBoard(), {
+      type: 'labelAdded',
+      label: { id: 2, name: '急ぎ', color: '#e5484d' },
+    })
+    const before = boardReducer(withTwoLabels, {
+      type: 'cardSaved',
+      card: { ...newCard(1, '会議の資料を準備する'), labelIds: [1, 2] },
+    })
+
+    const next = boardReducer(before, { type: 'labelDeleted', labelId: 1 })
+
+    expect(next?.labels.map((label) => label.id)).toEqual([2])
+    expect(next?.columns[0].cards[0].labelIds).toEqual([2])
+    expect(next?.columns[1]).toBe(before?.columns[1])
+  })
+
   it('まだ読み込んでいない（null）ときは何もしない', () => {
     expect(boardReducer(null, { type: 'columnAdded', column: { id: 4, name: '保留' } })).toBeNull()
   })

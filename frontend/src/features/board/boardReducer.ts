@@ -2,7 +2,7 @@
 // 「どんな出来事（action）が起きたか」を受け取り、新しいボードのデータを返す
 // 元のデータは書き換えず、変わったところだけを新しく作る（React が「変わった」と気づけるように）
 
-import type { BoardResponse, CardResponse, ColumnResponse } from '../../api/types.ts'
+import type { BoardResponse, CardResponse, ColumnResponse, LabelResponse } from '../../api/types.ts'
 
 // まだ読み込んでいないときは null
 export type BoardState = BoardResponse | null
@@ -24,6 +24,12 @@ export type BoardAction =
   | { type: 'cardSaved'; card: CardResponse }
   // A-14 カードの削除が成功した
   | { type: 'cardDeleted'; cardId: number }
+  // A-16 ラベルの追加が成功した（一覧の最後に足す。作成順）
+  | { type: 'labelAdded'; label: LabelResponse }
+  // A-17 ラベルの変更が成功した（同じ ID のラベルを置き換える）
+  | { type: 'labelUpdated'; label: LabelResponse }
+  // A-18 ラベルの削除が成功した（付いていたカードからも外す。要件 T-03）
+  | { type: 'labelDeleted'; labelId: number }
 
 export function boardReducer(state: BoardState, action: BoardAction): BoardState {
   if (action.type === 'loaded') return action.board
@@ -71,6 +77,34 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
         columns: state.columns.map((column) =>
           column.cards.some((card) => card.id === action.cardId)
             ? { ...column, cards: column.cards.filter((card) => card.id !== action.cardId) }
+            : column,
+        ),
+      }
+
+    case 'labelAdded':
+      return { ...state, labels: [...state.labels, action.label] }
+
+    case 'labelUpdated':
+      return {
+        ...state,
+        labels: state.labels.map((label) => (label.id === action.label.id ? action.label : label)),
+      }
+
+    case 'labelDeleted':
+      return {
+        ...state,
+        labels: state.labels.filter((label) => label.id !== action.labelId),
+        // そのラベルが付いていたカードだけを作り直す
+        columns: state.columns.map((column) =>
+          column.cards.some((card) => card.labelIds.includes(action.labelId))
+            ? {
+                ...column,
+                cards: column.cards.map((card) =>
+                  card.labelIds.includes(action.labelId)
+                    ? { ...card, labelIds: card.labelIds.filter((id) => id !== action.labelId) }
+                    : card,
+                ),
+              }
             : column,
         ),
       }

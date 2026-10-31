@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../api/client.ts'
 import { MESSAGES } from '../../shared/lib/constants.ts'
 import { CardModal } from '../card/CardModal.tsx'
+import { LabelModal } from '../label/LabelModal.tsx'
 import { AddColumnForm } from './AddColumnForm.tsx'
 import { getBoard } from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
@@ -28,6 +29,7 @@ export function BoardPage() {
   const [openForm, setOpenForm] = useState<OpenForm>(null)
   const [openCardId, setOpenCardId] = useState<number | null>(null) // カード詳細を開いているカード
   const closeCard = useCallback(() => setOpenCardId(null), [])
+  const [labelsOpen, setLabelsOpen] = useState(false) // ヘッダーから開いたラベル管理（W-05）
 
   // その入力欄がまだ開いているときだけ閉じる
   // （名前の保存を待っている間に、別の入力欄を開いていたら、そちらは閉じない）
@@ -81,6 +83,7 @@ export function BoardPage() {
         isRenaming={openForm?.kind === 'renameBoard'}
         onStartRename={() => setOpenForm(renameBoardForm)}
         onEndRename={() => closeForm(renameBoardForm)}
+        onOpenLabels={() => setLabelsOpen(true)}
       />
       <main className={styles.scroll}>
         <div className={styles.board}>
@@ -111,6 +114,7 @@ export function BoardPage() {
         </div>
       </main>
       {openCardId !== null && <CardModal cardId={openCardId} onClose={closeCard} />}
+      {labelsOpen && <LabelModal onClose={() => setLabelsOpen(false)} />}
     </>
   )
 }
