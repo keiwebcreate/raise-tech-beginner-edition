@@ -51,4 +51,9 @@ public class Board {
 		return name;
 	}
 
+	// A-07 ボード名の変更
+	public void rename(String name) {
+		this.name = name;
+	}
+
 }

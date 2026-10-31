@@ -1,0 +1,11 @@
+/* モーダル（モックアップの style.css から移した） */
+.overlay {
+  position: fixed; inset: 0; z-index: 50; overflow-y: auto;
+  background: rgba(16, 24, 40, .45);
+  display: flex; align-items: flex-start; justify-content: center; padding: 48px 16px;
+}
+.modal { position: relative; max-width: 100%; background: var(--surface); border-radius: 12px; box-shadow: var(--shadow-modal); }
+
+@media (max-width: 640px) {
+  .overlay { padding: 16px; }
+}

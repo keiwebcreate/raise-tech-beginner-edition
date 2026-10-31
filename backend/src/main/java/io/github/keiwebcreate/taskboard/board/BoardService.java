@@ -10,6 +10,8 @@ import java.util.Map;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.keiwebcreate.taskboard.board.dto.BoardNameRequest;
+import io.github.keiwebcreate.taskboard.board.dto.BoardNameResponse;
 import io.github.keiwebcreate.taskboard.board.dto.BoardResponse;
 import io.github.keiwebcreate.taskboard.board.dto.ColumnWithCardsResponse;
 import io.github.keiwebcreate.taskboard.card.CardRepository;
@@ -67,6 +69,19 @@ public class BoardService {
 						cardsByColumnId.getOrDefault(column.getId(), List.of())))
 				.toList();
 		return new BoardResponse(board.getId(), board.getName(), labels, columnResponses);
+	}
+
+	/**
+	 * A-07 ボード名の変更（要件 B-01）。
+	 *
+	 * @throws NotFoundException ボードがないとき
+	 */
+	@Transactional
+	public BoardNameResponse rename(Long userId, BoardNameRequest request) {
+		Board board = boardRepository.findByUserId(userId)
+				.orElseThrow(NotFoundException::new);
+		board.rename(request.name().strip());
+		return BoardNameResponse.from(board);
 	}
 
 }

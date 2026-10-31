@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { ApiError } from '../../api/client.ts'
 import { MESSAGES } from '../../shared/lib/constants.ts'
+import { CardModal } from '../card/CardModal.tsx'
 import { AddColumnForm } from './AddColumnForm.tsx'
 import { getBoard } from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
@@ -9,14 +10,28 @@ import styles from './BoardPage.module.css'
 import { Column } from './Column.tsx'
 
 // 開いているその場の入力欄。一度に開くのは1つだけ（ほかを開いたら前のものは閉じる）
-type OpenForm = { kind: 'card'; columnId: number } | { kind: 'column' } | null
+type OpenForm =
+  | { kind: 'card'; columnId: number } // ＋ カードを追加
+  | { kind: 'column' } // ＋ リストを追加
+  | { kind: 'renameColumn'; columnId: number } // リスト名の変更
+  | { kind: 'renameBoard' } // ボード名の変更
+  | null
+
+function isSameForm(a: OpenForm, b: OpenForm): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
+}
 
 // W-03 ボード画面
 export function BoardPage() {
   const { board, dispatch } = useBoard()
   const [loadError, setLoadError] = useState<string | null>(null)
   const [openForm, setOpenForm] = useState<OpenForm>(null)
-  const closeForm = () => setOpenForm(null)
+  const [openCardId, setOpenCardId] = useState<number | null>(null) // カード詳細を開いているカード
+  const closeCard = useCallback(() => setOpenCardId(null), [])
+
+  // その入力欄がまだ開いているときだけ閉じる
+  // （名前の保存を待っている間に、別の入力欄を開いていたら、そちらは閉じない）
+  const closeForm = (form: OpenForm) => setOpenForm((current) => (isSameForm(current, form) ? null : current))
 
   // 画面を開いたときに、ボードを1回読み込む
   useEffect(() => {
@@ -58,29 +73,44 @@ export function BoardPage() {
     )
   }
 
+  const renameBoardForm: OpenForm = { kind: 'renameBoard' }
   return (
     <>
-      <BoardHeader boardName={board.name} />
+      <BoardHeader
+        boardName={board.name}
+        isRenaming={openForm?.kind === 'renameBoard'}
+        onStartRename={() => setOpenForm(renameBoardForm)}
+        onEndRename={() => closeForm(renameBoardForm)}
+      />
       <main className={styles.scroll}>
         <div className={styles.board}>
-          {board.columns.map((column) => (
-            <Column
-              key={column.id}
-              column={column}
-              labels={board.labels}
-              isAddingCard={openForm?.kind === 'card' && openForm.columnId === column.id}
-              onOpenAddCard={() => setOpenForm({ kind: 'card', columnId: column.id })}
-              onCloseAddCard={closeForm}
-            />
-          ))}
+          {board.columns.map((column) => {
+            const addCardForm: OpenForm = { kind: 'card', columnId: column.id }
+            const renameForm: OpenForm = { kind: 'renameColumn', columnId: column.id }
+            return (
+              <Column
+                key={column.id}
+                column={column}
+                labels={board.labels}
+                isAddingCard={isSameForm(openForm, addCardForm)}
+                onOpenAddCard={() => setOpenForm(addCardForm)}
+                onCloseAddCard={() => closeForm(addCardForm)}
+                isRenaming={isSameForm(openForm, renameForm)}
+                onStartRename={() => setOpenForm(renameForm)}
+                onEndRename={() => closeForm(renameForm)}
+                onOpenCard={setOpenCardId}
+              />
+            )
+          })}
           <AddColumnForm
             columnCount={board.columns.length}
             isOpen={openForm?.kind === 'column'}
             onOpen={() => setOpenForm({ kind: 'column' })}
-            onClose={closeForm}
+            onClose={() => closeForm({ kind: 'column' })}
           />
         </div>
       </main>
+      {openCardId !== null && <CardModal cardId={openCardId} onClose={closeCard} />}
     </>
   )
 }

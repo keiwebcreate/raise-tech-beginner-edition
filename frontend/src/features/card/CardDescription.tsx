@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
-import { linkify } from '../../shared/lib/linkify.ts'
+import { LinkifiedText } from '../../shared/ui/LinkifiedText.tsx'
 import styles from './CardDescription.module.css'
 
 // カードの説明（要件 C-09）。3行まで表示し、長いときは「もっと見る」で全文を開く
@@ -20,23 +20,7 @@ export function CardDescription({ text }: { text: string }) {
   return (
     <>
       <div ref={ref} className={`${styles.desc} ${expanded ? styles.expanded : ''}`}>
-        {linkify(text).map((part, i) =>
-          part.isUrl ? (
-            <a
-              key={i}
-              className={styles.link}
-              href={part.text}
-              target="_blank"
-              rel="noopener noreferrer"
-              // リンクを押したときに、カード（の詳細を開く操作）まで反応しないようにする
-              onClick={(e) => e.stopPropagation()}
-            >
-              {part.text}
-            </a>
-          ) : (
-            part.text
-          ),
-        )}
+        <LinkifiedText text={text} linkClassName={styles.link} />
       </div>
       {(expanded || cut) && (
         <button
@@ -44,7 +28,7 @@ export function CardDescription({ text }: { text: string }) {
           className={styles.toggle}
           aria-expanded={expanded}
           onClick={(e) => {
-            e.stopPropagation()
+            e.stopPropagation() // カード（の詳細を開く操作）まで反応しないようにする
             setExpanded(!expanded)
           }}
         >

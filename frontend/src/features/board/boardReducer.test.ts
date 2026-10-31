@@ -74,6 +74,33 @@ describe('boardReducer', () => {
     expect(before).toEqual(sampleBoard())
   })
 
+  it('boardRenamed：ボード名だけが変わる', () => {
+    const before = sampleBoard()
+
+    const next = boardReducer(before, { type: 'boardRenamed', name: '仕事用ボード' })
+
+    expect(next?.name).toBe('仕事用ボード')
+    expect(next?.columns).toBe(before.columns)
+  })
+
+  it('columnRenamed：指定したリストの名前だけが変わり、カードはそのまま', () => {
+    const before = sampleBoard()
+
+    const next = boardReducer(before, { type: 'columnRenamed', column: { id: 1, name: 'やること' } })
+
+    expect(next?.columns.map((column) => column.name)).toEqual(['やること', '作業中', '完了'])
+    expect(next?.columns[0].cards).toBe(before.columns[0].cards)
+  })
+
+  it('cardSaved：同じ ID のカードが置き換わり、場所は変わらない', () => {
+    const saved = { ...newCard(1, '会議の資料を仕上げる'), importance: 'LOW' as const, labelIds: [] }
+
+    const next = boardReducer(sampleBoard(), { type: 'cardSaved', card: saved })
+
+    expect(next?.columns[0].cards).toEqual([saved])
+    expect(next?.columns[1].cards).toEqual([])
+  })
+
   it('まだ読み込んでいない（null）ときは何もしない', () => {
     expect(boardReducer(null, { type: 'columnAdded', column: { id: 4, name: '保留' } })).toBeNull()
   })

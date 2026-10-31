@@ -44,6 +44,22 @@ export type ColumnWithCardsResponse = {
   cards: CardResponse[] // 上から順
 }
 
+// A-13 カードの保存で送る（カード詳細の全項目）
+export type CardRequest = {
+  title: string
+  description: string | null
+  importance: Level
+  urgency: Level
+  dueDate: string | null
+  labelIds: number[]
+}
+
+// A-07 ボード名の変更で返る
+export type BoardNameResponse = {
+  id: number
+  name: string
+}
+
 // A-06 ボードの取得（GET /api/board）
 export type BoardResponse = {
   id: number

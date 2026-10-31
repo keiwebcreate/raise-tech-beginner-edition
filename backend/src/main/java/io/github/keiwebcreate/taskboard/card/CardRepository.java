@@ -1,6 +1,7 @@
 package io.github.keiwebcreate.taskboard.card;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -22,6 +23,9 @@ public interface CardRepository extends JpaRepository<Card, Long> {
 			order by c.position
 			""")
 	List<Card> findAllForBoard(Long boardId);
+
+	// 自分のカード1件。ID と「持ち主（カード → リスト → ボード → ユーザー）」の両方を条件にして探す（詳細設計書 3.5）
+	Optional<Card> findByIdAndColumnBoardUserId(Long cardId, Long userId);
 
 	// リストのカードの数（上限の確認と、一番下に追加するときの位置に使う）
 	long countByColumnId(Long columnId);
