@@ -282,6 +282,8 @@ sequenceDiagram
 
 - Spring Security の SPA 向けの設定を使う。`CookieCsrfTokenRepository.withHttpOnlyFalse()` で Cookie `XSRF-TOKEN` を渡し、ヘッダー `X-XSRF-TOKEN` と照合する（API設計書 2.3）
 - Cookie が確実に返るように、すべてのレスポンスでトークンを読み込む設定にする（ひな形を作るときに、そのバージョンの Spring Security の公式ドキュメントの書き方に合わせる）
+- ログアウト（と、ユーザーが消えていたときの A-05）では、古いトークンを消したあとで新しいトークンを Cookie で返す（2026-10-31 に追加。イシュー #37）。ログイン画面は API を呼ばないので、これがないと、再読み込みせずにログイン・ゲストログインすると 403 になる
+- テストの注意：MockMvc の `with(csrf())` は、CSRF の確認をする部品（アプリ全体で1つ）のトークンの保存先を、Cookie を使わないテスト用のものに差し替えたままにする。Cookie の動きを確かめるテストは、新しく起動したアプリ（`@DirtiesContext`）で `with(csrf())` を使わずに書く（`CsrfCookieTest`）
 
 #### 3.8.5 ユーザー登録（A-01）とゲスト（A-03）
 
@@ -295,15 +297,16 @@ sequenceDiagram
 
 ゲスト：
 
-1. メールアドレス `guest-（ランダムな文字列）@guest.local`、ランダムなパスワードのハッシュで users を作る（`is_guest = true`）
-2. `GuestSampleData` でボード・リスト・カード・ラベルを作る（中身は1章のとおり、モックアップと同じ）
+1. メールアドレス `guest-（ランダムな文字列）@guest.local`、ランダムなパスワードのハッシュで users を作る（`is_guest = true`）。ランダムな文字列とパスワードは `UUID.randomUUID()`
+2. `GuestSampleData` でボード・リスト・カード・ラベルを作る（中身は1章のとおり、モックアップと同じ）。期限の「今日」は日本の日付（`Asia/Tokyo`）で数える。サーバーは UTC で動くので、そのままだと日本の朝9時より前は前の日になるため
 3. ログイン状態にする
 
 #### 3.8.6 ログアウト（A-04）とゲストの削除
 
-- ログアウト：ゲストなら users の行を削除する（関連データは `ON DELETE CASCADE` で消える）。そのあとセッションを破棄する
+- ログアウト：ゲストなら users の行を削除する（`deleteGuestById`。ゲストでない行は消さない。関連データは `ON DELETE CASCADE` で消える）。そのあとセッションを破棄する
 - `GuestCleanupJob`：`@Scheduled(cron = "0 0 * * * *")`（毎時0分）で `deleteGuestsCreatedBefore(現在時刻(UTC) − 24時間)` を呼ぶ（テーブル設計書 5章）。起動クラスに `@EnableScheduling` を付ける
-- 削除されたゲストのセッションが残っていた場合：`GET /api/auth/me` はユーザーが見つからなければセッションを破棄して 401 を返す。ほかのAPIはボードなどが見つからないので 404 になる
+- 削除されたゲストのセッションが残っていた場合：`GET /api/auth/me` はユーザーが見つからなければセッションを破棄して 401 を返す（Spring Security の `InsufficientAuthenticationException` を投げ、`ApiExceptionHandler` が 401 UNAUTHENTICATED にする）。ほかのAPIはボードなどが見つからないので 404 になる
+- ゲストの作成の回数制限（要件 U-10）は、ログイン失敗の回数制限と一緒に作る（7章。AWS で公開する前に必ず作る）
 
 #### 3.8.7 退会（A-19）
 

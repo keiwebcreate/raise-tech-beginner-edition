@@ -63,6 +63,23 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* ゲストの札と、ヘッダーの下の注意書きの帯（要件 U-07） */
+.guestBadge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: #fff4d6;
+  color: #8a5a00;
+}
+.guestBar {
+  flex: none;
+  background: #fff8e1;
+  color: #6b4a00;
+  border-bottom: 1px solid #f3e1a6;
+  padding: 8px 20px;
+  font-size: 13px;
+}
 
 /* スマートフォン（要件 5.1） */
 @media (max-width: 640px) {
@@ -82,5 +99,8 @@
   }
   .user {
     max-width: 160px;
+  }
+  .guestBar {
+    padding: 8px 16px;
   }
 }

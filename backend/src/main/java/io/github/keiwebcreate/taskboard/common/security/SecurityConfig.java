@@ -36,7 +36,8 @@ public class SecurityConfig {
 		http
 				.authorizeHttpRequests(authorize -> authorize
 						// ログインしていなくても呼べる API。ログアウトはセッションが切れていても 204 を返すため（A-04）
-						.requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login", "/api/auth/logout")
+						.requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login", "/api/auth/guest",
+								"/api/auth/logout")
 						.permitAll()
 						.anyRequest().authenticated())
 				.csrf(csrf -> csrf

@@ -17,8 +17,8 @@ type Props = {
   onOpenLabels?: () => void // 「ラベル管理」（W-05）を開く。読み込み中・失敗したときは undefined（ボタンを出さない）
 }
 
-// 画面の上のヘッダー
-// メニュー（退会）は、退会の機能を作るときに足す
+// 画面の上のヘッダー。ゲストのときは「ゲスト」の札と、ヘッダーの下に注意書きの帯を出す（画面設計書 W-03、要件 U-07）
+// メニュー（退会）は、退会の機能を作るときに足す（ゲストには出さない）
 export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEndRename, onOpenLabels }: Props) {
   const { user, logout } = useAuth()
   const { dispatch } = useBoard()
@@ -46,39 +46,50 @@ export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEn
   }
 
   return (
-    <header className={styles.header}>
-      <span className={styles.appName}>TaskBoard</span>
-      {boardName !== undefined && (
-        <>
-          <span className={styles.sep} />
-          <h1 className={styles.heading}>
-            <InlineEdit
-              value={boardName}
-              label="ボード名"
-              isEditing={isRenaming}
-              onStartEdit={() => onStartRename?.()}
-              onEndEdit={() => onEndRename?.()}
-              validate={(value) => validateText(value, 'ボード名', MAX_LENGTH.boardName)}
-              onSave={rename}
-              displayClassName={styles.boardName}
-              inputClassName={styles.boardNameEdit}
-            />
-          </h1>
-        </>
-      )}
-      {user && (
-        <div className={styles.right}>
-          {onOpenLabels && (
-            <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={onOpenLabels}>
-              ラベル管理
+    <>
+      <header className={styles.header}>
+        <span className={styles.appName}>TaskBoard</span>
+        {boardName !== undefined && (
+          <>
+            <span className={styles.sep} />
+            <h1 className={styles.heading}>
+              <InlineEdit
+                value={boardName}
+                label="ボード名"
+                isEditing={isRenaming}
+                onStartEdit={() => onStartRename?.()}
+                onEndEdit={() => onEndRename?.()}
+                validate={(value) => validateText(value, 'ボード名', MAX_LENGTH.boardName)}
+                onSave={rename}
+                displayClassName={styles.boardName}
+                inputClassName={styles.boardNameEdit}
+              />
+            </h1>
+          </>
+        )}
+        {user && (
+          <div className={styles.right}>
+            {onOpenLabels && (
+              <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={onOpenLabels}>
+                ラベル管理
+              </button>
+            )}
+            {user.isGuest ? (
+              <span className={styles.guestBadge}>ゲスト</span>
+            ) : (
+              <span className={styles.user}>{user.email}</span>
+            )}
+            <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
+              ログアウト
             </button>
-          )}
-          <span className={styles.user}>{user.email}</span>
-          <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
-            ログアウト
-          </button>
+          </div>
+        )}
+      </header>
+      {user?.isGuest && (
+        <div className={styles.guestBar} role="note">
+          ゲストモード：データはログアウトするか24時間たつと削除されます
         </div>
       )}
-    </header>
+    </>
   )
 }
