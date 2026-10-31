@@ -2,6 +2,10 @@
 
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
+**最初にすること**
+1. PR #34（ラベル管理）がマージ済みかを `gh pr view 34` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 講義の次の回の画面を私が貼るので、それを見て次にやることを決める（下の「次にやること」）
+
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
 2. `CLAUDE.md`：AI が守るルール（GitHub の運用・サーバーのポート・コードの書き方・コマンド）
@@ -21,6 +25,7 @@
 - 作業ごとに **イシュー → ブランチ → PR → 私が GitHub の画面で Squash and merge**（`CLAUDE.md` の「GitHub の運用ルール」）。イシューは作る前に中身を見せる
 - 画面ができたら、私がブラウザで確かめてから PR を作る。確かめる手順（何を押すと何が起きるか）を示してほしい
 - 機能を作ったら、README の「進み具合」と、この引き継ぎ書も直す
+- 応答はすべて日本語（`C:\dev\Raise_Tech\.claude\CLAUDE.md`）
 
 ## 今の状態（2026-10-31）
 
@@ -80,7 +85,9 @@
   - ボードのデータは `BoardContext` の `boardReducer` だけで変える。API が成功してから、返ってきたデータで action を送る
   - 共通の部品は `shared/ui/`（`Modal`・`ConfirmDialog`・`InlineForm`・`InlineEdit`・`LinkifiedText`・`ToastProvider`）。共通の見た目（ボタン・入力欄）は `styles/global.css`
   - 一度に開くその場の入力欄は1つだけ（`BoardPage` の `openForm`）
-  - リンターは oxlint（Vite のひな形のまま。ESLint から変更）
+  - モーダルは `shared/ui/Modal`（HTML の `<dialog>` を `showModal()`）。Esc は `cancel` で受け取り、Tab はモーダルの中だけを回す。開いたときのカーソルの位置は `data-autofocus`（`autoFocus` は使わない）
+  - 押せるものは `<button>`。中にリンクがあって全体をボタンにできないとき（カード）は、見えないボタンを全体に広げる。メニュー・一覧の Esc は `useEscapeKey`
+  - チェックは oxlint・Prettier。規則はすべて「エラー」（指摘が1件でも失敗）
 
 ## 開発環境（Windows 11）
 | もの | 状態 |
@@ -97,6 +104,8 @@
   - ポートを使っているプロセスを Claude が止めようとすると、Claude Code の許可で止められることがある。そのときは私に止めてもらう
 - ポート 3306 は別プロジェクト（cytech_step9_app）の Docker MySQL。触らないこと
 - Git Bash で `docker exec` にコンテナ内のパスを渡すときは `MSYS_NO_PATHCONV=1` が必要
+- **画面の動きを自動で確かめる方法**：スクラッチパッド（チャットごとの作業用フォルダ）に `puppeteer-core` を入れ、パソコンの Chrome（`C:/Program Files/Google/Chrome/Application/chrome.exe`）を画面なしで動かした。プロジェクトには入れていない。新しいチャットでは、スクラッチパッドに入れ直す。`demo` のデータを変えないように、毎回新しいユーザーを登録して試す（開発用の DB に `label-（数字）@example.com` などが残っている）
+- サーバーのコードを変えたら、Spring Boot を起動し直す（Vite は自動で読み込むが、Spring Boot は読み込まない）。`bootRun` は開発用の設定（プロファイル `dev`）で起動し、SQL をログに出す
 - 2026-10-25 に、OneDrive のファイルロックで Gradle が失敗したため、フォルダを OneDrive の外（`C:\dev\Raise_Tech`）に移した。OneDrive の中に開発フォルダを置かないこと
 
 ## Git・GitHub
@@ -104,4 +113,5 @@
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
 - これまでのイシューと PR：#1〜#34（イシューと PR は番号を共有している）。#33（ラベル管理）の PR が #34
-- パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）
+- パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
+- `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい
