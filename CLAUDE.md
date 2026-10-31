@@ -97,3 +97,4 @@ GitHub の操作（イシュー・PR・設定）は `gh` コマンドで行う�
 - 画面は Vitest で、ロジックのある部分（期限の表示、URLのリンク化、入力チェック、`boardReducer`）だけ
 - 変更したら、関係するテストを実行して結果を報告する
 - PR を作る前に、サーバーは `./gradlew check`、画面は `npm run lint`・`npm run format:check`・`npm test` を通す。チェックの道具と規則は `docs/detailed-design.md` 5.2
+- 品質チェック（自動チェック ＋ AI の見直し）は、スキル **`quality-check`**（`.claude/skills/quality-check/SKILL.md`）の手順で行う。PR を作る前は「差分だけ」で行う
