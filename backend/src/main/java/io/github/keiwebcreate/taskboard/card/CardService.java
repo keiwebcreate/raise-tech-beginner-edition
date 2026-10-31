@@ -15,6 +15,7 @@ import io.github.keiwebcreate.taskboard.column.BoardColumnRepository;
 import io.github.keiwebcreate.taskboard.common.config.LimitsProperties;
 import io.github.keiwebcreate.taskboard.common.error.LimitExceededException;
 import io.github.keiwebcreate.taskboard.common.error.NotFoundException;
+import io.github.keiwebcreate.taskboard.common.position.Positions;
 import io.github.keiwebcreate.taskboard.label.Label;
 import io.github.keiwebcreate.taskboard.label.LabelRepository;
 
@@ -85,6 +86,23 @@ public class CardService {
 				new HashSet<>(labels));
 		// @Transactional のメソッドが終わるときに、変えた値が UPDATE 文で DB に書き込まれる（save を呼ばなくてよい）
 		return CardResponse.from(card);
+	}
+
+	/**
+	 * A-14 カードの削除（要件 C-03）。そのリストに残ったカードの並び順を振り直す。
+	 *
+	 * @throws NotFoundException 他人のカード・存在しないカードのとき
+	 */
+	@Transactional
+	public void delete(Long userId, Long cardId) {
+		Card card = cardRepository.findByIdAndColumnBoardUserId(cardId, userId)
+				.orElseThrow(NotFoundException::new);
+		Long columnId = card.getColumn().getId();
+
+		// 付いていたラベルとのつながり（card_labels の行）も一緒に消える
+		cardRepository.delete(card);
+		// 残ったカードを上から順に取って、0 から付け直す（消したカードはもう含まれない）
+		Positions.renumber(cardRepository.findByColumnIdOrderByPosition(columnId));
 	}
 
 	// 説明が空（空白だけも含む）なら「説明なし」として null で保存する（API設計書 2.5）

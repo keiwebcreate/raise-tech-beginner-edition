@@ -2,7 +2,8 @@
 .head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 16px 20px 0; }
 .small { font-size: 12px; }
 .body { padding: 16px 20px; }
-.foot { display: flex; align-items: center; justify-content: flex-end; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); }
+.foot { display: flex; align-items: center; gap: 8px; padding: 12px 20px; border-top: 1px solid var(--border); }
+.spacer { flex: 1; } /* 左に「カードを削除」、右に「キャンセル」「保存」を寄せる */
 
 .titleInput { font-size: 16px; font-weight: 600; }
 .fieldLabel { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }

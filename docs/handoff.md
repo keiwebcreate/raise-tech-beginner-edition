@@ -94,6 +94,10 @@
   - サーバー：A-13 `PUT /api/cards/{id}`（`Card.update`。ラベルは `findAllByIdInAndUserId` で自分のものだけを取り、数が足りなければ 404。説明が空なら null）、A-09 `PATCH /api/columns/{id}`、A-07 `PATCH /api/board`。`UpdateApiTest` 10件（ラベルは API がまだないので JdbcTemplate で入れる）。サーバーのテストは全部で39件
   - 画面：`Modal`（重ねて開ける。Esc は一番上だけ）・`ConfirmDialog`（W-06）・`InlineEdit`（その場での名前の変更）・`LinkifiedText`、`CardModal`（W-04。下書きを編集して「保存」でまとめて送る。変更があれば閉じる前に確認）、`LabelPicker`（今あるラベルの付け外し。「ラベルを管理」はまだ）、`boardReducer` に `cardSaved`・`columnRenamed`・`boardRenamed`。画面のテストは全部で31件
   - 確認用に、`demo@example.com` にラベル（仕事・買い物・あとで）を SQL で足した
+- 済み（2026-10-31）：**Delete：カードとリストの削除**（イシュー #23。講義の Delete）
+  - サーバー：並び順の振り直しの共通部品 `common/position`（`Positioned`・`Positions.renumber`。`Card`・`BoardColumn` が実装。ドラッグ＆ドロップでも使う）、A-14 `DELETE /api/cards/{id}`、A-10 `DELETE /api/columns/{id}`（中のカードは DB の CASCADE で消える）。`PositionsTest` 4件（DB を使わない単体テスト）・`DeleteApiTest` 7件（position は JdbcTemplate で DB を直接見て確かめる）。サーバーのテストは全部で50件
+  - 画面：カード詳細の「カードを削除」、リストの「…」メニュー（`ColumnMenu`）→「リストを削除」、どちらも `ConfirmDialog` で確認。`useOutsideClick`（メニューや一覧の外のクリックで閉じる。`LabelPicker` も使う）、`boardReducer` に `cardDeleted`・`columnDeleted`。画面のテストは全部で33件
+  - 次は **ラベル管理（W-05・A-16〜A-18）** と決定（2026-10-31）
 - 済み（2026-10-31）：**README**（イシュー #17。講義の指示）。読み手はポートフォリオを見る人＋手元で動かしたい人。AI を使っていることは一文だけ。`frontend/README.md`（Vite のひな形の説明）は消した。GitHub の About 欄にも説明を入れた。機能を作ったら README の「進み具合」も直す。スクリーンショットは見た目がそろってから足す
 - 済み（2026-10-31）：**使っているバージョンの一覧**を `detailed-design.md` 5.1 にまとめた（イシュー #13）。要件定義書 6章からも参照。バージョンを上げたら 5.1 も直す
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ

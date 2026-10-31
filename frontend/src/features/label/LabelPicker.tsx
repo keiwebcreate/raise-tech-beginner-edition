@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import type { LabelResponse } from '../../api/types.ts'
+import { useOutsideClick } from '../../shared/lib/useOutsideClick.ts'
 import { LabelChip } from './LabelChip.tsx'
 import styles from './LabelPicker.module.css'
 
@@ -18,14 +19,8 @@ export function LabelPicker({ labels, selectedIds, onToggle }: Props) {
   const selected = labels.filter((label) => selectedIds.includes(label.id))
 
   // 一覧の外をクリックしたら閉じる
-  useEffect(() => {
-    if (!open) return
-    function handleMouseDown(event: MouseEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleMouseDown)
-    return () => document.removeEventListener('mousedown', handleMouseDown)
-  }, [open])
+  const close = useCallback(() => setOpen(false), [])
+  useOutsideClick(rootRef, open, close)
 
   return (
     <div

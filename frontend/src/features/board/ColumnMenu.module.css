@@ -1,0 +1,13 @@
+/* 「…」メニュー（モックアップの style.css から移した） */
+.anchor { position: relative; }
+.menu {
+  position: absolute; z-index: 20; right: 0; top: 32px; width: 200px; background: var(--surface);
+  border-radius: 8px; box-shadow: var(--shadow-modal); padding: 6px;
+}
+.title {
+  font-size: 12px; color: var(--muted); text-align: center;
+  padding: 4px 0 6px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+}
+.menu button { display: block; width: 100%; text-align: left; padding: 6px 10px; border: 0; background: transparent; border-radius: 4px; }
+.menu button:hover { background: var(--list-bg); }
+.danger { color: var(--danger); }

@@ -2,6 +2,7 @@ package io.github.keiwebcreate.taskboard.card;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -40,6 +41,13 @@ public class CardController {
 	public CardResponse save(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long cardId,
 			@Valid @RequestBody CardRequest request) {
 		return cardService.save(loginUser.getId(), cardId, request);
+	}
+
+	// A-14 カードの削除。成功したら 204（中身なし）
+	@DeleteMapping("/api/cards/{cardId}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long cardId) {
+		cardService.delete(loginUser.getId(), cardId);
 	}
 
 }
