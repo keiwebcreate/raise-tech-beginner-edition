@@ -58,6 +58,13 @@ GitHub の操作（イシュー・PR・設定）は `gh` コマンドで行う�
 | `mockup/` | モックアップ | `npx serve mockup`（`beginner_version` で実行） | なし |
 
 - 開発中は `http://localhost:5173` を開く。`/api` は Vite が Spring Boot（8080）へ転送する
+
+### サーバーの起動とポート（必ず守る）
+
+- ポートは **5173（Vite）・8080（Spring Boot）・5432（PostgreSQL）** に決めている。**別のポートでは起動しない**（`--port` や設定の書き換えで、一時的にずらすことも含む）。ずらすと `/api` の転送先や DB の接続先とずれて動かない
+- 動作確認でサーバーを起動・停止するときは、スキル **`dev-servers`**（`.claude/skills/dev-servers/SKILL.md`）の手順で行う
+- ポートが使われていたら、使っているものを止めてから、決まったポートで起動する（何が使っていても止めてよい）
+- Vite は `strictPort: true` にしてあるので、5173 が使われているとエラーで止まる（5174 などに勝手にずれない）
 - DB は Docker の PostgreSQL 18（`compose.yaml`。ポート 5432）、DB名は `task_app`、アプリ用ユーザーは `task_app_user`。`beginner_version` で `docker compose up -d` で起動、`docker compose stop` で停止
 - Windows に直接入れた PostgreSQL 18（サービス `postgresql-x64-18`）と MySQL 8.4（サービス `MySQL84`・ポート 3307）は使わない（止めて残してある）。3306 は別のプロジェクトの Docker なので触らない
 - DBのパスワードなどの秘密情報は、コードにもGitにも書かない。環境変数（`DB_URL`・`DB_USERNAME`・`DB_PASSWORD`）で渡す。`DB_PASSWORD` は Windows のユーザー環境変数に登録してあり、`compose.yaml` と Spring Boot の両方がそれを読む（`DB_URL`・`DB_USERNAME` は省略するとローカル用の初期値）

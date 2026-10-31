@@ -78,6 +78,9 @@
   - 済み（2026-10-31）：**① フロントエンドの環境**（イシュー #5）。`frontend/` を create-vite 9.3.3（React 19・TypeScript 7・Vite 8）で作成。Vitest 5 を追加（`npm test` ＝ `vitest run`）。`/api` は 8080 へ転送。`styles/variables.css`・`global.css` はモックアップから移した。リンターはひな形の **oxlint** のまま（設計書の ESLint から変更）
   - 済み（2026-10-31）：**② ボード画面にデータを表示する**（イシュー #7）：`api/types.ts`・`client.ts`（`ApiError`・CSRF ヘッダー。401 の処理はログインのとき）・`boardApi`、MSW 3（`src/mocks/`。開発中だけ動く。サンプルはモックアップのゲスト用と同じ中身）、`BoardContext`・`BoardProvider`＋`boardReducer`（`loaded` だけ）、React Router 8（`/` と 404）、`BoardPage`・`BoardHeader`・`Column`・`CardItem`・`CardDescription`・`LabelChip`（表示だけ）、`shared/lib` の `due`・`linkify`・`constants`。Vitest 14件
   - 共通のボタン（`.btn`・`.btn-primary`）と `.muted` は `styles/global.css` に置いた（どの画面でも使うため）
+- 済み（2026-10-31）：**サーバーのポートのルール**（イシュー #9。講義の指示）：ポートは 5173・8080・5432 から変えず、使われていたら止めてから起動する（何が使っていても止めてよい、と決定）。Vite に `strictPort: true`、スキル `dev-servers`（`beginner_version/.claude/skills/`）、`CLAUDE.md` に記載
+- 済み（2026-10-31）：**CORS は設定しない**と `api-design.md` 2.3 に明記（同じオリジンのため。本番も同じドメインにする）
+- 次の一歩の候補：ログイン（`auth`）→ `BoardController` をつなぎ MSW を外す → 変更の機能（追加・変更・削除・モーダル・ドラッグ＆ドロップ）。講義の次の回に合わせて決める
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ
 - バージョンは、そのときの最新の安定版にする
 
