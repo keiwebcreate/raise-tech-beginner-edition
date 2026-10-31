@@ -35,13 +35,15 @@
 | ラベルの付け外し | A-13 の `labelIds` | カード詳細の「＋」（今あるラベルだけ） |
 
 - テスト：サーバー 50件（`./gradlew test`）、画面 33件（`npm test`）。すべて成功
+- コードのチェック（#27）：サーバーは Checkstyle・SpotBugs（`./gradlew check`）、画面は oxlint の規則を足し、Prettier を入れた（`npm run lint`・`npm run format:check`）。道具と規則は `detailed-design.md` 5.2
 - 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は SQL で入れたもの（ラベルを作る画面がまだないため）
 
 **まだないもの**
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| **ラベル管理**（追加・変更・削除） | T-01・T-03、W-05、A-16〜A-18 | **次にやると決定**。入口はヘッダーの「ラベル管理」と、カード詳細のラベル一覧の下の「ラベルを管理」 |
+| **品質チェックの指摘の修正** | 講義 初級編16 | **次にやる**（下の「次にやること」） |
+| **ラベル管理**（追加・変更・削除） | T-01・T-03、W-05、A-16〜A-18 | 品質チェックの次にやる。入口はヘッダーの「ラベル管理」と、カード詳細のラベル一覧の下の「ラベルを管理」 |
 | ドラッグ＆ドロップ（並び替え・移動） | L-05・C-04、A-11・A-15 | @hello-pangea/dnd。並び順の振り直しの部品 `Positions.renumber` はもうある |
 | ゲストログイン・24時間後の削除 | U-06〜U-08、A-03 | サンプルデータはモックアップのゲスト用と同じ。ログイン画面の「ゲストとして試す」もこのとき |
 | 退会 | U-11、W-08、A-19 | ヘッダーのメニュー（▾）もこのとき |
@@ -52,10 +54,46 @@
 | 見直し（急がない） | | 要件：改訂履歴・前提条件と制約・非機能要件の ID・受け入れ基準。テーブル：論理名と物理名・CRUD 表 |
 
 ## 次にやること
-**ラベル管理（W-05・A-16 追加・A-17 変更・A-18 削除）**。イシューの案を作って見せるところから。
+講義（初級編16「AIを使った品質チェック方法」）に合わせて、品質チェックをしている。講義では、AI にコード全体を見直させ（要件・設計書と比べて、よくない点や React・Spring Boot の標準から外れた点を指摘させる）、lint を入れていた。
+
+1. ~~チェックの道具を入れる（#27）~~
+2. **見つかった指摘を直す**（次のイシュー。イシューの案を作って見せるところから）
+3. そのあと、ラベル管理
+
+**直す指摘の一覧**
+
+AI の見直しで見つけたもの：
+
+| # | 場所 | 内容 |
+|---|---|---|
+| 1 | サーバー | URL の ID に数字以外（`/api/cards/abc`）が来ると 500 になり、エラーログも出る。Spring 標準の `ResponseEntityExceptionHandler` を継承して直す |
+| 2 | 画面＋サーバー | 画面は前後の空白を除いて文字数を確かめるが、送るのは空白付きのまま。サーバーは空白付きで数えるので、食い違う（カードの追加・リストの追加・カード詳細のタイトル）。画面から送る前に空白を除く |
+| 3 | 画面 | 説明文の URL のリンクが、後ろの日本語まで含む（「https://example.comを見て」）。URL に使える半角の文字だけをリンクにする |
+| 4 | サーバー | 同じメールアドレスでほぼ同時に登録すると 500。DB の一意制約のエラーを 409 にする（ラベル名の重複も同じ形になる） |
+| 5 | サーバー | `show-sql: true` が本番を含むすべての環境で有効。開発のときだけにする |
+| 6 | 画面 | モーダルで Tab キーが後ろの画面に抜ける。HTML の `<dialog>` 要素にする |
+| 7 | 画面 | カード（`<article>`）にボタンとしての意味がなく、Space キーで開かない |
+| 10 | サーバー | `NotFoundException` の古いコメント、`backend/HELP.md` の削除 |
+
+道具が見つけたもの（今は「警告」にしてある。直したら `detailed-design.md` 5.2 の3か所を元に戻す）：
+
+| 道具 | 場所 | 内容 |
+|---|---|---|
+| Checkstyle | `ApiExceptionHandler.java:64`、`DeleteApiTest.java:106` | 1行が120文字を超えている |
+| SpotBugs | `AuthService.login`（`getPrincipal()`）、`ApiExceptionHandler.handleValidation`（`getBody()`） | null かもしれない戻り値を、確かめずに使っている |
+| SpotBugs | `DeleteApiTest`・`UpdateApiTest.addLabel`（`queryForObject()`） | 同上（テスト） |
+| oxlint | `Modal.tsx` | `role="dialog"` より `<dialog>` を使う、背景の `div` のクリック（#6 と一緒に直す） |
+| oxlint | `CardItem.tsx` | 押せない要素に `tabIndex` とクリック（#7 と一緒に直す） |
+| oxlint | `CardModal.tsx:240` | `role="button"` の `div` より `<button>` を使う（説明の表示） |
+| oxlint | `ColumnMenu.tsx`・`LabelPicker.tsx` | `div` に Esc の `onKeyDown` がある（役割のない要素へのイベント） |
+| oxlint | `ConfirmDialog.tsx`・`InlineEdit.tsx`・`CardModal.tsx` | `autoFocus`。開いたときにカーソルを置くための意図的なもの。残すなら、規則を外す理由を設定に書く |
+| oxlint | `CardDescription.tsx:18` | effect の依存に、中で使っていない `text` がある（文字が変わったら高さを測り直すための意図的なもの） |
+| oxlint | `AuthProvider.tsx:55` | `useCallback` の依存が余分と判定された。理由を調べる |
+
+ラベル管理のメモ（品質チェックのあとで使う）：
 - 使い回せる部品：`Modal`・`ConfirmDialog`・`useToast`・`useOutsideClick`・`InlineForm` の考え方、サーバーの `LimitsProperties`（ラベル30個）・`LimitExceededException`
 - 新しく要るもの：`LabelNameDuplicatedException`（409 LABEL_NAME_DUPLICATED）、8色のチェック（`LabelColor`）、`boardReducer` の `labelAdded`・`labelUpdated`・`labelDeleted`（`labelDeleted` はカードの `labelIds` からも外す）
-- 講義の次の回の内容も確かめてから決める
+- イシューの案は、前のチャットで一度見せている（サーバーと画面を1つのイシューにまとめる形）
 
 ## 作り方の要点（実装で決めたこと）
 - **サーバー**（`backend/`、パッケージ `io.github.keiwebcreate.taskboard`）
@@ -92,5 +130,5 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#26（イシューと PR は番号を共有している）。#26（この引き継ぎ書の更新）のマージ後は、開いているイシューはない
+- これまでのイシューと PR：#1〜#28（イシューと PR は番号を共有している）。#27（チェックの道具）の PR が #28
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）

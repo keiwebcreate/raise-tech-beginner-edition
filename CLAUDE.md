@@ -53,8 +53,8 @@ GitHub の操作（イシュー・PR・設定）は `gh` コマンドで行う�
 
 | フォルダ | 中身 | 起動 | テスト |
 |---|---|---|---|
-| `backend/` | Spring Boot（Java 25・Gradle） | `./gradlew bootRun` | `./gradlew test` |
-| `frontend/` | React（Vite・TypeScript） | `npm run dev` | `npm test`（チェックは `npm run lint`、本番用の作成は `npm run build`） |
+| `backend/` | Spring Boot（Java 25・Gradle） | `./gradlew bootRun` | `./gradlew test`（テストとチェック〈Checkstyle・SpotBugs〉をまとめて走らせるのは `./gradlew check`） |
+| `frontend/` | React（Vite・TypeScript） | `npm run dev` | `npm test`（チェックは `npm run lint` と `npm run format:check`、書き方を直すのは `npm run format`、本番用の作成は `npm run build`） |
 | `mockup/` | モックアップ | `npx serve mockup`（`beginner_version` で実行） | なし |
 
 - 開発中は `http://localhost:5173` を開く。`/api` は Vite が Spring Boot（8080）へ転送する
@@ -96,3 +96,4 @@ GitHub の操作（イシュー・PR・設定）は `gh` コマンドで行う�
 - サーバーは JUnit（DBは Testcontainers の PostgreSQL）。所有者の確認・並び順・上限・入力チェック・ログインを中心に書く
 - 画面は Vitest で、ロジックのある部分（期限の表示、URLのリンク化、入力チェック、`boardReducer`）だけ
 - 変更したら、関係するテストを実行して結果を報告する
+- PR を作る前に、サーバーは `./gradlew check`、画面は `npm run lint`・`npm run format:check`・`npm test` を通す。チェックの道具と規則は `docs/detailed-design.md` 5.2
