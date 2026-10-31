@@ -51,6 +51,19 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem(HttpStatus.CONFLICT, "EMAIL_DUPLICATED", e.getMessage());
 	}
 
+	@ExceptionHandler(LabelNameDuplicatedException.class)
+	ResponseEntity<ProblemDetail> handleLabelNameDuplicated(LabelNameDuplicatedException e) {
+		return problem(HttpStatus.CONFLICT, "LABEL_NAME_DUPLICATED", e.getMessage());
+	}
+
+	// Bean Validation では表せない入力のエラー。@Valid の失敗と同じ形（errors 付き）にする
+	@ExceptionHandler(FieldValidationException.class)
+	ResponseEntity<ProblemDetail> handleFieldValidation(FieldValidationException e) {
+		ProblemDetail body = problemDetail(HttpStatus.BAD_REQUEST, "VALIDATION_ERROR", MESSAGE_VALIDATION);
+		body.setProperty("errors", List.of(Map.of("field", e.getField(), "message", e.getMessage())));
+		return ResponseEntity.badRequest().body(body);
+	}
+
 	@ExceptionHandler(LimitExceededException.class)
 	ResponseEntity<ProblemDetail> handleLimitExceeded(LimitExceededException e) {
 		return problem(HttpStatus.CONFLICT, "LIMIT_EXCEEDED", e.getMessage());
