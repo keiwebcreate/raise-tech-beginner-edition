@@ -3,9 +3,12 @@
   padding: 8px; position: relative;
 }
 .head { display: flex; align-items: center; gap: 6px; padding: 2px 2px 8px; }
+.heading { flex: 1; min-width: 0; margin: 0; font-size: 14px; }
+/* リスト名（クリックすると入力欄に変わる） */
 .name {
-  flex: 1; min-width: 0; margin: 0; padding: 2px 6px;
-  font-size: 14px; font-weight: 600; word-break: break-word;
+  display: block; width: 100%; text-align: left; font-weight: 600; padding: 2px 6px; border-radius: 4px;
+  border: 0; background: transparent; word-break: break-word;
 }
+.name:hover { background: rgba(0, 0, 0, .06); }
 .count { font-size: 12px; color: var(--muted); background: rgba(0, 0, 0, .06); padding: 0 8px; border-radius: 999px; }
 .cards { display: flex; flex-direction: column; gap: 8px; min-height: 8px; }

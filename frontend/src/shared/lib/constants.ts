@@ -30,6 +30,13 @@ export const LABEL_COLORS = [
   { name: 'グレー', code: '#8b8d98', darkText: false },
 ]
 
+// 重要度・緊急度（API の値と画面の表示）
+export const LEVELS = [
+  { value: 'HIGH', text: '高' },
+  { value: 'MEDIUM', text: '中' },
+  { value: 'LOW', text: '低' },
+] as const
+
 // 画面に出すメッセージ（画面設計書 7章）
 export const MESSAGES = {
   required: (field: string) => `${field}を入力してください`,

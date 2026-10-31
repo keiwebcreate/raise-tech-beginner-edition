@@ -7,3 +7,8 @@ import type { ColumnResponse } from '../../api/types.ts'
 export function addColumn(name: string): Promise<ColumnResponse> {
   return apiFetch<ColumnResponse>('/api/columns', 'POST', { name })
 }
+
+// A-09 リスト名の変更
+export function renameColumn(columnId: number, name: string): Promise<ColumnResponse> {
+  return apiFetch<ColumnResponse>(`/api/columns/${columnId}`, 'PATCH', { name })
+}

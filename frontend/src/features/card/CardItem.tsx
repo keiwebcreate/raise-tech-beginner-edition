@@ -14,16 +14,26 @@ const IMPORTANCE_CLASS: Record<Level, string> = {
 type Props = {
   card: CardResponse
   labels: LabelResponse[] // ボードのラベル全部（作成順）
+  onOpen: () => void // カード詳細を開く
 }
 
-// リストの中のカード1枚（表示だけ。クリックで詳細を開く動きは、カード詳細を作るときに足す）
-export function CardItem({ card, labels }: Props) {
+// リストの中のカード1枚。クリック（または Tab で選んで Enter）でカード詳細を開く
+export function CardItem({ card, labels, onOpen }: Props) {
   // ボードのラベルの順番のまま、このカードに付いているものだけを選ぶ
   const cardLabels = labels.filter((label) => card.labelIds.includes(label.id))
   const showMeta = card.urgency === 'HIGH' || card.dueDate !== null
 
   return (
-    <article className={`${styles.card} ${IMPORTANCE_CLASS[card.importance]}`}>
+    <article
+      className={`${styles.card} ${IMPORTANCE_CLASS[card.importance]}`}
+      tabIndex={0}
+      aria-label={`${card.title}（クリックで詳細を開く）`}
+      onClick={onOpen}
+      onKeyDown={(e) => {
+        // カードの中のボタン（もっと見る）やリンクで押した Enter は、それぞれの動きに任せる
+        if (e.key === 'Enter' && e.target === e.currentTarget) onOpen()
+      }}
+    >
       {cardLabels.length > 0 && (
         <div className={styles.labels}>
           {cardLabels.map((label) => (

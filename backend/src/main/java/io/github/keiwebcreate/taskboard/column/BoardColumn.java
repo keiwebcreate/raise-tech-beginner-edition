@@ -59,4 +59,9 @@ public class BoardColumn {
 		return position;
 	}
 
+	// A-09 リスト名の変更
+	public void rename(String name) {
+		this.name = name;
+	}
+
 }

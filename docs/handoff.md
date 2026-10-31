@@ -90,6 +90,10 @@
 - 済み（2026-10-31）：**Create：カードとリストの追加**（イシュー #19。講義の Create）
   - サーバー：A-08 `POST /api/columns`（`ColumnService`・`ColumnController`）、A-12 `POST /api/columns/{id}/cards`（`CardService`・`CardController`。持ち主の条件付きの `findByIdAndBoardUserId` で探す）、`LimitsProperties`（`app.limits`。起動クラスに `@ConfigurationPropertiesScan`）、`LimitExceededException`（409）。`CreateColumnAndCardApiTest` 9件（上限を小さくする設定で確かめる）。サーバーのテストは全部で29件
   - 画面：`InlineForm`（その場の入力欄。Enter で追加して続けて入力、Esc で閉じる、変換中の Enter は無視）、`AddCardForm`・`AddColumnForm`、通知（`ToastProvider`・`useToast`）、`boardReducer` に `columnAdded`・`cardAdded`。一度に開く入力欄は1つ（`BoardPage` の `openForm`）。画面のテストは全部で28件
+- 済み（2026-10-31）：**Update：カード詳細・リスト名・ボード名の変更**（イシュー #21。講義の Update。Delete は次の回）
+  - サーバー：A-13 `PUT /api/cards/{id}`（`Card.update`。ラベルは `findAllByIdInAndUserId` で自分のものだけを取り、数が足りなければ 404。説明が空なら null）、A-09 `PATCH /api/columns/{id}`、A-07 `PATCH /api/board`。`UpdateApiTest` 10件（ラベルは API がまだないので JdbcTemplate で入れる）。サーバーのテストは全部で39件
+  - 画面：`Modal`（重ねて開ける。Esc は一番上だけ）・`ConfirmDialog`（W-06）・`InlineEdit`（その場での名前の変更）・`LinkifiedText`、`CardModal`（W-04。下書きを編集して「保存」でまとめて送る。変更があれば閉じる前に確認）、`LabelPicker`（今あるラベルの付け外し。「ラベルを管理」はまだ）、`boardReducer` に `cardSaved`・`columnRenamed`・`boardRenamed`。画面のテストは全部で31件
+  - 確認用に、`demo@example.com` にラベル（仕事・買い物・あとで）を SQL で足した
 - 済み（2026-10-31）：**README**（イシュー #17。講義の指示）。読み手はポートフォリオを見る人＋手元で動かしたい人。AI を使っていることは一文だけ。`frontend/README.md`（Vite のひな形の説明）は消した。GitHub の About 欄にも説明を入れた。機能を作ったら README の「進み具合」も直す。スクリーンショットは見た目がそろってから足す
 - 済み（2026-10-31）：**使っているバージョンの一覧**を `detailed-design.md` 5.1 にまとめた（イシュー #13）。要件定義書 6章からも参照。バージョンを上げたら 5.1 も直す
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ

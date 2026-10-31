@@ -115,4 +115,19 @@ public class Card {
 		return Collections.unmodifiableSet(labels);
 	}
 
+	/**
+	 * カード詳細の保存（A-13）。所属するリストと並び順は変えない。
+	 * ラベルは、渡された一覧でまるごと置き換える（中間テーブル card_labels の行は JPA が足し引きする）。
+	 */
+	public void update(String title, String description, Level importance, Level urgency, LocalDate dueDate,
+			Set<Label> labels) {
+		this.title = title;
+		this.description = description;
+		this.importance = importance;
+		this.urgency = urgency;
+		this.dueDate = dueDate;
+		this.labels.clear();
+		this.labels.addAll(labels);
+	}
+
 }

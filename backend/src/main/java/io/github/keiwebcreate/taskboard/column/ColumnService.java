@@ -48,4 +48,17 @@ public class ColumnService {
 		return ColumnResponse.from(boardColumnRepository.save(column));
 	}
 
+	/**
+	 * A-09 リスト名の変更（要件 L-03）。
+	 *
+	 * @throws NotFoundException 他人のリスト・存在しないリストのとき
+	 */
+	@Transactional
+	public ColumnResponse rename(Long userId, Long columnId, ColumnRequest request) {
+		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
+				.orElseThrow(NotFoundException::new);
+		column.rename(request.name().strip());
+		return ColumnResponse.from(column);
+	}
+
 }
