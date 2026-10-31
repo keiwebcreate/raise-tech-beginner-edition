@@ -93,10 +93,8 @@ description: TaskBoard の品質チェック（自動チェック ＋ AI によ�
 ## つまずいた点のメモ
 
 - **Prettier でほぼ全部のファイルが「違う」と出る**：改行の形が原因。この PC の Git（`core.autocrlf=true`）が CRLF に変えている。`.prettierrc.json` の `endOfLine: auto` で対応済み。消さないこと
-- **一時的に「警告」にした規則**（2026-10-31 時点。品質チェックの指摘を直したら元に戻す。`detailed-design.md` 5.2）
-  - `backend/config/checkstyle/checkstyle.xml` の `LineLength` の `severity="warning"`
-  - `backend/build.gradle` の SpotBugs の `ignoreFailures = true`
-  - `frontend/.oxlintrc.json` で `"warn"` にした規則
+- **規則は全部「エラー」**：#27 で道具を入れたときは、今のコードに出た指摘の規則を一時的に「警告」にしたが、#31 で直して元に戻した。新しく規則を足すときも、指摘が残るなら同じように一時的に警告にして、すぐ直すイシューを作る
+- **oxlint の誤判定**：`react/memo-dependencies` は、`try … finally` の `finally` の中で使った値を「余分」と判定する。`finally` を使わない書き方にする（`detailed-design.md` 5.2）。道具の指摘が怪しいときは、スクラッチパッドで小さな例を作り、`npx oxlint -c .oxlintrc.json <フォルダ>` で試して確かめる
 - **SpotBugs で調べない指摘**（`backend/config/spotbugs/exclude.xml`）：`EI_EXPOSE_REP`・`EI_EXPOSE_REP2`（record の List と DI のコンストラクタがすべて当てはまる）、`VA_FORMAT_STRING_USES_NEWLINE`（テストの JSON の `\n`）
 - **oxlint で使わない規則**：`react/react-in-jsx-scope`（React 17 より前の規則）、`import/no-unassigned-import`（CSS の import を違反にする）
 - **SpotBugs の結果**は HTML だけに出る。件数は `build/reports/spotbugs/main.html`・`test.html` の「Total Warnings」

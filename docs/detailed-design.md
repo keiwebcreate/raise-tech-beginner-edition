@@ -195,13 +195,13 @@ Service は次の独自の例外を投げる。`common/error/ApiExceptionHandler
 | `GuestNotAllowedException` | 403 | GUEST_NOT_ALLOWED | ゲストの退会 |
 | `LoginFailedException` | 401 | LOGIN_FAILED | ログイン失敗 |
 
-Spring が投げる例外も同じ形にそろえる：
+Spring が投げる例外も同じ形にそろえる。`ApiExceptionHandler` は Spring 標準の `ResponseEntityExceptionHandler` を継承する。Spring MVC の例外は、これが正しいステータスを決めて、最後に `handleExceptionInternal` を呼ぶ。そこで、ステータスに合わせて `code` と日本語の `detail` を付ける（2026-10-31、品質チェック #31。それまでは自分で例外を1つずつ受け取っていたため、URL の ID に数字以外が来ると 500 になっていた）。
 
 | 例外 | 変換先 |
 |---|---|
-| `MethodArgumentNotValidException`（`@Valid` の失敗） | 400 VALIDATION_ERROR。`errors` に項目ごとのメッセージ |
-| `HttpMessageNotReadableException`（JSONが壊れている、enum にない値） | 400 VALIDATION_ERROR |
-| `NoResourceFoundException`（存在しないURL） | 404 NOT_FOUND |
+| ステータスが 400 になるもの（`@Valid` の失敗、JSON が壊れている・enum にない値、URL の ID が数字でないなど） | 400 VALIDATION_ERROR。`@Valid` の失敗のときは `errors` に項目ごとのメッセージ |
+| ステータスが 404 になるもの（存在しない URL） | 404 NOT_FOUND |
+| そのほかの Spring MVC の例外（405 メソッドの違い、415 Content-Type の違いなど） | そのステータスで、`code` はステータスの名前（`METHOD_NOT_ALLOWED` など）。画面からは起きない。405 のときは使えるメソッドを `Allow` ヘッダーで返す |
 | 上のどれでもない例外 | 500 INTERNAL_ERROR。詳細（スタックトレース）はログにだけ出し、レスポンスには含めない（要件 5.2） |
 | 未ログイン（Spring Security） | 401 UNAUTHENTICATED。`AuthenticationEntryPoint` で作る |
 | CSRFトークンの不一致（Spring Security） | 403 CSRF_INVALID。`AccessDeniedHandler` で作る |
@@ -216,6 +216,7 @@ Spring が投げる例外も同じ形にそろえる：
 | セッション | `spring.session.timeout: 30m`（要件 U-09）。保存先は JDBC。テーブルは Flyway で作る（3.9） |
 | 上限 | `app.limits.columns: 20`・`cards-per-column: 100`・`labels: 30`。`LimitsProperties`（`@ConfigurationProperties`）で読む（要件 3.7） |
 | Flyway | `src/main/resources/db/migration/` の SQL を起動時に流す |
+| 開発だけの設定 | `application-dev.yml`（プロファイル `dev`）。`./gradlew bootRun` のときだけ読み込む（`build.gradle` の `bootRun`）。実行した SQL をログに出す（`logging.level.org.hibernate.SQL: debug`）。本番とテストでは出さない |
 
 ### 3.8 主な処理の流れ
 
@@ -284,6 +285,7 @@ sequenceDiagram
 1. メールアドレスを小文字にそろえ、前後の空白を取り除く
 2. 登録済みなら 409 EMAIL_DUPLICATED
 3. パスワードを BCrypt でハッシュ化し、users・boards・board_columns（未着手・作業中・完了）を作る（テーブル設計書 9.1）
+   - 2 と 3 の間に同じメールアドレスで登録された（ほぼ同時の登録）ときは、DB の一意制約で users の保存が失敗する。その `DataIntegrityViolationException` を受け取り、2 と同じ 409 EMAIL_DUPLICATED にする
 4. 3.8.3 と同じ処理でログイン状態にする
 
 ゲスト：
@@ -401,6 +403,10 @@ frontend/src/
 | 日本語入力 | Enter で送信する入力欄では、`event.nativeEvent.isComposing` が true のときは送信しない（`screen-design.md` 5章） |
 | 入力チェック | 送信したときに `shared/lib/validation.ts` で行い、エラーを入力欄の下に出す。サーバーの `errors` も同じ場所に出す |
 | 文言 | メッセージは `shared/lib/constants.ts` にまとめる（`screen-design.md` 7章） |
+| 送る値 | 名前・タイトルは、画面で確かめたのと同じ「前後の空白を除いた値」を送る（サーバーは受け取った値で文字数を数えるため） |
+| モーダル | `shared/ui/Modal` は HTML の `<dialog>` を `showModal()` で開く。ブラウザが、いちばん上に出す・後ろの画面を操作できなくする（Tab でも後ろに移らない）・背景を暗くする。開いたときにカーソルを置く部品には `data-autofocus` を付ける（`autoFocus` は使わない） |
+| 押せるもの | クリックで動くものは `<button>` にする（Enter・Space で動き、読み上げでもボタンになる）。中にリンクがあって全体をボタンにできないとき（カード、カード詳細の説明）は、見えないボタンを全体に広げ、リンクはその上に重ねる |
+| Esc | モーダルは、カーソルのあるいちばん上のものだけが閉じる。メニューやラベルの一覧は `useEscapeKey` で先に受け取り、モーダルまで届かないようにする |
 
 ### 4.7 テスト（要件 5.5）
 
@@ -485,10 +491,8 @@ Vitest で、ロジックのある部分だけを自動テストする。
 - oxlint：分類 correctness（明らかな間違い）と suspicious（間違いの疑い）をエラーにする。`react/react-in-jsx-scope`（React 17 より前の規則）と `import/no-unassigned-import`（`import './global.css'` を違反にしてしまう）は使わない
 - Prettier：Windows の Git が改行を CRLF に変えるので、`endOfLine` は `auto`（今の改行のまま）にする
 
-**入れた時点の指摘**：入れたときに見つかった指摘は、次のイシューで直す。それまでは、その規則を「警告」（失敗にしない）にしてある。直したら、次の3つを元に戻す。
-- `checkstyle.xml` の `LineLength` の `severity="warning"`
-- `build.gradle` の SpotBugs の `ignoreFailures = true`
-- `.oxlintrc.json` で `"warn"` にした規則（`react/exhaustive-effect-dependencies` など8つ）
+**入れた時点の指摘**：入れたときに見つかった指摘は、#31 ですべて直し、一時的に「警告」にしていた規則も「エラー」に戻した（2026-10-31）。今は、指摘が1件でもあるとチェックが失敗する。
+- oxlint の `react/memo-dependencies` は、`try … finally` の `finally` の中で使った値を「余分」と誤って判定する（2026-10-31、oxlint 1.90.0 で確認）。`finally` を使わない書き方にして避けた
 
 ## 6. 書き方のルール
 
