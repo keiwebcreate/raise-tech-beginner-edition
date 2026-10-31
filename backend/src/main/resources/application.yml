@@ -18,3 +18,10 @@ spring:
   session:
     # 何も操作しない時間が30分続いたら、ログアウトした状態にする（要件 U-09）
     timeout: 30m
+
+app:
+  # データ量の上限（要件 3.7）。LimitsProperties で読む
+  limits:
+    columns: 20
+    cards-per-column: 100
+    labels: 30

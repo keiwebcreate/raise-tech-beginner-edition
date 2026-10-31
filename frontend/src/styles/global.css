@@ -29,6 +29,13 @@ button { cursor: pointer; }
 .btn-ghost { border-color: transparent; background: transparent; }
 .btn-ghost:hover { background: var(--list-bg); }
 
+/* アイコンだけの小さなボタン（✕ など） */
+.icon-btn {
+  width: 28px; height: 28px; flex: none; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; border: 0; background: transparent; color: var(--muted);
+}
+.icon-btn:hover { background: rgba(0, 0, 0, .08); }
+
 /* 入力欄（ログイン・登録、のちのモーダルでも使う） */
 .field { margin-bottom: 16px; position: relative; }
 .field label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; }

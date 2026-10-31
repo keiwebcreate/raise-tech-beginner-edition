@@ -32,6 +32,12 @@ export type CardResponse = {
   labelIds: number[]
 }
 
+// A-08 リストの追加などで返る（中のカードは含まない）
+export type ColumnResponse = {
+  id: number
+  name: string
+}
+
 export type ColumnWithCardsResponse = {
   id: number
   name: string

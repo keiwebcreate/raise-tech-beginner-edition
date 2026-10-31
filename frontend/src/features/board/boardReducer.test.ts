@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { BoardResponse } from '../../api/types.ts'
+import type { BoardResponse, CardResponse } from '../../api/types.ts'
 import { boardReducer } from './boardReducer.ts'
 
 // テスト用の小さなボード
@@ -30,6 +30,10 @@ function sampleBoard(name = 'マイボード'): BoardResponse {
   }
 }
 
+function newCard(id: number, title: string): CardResponse {
+  return { id, title, description: null, importance: 'MEDIUM', urgency: 'MEDIUM', dueDate: null, labelIds: [] }
+}
+
 describe('boardReducer', () => {
   it('loaded：読み込んだボードがそのまま入る', () => {
     const board = sampleBoard()
@@ -43,5 +47,34 @@ describe('boardReducer', () => {
     const next = boardReducer(sampleBoard(), { type: 'loaded', board: sampleBoard('仕事用ボード') })
 
     expect(next?.name).toBe('仕事用ボード')
+  })
+
+  it('columnAdded：右端に、カードのないリストが足される', () => {
+    const next = boardReducer(sampleBoard(), { type: 'columnAdded', column: { id: 4, name: '保留' } })
+
+    expect(next?.columns.map((column) => column.name)).toEqual(['未着手', '作業中', '完了', '保留'])
+    expect(next?.columns[3].cards).toEqual([])
+  })
+
+  it('cardAdded：指定したリストの一番下に足される。ほかのリストは変わらない', () => {
+    const before = sampleBoard()
+
+    const next = boardReducer(before, { type: 'cardAdded', columnId: 1, card: newCard(2, '牛乳を買う') })
+
+    expect(next?.columns[0].cards.map((card) => card.title)).toEqual(['会議の資料を準備する', '牛乳を買う'])
+    expect(next?.columns[1]).toBe(before.columns[1]) // 変わらないリストは同じもののまま
+  })
+
+  it('元のデータは書き換えない', () => {
+    const before = sampleBoard()
+
+    boardReducer(before, { type: 'cardAdded', columnId: 1, card: newCard(2, '牛乳を買う') })
+    boardReducer(before, { type: 'columnAdded', column: { id: 4, name: '保留' } })
+
+    expect(before).toEqual(sampleBoard())
+  })
+
+  it('まだ読み込んでいない（null）ときは何もしない', () => {
+    expect(boardReducer(null, { type: 'columnAdded', column: { id: 4, name: '保留' } })).toBeNull()
   })
 })
