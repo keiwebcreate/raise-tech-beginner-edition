@@ -87,6 +87,7 @@
   - 済み（2026-10-31）：**② 画面のログイン（W-01・W-02）＋ MSW を外す**（イシュー #15）：`AuthContext`・`AuthProvider`（起動時に `/api/auth/me`、401 UNAUTHENTICATED でセッション切れのお知らせを付けて `/login` へ）、`RequireLogin`・`GuestOnly`（画面の出し分け）、`LoginPage`・`SignupPage`・`FormField`、`authApi`、`shared/lib/validation.ts`、ヘッダーにメールアドレスとログアウト。MSW は `src/mocks`・`public/mockServiceWorker.js`・パッケージごと外した。Vitest 24件
   - ヘッダーのメニュー（▾ と「退会する」）、ログイン画面の「ゲストとして試す」は、退会・ゲストを作るときに足す
   - 入力欄（`.field`・`.input`・`.error` など）とボタンの種類（`.btn-block`・`.btn-ghost`）も `styles/global.css` に置いた
+- 済み（2026-10-31）：**README**（イシュー #17。講義の指示）。読み手はポートフォリオを見る人＋手元で動かしたい人。AI を使っていることは一文だけ。`frontend/README.md`（Vite のひな形の説明）は消した。GitHub の About 欄にも説明を入れた。機能を作ったら README の「進み具合」も直す。スクリーンショットは見た目がそろってから足す
 - 済み（2026-10-31）：**使っているバージョンの一覧**を `detailed-design.md` 5.1 にまとめた（イシュー #13）。要件定義書 6章からも参照。バージョンを上げたら 5.1 も直す
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ
 - バージョンは、そのときの最新の安定版にする
