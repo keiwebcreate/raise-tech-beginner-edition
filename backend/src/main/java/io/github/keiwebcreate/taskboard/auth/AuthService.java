@@ -2,9 +2,11 @@ package io.github.keiwebcreate.taskboard.auth;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.InsufficientAuthenticationException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -54,13 +56,14 @@ public class AuthService {
 	private final AuthenticationManager authenticationManager;
 	private final SecurityContextRepository securityContextRepository;
 	private final CsrfTokenRepository csrfTokenRepository;
+	private final GuestSampleData guestSampleData;
 	private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 			.getContextHolderStrategy();
 
 	public AuthService(UserRepository userRepository, BoardRepository boardRepository,
 			BoardColumnRepository boardColumnRepository, PasswordEncoder passwordEncoder,
 			AuthenticationManager authenticationManager, SecurityContextRepository securityContextRepository,
-			CsrfTokenRepository csrfTokenRepository) {
+			CsrfTokenRepository csrfTokenRepository, GuestSampleData guestSampleData) {
 		this.userRepository = userRepository;
 		this.boardRepository = boardRepository;
 		this.boardColumnRepository = boardColumnRepository;
@@ -68,6 +71,7 @@ public class AuthService {
 		this.authenticationManager = authenticationManager;
 		this.securityContextRepository = securityContextRepository;
 		this.csrfTokenRepository = csrfTokenRepository;
+		this.guestSampleData = guestSampleData;
 	}
 
 	/**
@@ -96,11 +100,21 @@ public class AuthService {
 			boardColumnRepository.save(new BoardColumn(board, INITIAL_COLUMN_NAMES.get(position), position));
 		}
 
-		LoginUser loginUser = new LoginUser(user);
-		loginUser.eraseCredentials(); // セッションにパスワードのハッシュを残さない
-		startSession(UsernamePasswordAuthenticationToken.authenticated(loginUser, null, loginUser.getAuthorities()),
-				httpRequest, httpResponse);
-		return UserResponse.from(loginUser);
+		return startSession(user, httpRequest, httpResponse);
+	}
+
+	/**
+	 * A-03 ゲストログイン（要件 U-06）。押すたびに新しいゲストを作り、サンプルデータの入ったボードを用意して、ログインした状態にする。
+	 * メールアドレスとパスワードはランダム。パスワードは誰も知らないので、ゲストのメールアドレスではログインできない（A-02）。
+	 */
+	@Transactional
+	public UserResponse guest(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+		// UUID は乱数で作る128ビットの値なので、重なったり当てられたりしない
+		String email = "guest-" + UUID.randomUUID() + "@guest.local";
+		String password = UUID.randomUUID().toString();
+		User user = userRepository.save(new User(email, passwordEncoder.encode(password), true));
+		guestSampleData.create(user);
+		return startSession(user, httpRequest, httpResponse);
 	}
 
 	/**
@@ -131,18 +145,54 @@ public class AuthService {
 
 	/**
 	 * A-04 ログアウト。セッションを破棄する。すでにセッションが切れていても、何もせずに終わる。
-	 * ゲストのデータの削除は、ゲストを作るときに足す。
+	 * ゲストなら、先にそのユーザーを消す（要件 U-08。ボードなどは DB の ON DELETE CASCADE で一緒に消える）。
 	 */
+	@Transactional
 	public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
 		Authentication authentication = securityContextHolderStrategy.getContext().getAuthentication();
-		// セッションを破棄し、CSRF トークンとセッションの Cookie も消す
-		new SecurityContextLogoutHandler().logout(httpRequest, httpResponse, authentication);
-		new CsrfLogoutHandler(csrfTokenRepository).logout(httpRequest, httpResponse, authentication);
-		new CookieClearingLogoutHandler("SESSION").logout(httpRequest, httpResponse, authentication);
+		if (authentication != null && authentication.getPrincipal() instanceof LoginUser loginUser
+				&& loginUser.isGuest()) {
+			userRepository.deleteGuestById(loginUser.getId());
+		}
+		endSession(authentication, httpRequest, httpResponse);
 	}
 
 	/**
-	 * ログインした状態にする（ログイン・登録のあとで使う）。
+	 * A-05 ログイン中のユーザー。セッションが残っていても、ユーザーが消えていたら（24時間たって消されたゲストなど）、
+	 * セッションを破棄して 401 にする（詳細設計書 3.8.6）。画面はログイン画面へ移る。
+	 */
+	@Transactional(readOnly = true)
+	public UserResponse me(LoginUser loginUser, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+		if (!userRepository.existsById(loginUser.getId())) {
+			endSession(securityContextHolderStrategy.getContext().getAuthentication(), httpRequest, httpResponse);
+			// Spring Security の「ログインしていない」の例外。ApiExceptionHandler が 401 UNAUTHENTICATED にする
+			throw new InsufficientAuthenticationException("ユーザーが見つかりません");
+		}
+		return UserResponse.from(loginUser);
+	}
+
+	// セッションを破棄し、CSRF トークンとセッションの Cookie も消す（ログアウトと、ユーザーが消えていたとき）
+	private void endSession(Authentication authentication, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		new SecurityContextLogoutHandler().logout(httpRequest, httpResponse, authentication);
+		new CsrfLogoutHandler(csrfTokenRepository).logout(httpRequest, httpResponse, authentication);
+		new CookieClearingLogoutHandler("SESSION").logout(httpRequest, httpResponse, authentication);
+		// 古いトークンは上で消したので、新しいトークンを Cookie で渡す。
+		// ログイン画面は API を呼ばないので、これがないと、再読み込みせずにログイン・ゲストログインすると 403 になる
+		csrfTokenRepository.saveToken(csrfTokenRepository.generateToken(httpRequest), httpRequest, httpResponse);
+	}
+
+	// 作ったばかりのユーザー（登録・ゲスト）で、ログインした状態にする
+	private UserResponse startSession(User user, HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+		LoginUser loginUser = new LoginUser(user);
+		loginUser.eraseCredentials(); // セッションにパスワードのハッシュを残さない
+		startSession(UsernamePasswordAuthenticationToken.authenticated(loginUser, null, loginUser.getAuthorities()),
+				httpRequest, httpResponse);
+		return UserResponse.from(loginUser);
+	}
+
+	/**
+	 * ログインした状態にする（ログイン・登録・ゲストのあとで使う）。
 	 * 1. セッションIDを新しくする（セッション固定攻撃の対策。API設計書 2.2）
 	 * 2. CSRF トークンを作り直す（API設計書 2.3）
 	 * 3. ログイン状態をセッションに保存する

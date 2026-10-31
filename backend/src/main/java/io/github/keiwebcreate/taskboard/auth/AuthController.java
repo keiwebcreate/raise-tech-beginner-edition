@@ -44,6 +44,13 @@ public class AuthController {
 		return authService.login(request, httpRequest, httpResponse);
 	}
 
+	// A-03 ゲストログイン
+	@PostMapping("/guest")
+	@ResponseStatus(HttpStatus.CREATED)
+	public UserResponse guest(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+		return authService.guest(httpRequest, httpResponse);
+	}
+
 	// A-04 ログアウト
 	@PostMapping("/logout")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
@@ -53,8 +60,9 @@ public class AuthController {
 
 	// A-05 ログイン中のユーザー
 	@GetMapping("/me")
-	public UserResponse me(@AuthenticationPrincipal LoginUser loginUser) {
-		return UserResponse.from(loginUser);
+	public UserResponse me(@AuthenticationPrincipal LoginUser loginUser, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		return authService.me(loginUser, httpRequest, httpResponse);
 	}
 
 }

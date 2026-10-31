@@ -92,6 +92,7 @@ description: TaskBoard の品質チェック（自動チェック ＋ AI によ�
 
 ## つまずいた点のメモ
 
+- **CSRF の Cookie のテストが、ときどきだけ失敗する**（#37）：MockMvc の `with(csrf())` は、CSRF の確認をする部品（アプリ全体で1つ）のトークンの保存先を、Cookie を使わないテスト用のものに差し替えたままにする。同じアプリを使い回すテストの順番しだいで、Cookie が返らなくなる。Cookie を確かめるテストは `CsrfCookieTest`（`@DirtiesContext` で新しく起動し、`with(csrf())` を使わない）に書く
 - **Prettier でほぼ全部のファイルが「違う」と出る**：改行の形が原因。この PC の Git（`core.autocrlf=true`）が CRLF に変えている。`.prettierrc.json` の `endOfLine: auto` で対応済み。消さないこと
 - **規則は全部「エラー」**：#27 で道具を入れたときは、今のコードに出た指摘の規則を一時的に「警告」にしたが、#31 で直して元に戻した。新しく規則を足すときも、指摘が残るなら同じように一時的に警告にして、すぐ直すイシューを作る
 - **oxlint の誤判定**：`react/memo-dependencies` は、`try … finally` の `finally` の中で使った値を「余分」と判定する。`finally` を使わない書き方にする（`detailed-design.md` 5.2）。道具の指摘が怪しいときは、スクラッチパッドで小さな例を作り、`npx oxlint -c .oxlintrc.json <フォルダ>` で試して確かめる

@@ -38,6 +38,29 @@
   text-decoration: underline;
 }
 
+/* 「または」の区切り線（ログインとゲストの間） */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 16px 0;
+}
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.guestHelp {
+  margin: 6px 0 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* 上に出す赤い枠（失敗）と青い枠（お知らせ） */
 .alert,
 .notice {

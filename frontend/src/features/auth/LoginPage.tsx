@@ -9,7 +9,7 @@ import { FormField } from './FormField.tsx'
 
 type Errors = { email?: string; password?: string }
 
-// W-01 ログイン（「ゲストとして試す」は、サーバー側のゲストを作るときに足す）
+// W-01 ログイン。「ゲストとして試す」で、登録せずにサンプル入りのボードを試せる（要件 U-06）
 export function LoginPage() {
   const { loggedIn } = useAuth()
   // 前の画面からのお知らせ（セッション切れなど）
@@ -38,6 +38,19 @@ export function LoginPage() {
     } catch (error) {
       setBusy(false)
       setPassword('') // 失敗したらパスワード欄を空にする（画面設計書 W-01）
+      setAlert(error instanceof ApiError ? error.detail : MESSAGES.network)
+    }
+  }
+
+  // A-03 ゲストとして試す
+  async function handleGuest() {
+    setAlert(null)
+    setErrors({})
+    setBusy(true)
+    try {
+      loggedIn(await authApi.guest())
+    } catch (error) {
+      setBusy(false)
       setAlert(error instanceof ApiError ? error.detail : MESSAGES.network)
     }
   }
@@ -75,6 +88,11 @@ export function LoginPage() {
         <button className="btn btn-primary btn-block" type="submit" disabled={busy}>
           ログイン
         </button>
+        <div className={styles.divider}>または</div>
+        <button className="btn btn-block" type="button" onClick={handleGuest} disabled={busy}>
+          ゲストとして試す
+        </button>
+        <p className={styles.guestHelp}>登録なしで、サンプルデータ入りのボードを試せます</p>
         <div className={styles.foot}>
           アカウントをお持ちでない方は <Link to="/signup">新規登録はこちら</Link>
         </div>

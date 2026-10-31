@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -152,13 +151,8 @@ class AuthControllerTest {
 				.andExpect(jsonPath("$.code").value("CSRF_INVALID"));
 	}
 
-	@Test
-	void GETのレスポンスでもCSRFトークンのCookieが返る() throws Exception {
-		// React は最初のログインの前に、この Cookie を受け取っておく必要がある
-		mockMvc.perform(get("/api/auth/me"))
-				.andExpect(cookie().exists("XSRF-TOKEN"))
-				.andExpect(cookie().httpOnly("XSRF-TOKEN", false));
-	}
+	// GET で CSRF トークンの Cookie が返ることは CsrfCookieTest で確かめる
+	// （with(csrf()) を使ったあとのテストでは Cookie が返らなくなるため、別のクラスにした）
 
 	@Test
 	void ログアウトするとボードを取得できなくなる() throws Exception {

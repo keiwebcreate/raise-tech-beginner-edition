@@ -13,7 +13,12 @@ export function login(credentials: Credentials): Promise<UserResponse> {
   return apiFetch<UserResponse>('/api/auth/login', 'POST', credentials)
 }
 
-// A-04 ログアウト
+// A-03 ゲストログイン（押すたびに新しいゲストを作る。サンプルデータ入りのボードができる）
+export function guest(): Promise<UserResponse> {
+  return apiFetch<UserResponse>('/api/auth/guest', 'POST')
+}
+
+// A-04 ログアウト（ゲストなら、データも消える）
 export function logout(): Promise<void> {
   return apiFetch<void>('/api/auth/logout', 'POST')
 }
