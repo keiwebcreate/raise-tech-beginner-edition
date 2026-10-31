@@ -3,7 +3,8 @@
   display: block;
   width: 100%;
   text-align: left;
-  margin-top: 8px;
+  /* カードとの間は、カードの下の margin（Column.module.css の .cardSlot）で空ける */
+  margin-top: 0;
   padding: 6px 8px;
   border: 0;
   border-radius: 6px;

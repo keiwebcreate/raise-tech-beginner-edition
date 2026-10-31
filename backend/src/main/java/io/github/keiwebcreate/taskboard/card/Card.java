@@ -118,6 +118,11 @@ public class Card implements Positioned {
 		this.position = position;
 	}
 
+	// 別のリストへ移す（A-15）。並び順は、このあと Positions.renumber で付け直す
+	public void moveTo(BoardColumn column) {
+		this.column = column;
+	}
+
 	// 外から勝手に足したり消したりできないよう、読むだけの形で返す
 	public Set<Label> getLabels() {
 		return Collections.unmodifiableSet(labels);

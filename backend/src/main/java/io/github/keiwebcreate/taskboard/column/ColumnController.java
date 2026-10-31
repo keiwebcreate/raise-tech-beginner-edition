@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.github.keiwebcreate.taskboard.auth.LoginUser;
 import io.github.keiwebcreate.taskboard.column.dto.ColumnRequest;
 import io.github.keiwebcreate.taskboard.column.dto.ColumnResponse;
+import io.github.keiwebcreate.taskboard.column.dto.PositionRequest;
 import jakarta.validation.Valid;
 
 /**
@@ -48,6 +50,14 @@ public class ColumnController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId) {
 		columnService.delete(loginUser.getId(), columnId);
+	}
+
+	// A-11 リストの並び替え。成功したら 204（中身なし。画面はもう並びを変えてある）
+	@PutMapping("/{columnId}/position")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void move(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId,
+			@Valid @RequestBody PositionRequest request) {
+		columnService.move(loginUser.getId(), columnId, request.position());
 	}
 
 }

@@ -1,5 +1,8 @@
 package io.github.keiwebcreate.taskboard.column;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -8,6 +11,7 @@ import io.github.keiwebcreate.taskboard.board.BoardRepository;
 import io.github.keiwebcreate.taskboard.column.dto.ColumnRequest;
 import io.github.keiwebcreate.taskboard.column.dto.ColumnResponse;
 import io.github.keiwebcreate.taskboard.common.config.LimitsProperties;
+import io.github.keiwebcreate.taskboard.common.error.InvalidPositionException;
 import io.github.keiwebcreate.taskboard.common.error.LimitExceededException;
 import io.github.keiwebcreate.taskboard.common.error.NotFoundException;
 import io.github.keiwebcreate.taskboard.common.position.Positions;
@@ -36,8 +40,7 @@ public class ColumnService {
 	 */
 	@Transactional
 	public ColumnResponse add(Long userId, ColumnRequest request) {
-		Board board = boardRepository.findByUserId(userId)
-				.orElseThrow(NotFoundException::new);
+		Board board = lockBoard(userId);
 
 		long count = boardColumnRepository.countByBoardId(board.getId());
 		if (count >= limits.columns()) {
@@ -70,6 +73,7 @@ public class ColumnService {
 	 */
 	@Transactional
 	public void delete(Long userId, Long columnId) {
+		lockBoard(userId);
 		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
 				.orElseThrow(NotFoundException::new);
 		Long boardId = column.getBoard().getId();
@@ -77,6 +81,36 @@ public class ColumnService {
 		// 中のカード（とラベルとのつながり）は、DB の ON DELETE CASCADE で一緒に消える（テーブル設計書 5章）
 		boardColumnRepository.delete(column);
 		Positions.renumber(boardColumnRepository.findByBoardIdOrderByPosition(boardId));
+	}
+
+	/**
+	 * A-11 リストの並び替え（要件 L-05）。position は、移動したあとの並びで左から何番目か（0から）。
+	 * 例：「A, B, C」の A を 2 に動かす → B, C, A
+	 *
+	 * @throws NotFoundException        他人のリスト・存在しないリストのとき
+	 * @throws InvalidPositionException position が 0〜（リストの数−1）の外のとき
+	 */
+	@Transactional
+	public void move(Long userId, Long columnId, int position) {
+		lockBoard(userId);
+		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
+				.orElseThrow(NotFoundException::new);
+		List<BoardColumn> columns = new ArrayList<>(
+				boardColumnRepository.findByBoardIdOrderByPosition(column.getBoard().getId()));
+		if (position < 0 || position >= columns.size()) {
+			throw new InvalidPositionException();
+		}
+
+		// Java の List の上で「取り除いて、指定の位置に差し込む」。そのあと先頭から 0, 1, 2 … と付け直す（詳細設計書 3.8.2）
+		columns.removeIf(c -> c.getId().equals(columnId));
+		columns.add(position, column);
+		Positions.renumber(columns);
+	}
+
+	// 自分のボードに鍵をかける（BoardRepository.findWithLockByUserId）。ほかのデータを読む前に、最初に呼ぶ
+	private Board lockBoard(Long userId) {
+		return boardRepository.findWithLockByUserId(userId)
+				.orElseThrow(NotFoundException::new);
 	}
 
 }

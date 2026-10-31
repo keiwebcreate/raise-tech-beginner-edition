@@ -18,12 +18,18 @@ export type BoardAction =
   | { type: 'columnRenamed'; column: ColumnResponse }
   // A-10 リストの削除が成功した（中のカードも一緒に消える）
   | { type: 'columnDeleted'; columnId: number }
+  // A-11 リストをドラッグで動かした（API の返事を待たずに先に変える。position は移動したあとの並びで左から何番目か）
+  | { type: 'columnMoved'; columnId: number; position: number }
   // A-12 カードの追加が成功した（そのリストの一番下に足す）
   | { type: 'cardAdded'; columnId: number; card: CardResponse }
   // A-13 カードの保存が成功した（同じ ID のカードを置き換える。場所は変わらない）
   | { type: 'cardSaved'; card: CardResponse }
   // A-14 カードの削除が成功した
   | { type: 'cardDeleted'; cardId: number }
+  // A-15 カードをドラッグで動かした（先に変える。toColumnId は移動先のリスト、position は移動先で上から何番目か）
+  | { type: 'cardMoved'; cardId: number; toColumnId: number; position: number }
+  // ドラッグの保存（A-11・A-15）に失敗したので、動かす前のボードに戻す
+  | { type: 'restored'; board: BoardResponse }
   // A-16 ラベルの追加が成功した（一覧の最後に足す。作成順）
   | { type: 'labelAdded'; label: LabelResponse }
   // A-17 ラベルの変更が成功した（同じ ID のラベルを置き換える）
@@ -32,7 +38,7 @@ export type BoardAction =
   | { type: 'labelDeleted'; labelId: number }
 
 export function boardReducer(state: BoardState, action: BoardAction): BoardState {
-  if (action.type === 'loaded') return action.board
+  if (action.type === 'loaded' || action.type === 'restored') return action.board
   if (!state) return state // まだ読み込んでいないときは何もしない
 
   switch (action.type) {
@@ -52,6 +58,12 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
 
     case 'columnDeleted':
       return { ...state, columns: state.columns.filter((column) => column.id !== action.columnId) }
+
+    case 'columnMoved': {
+      const column = state.columns.find((c) => c.id === action.columnId)
+      if (!column) return state
+      return { ...state, columns: moveTo(state.columns, column, action.position) }
+    }
 
     case 'cardAdded':
       return {
@@ -81,6 +93,26 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
         ),
       }
 
+    case 'cardMoved': {
+      const from = state.columns.find((column) => column.cards.some((card) => card.id === action.cardId))
+      const card = from?.cards.find((c) => c.id === action.cardId)
+      if (!from || !card || !state.columns.some((column) => column.id === action.toColumnId)) return state
+      return {
+        ...state,
+        columns: state.columns.map((column) => {
+          // 同じリストの中なら、取り除いて差し込む
+          if (column.id === from.id && column.id === action.toColumnId) {
+            return { ...column, cards: moveTo(column.cards, card, action.position) }
+          }
+          // 移動元からは取り除き、移動先には差し込む
+          if (column.id === from.id) return { ...column, cards: column.cards.filter((c) => c.id !== card.id) }
+          if (column.id === action.toColumnId)
+            return { ...column, cards: insertAt(column.cards, card, action.position) }
+          return column
+        }),
+      }
+    }
+
     case 'labelAdded':
       return { ...state, labels: [...state.labels, action.label] }
 
@@ -109,4 +141,18 @@ export function boardReducer(state: BoardState, action: BoardAction): BoardState
         ),
       }
   }
+}
+
+// item を取り除いてから、position 番目に差し込んだ新しい配列を返す（サーバーの並び替えと同じ数え方。API設計書 A-11・A-15）
+function moveTo<T>(items: T[], item: T, position: number): T[] {
+  return insertAt(
+    items.filter((i) => i !== item),
+    item,
+    position,
+  )
+}
+
+// position 番目に差し込んだ新しい配列を返す
+function insertAt<T>(items: T[], item: T, position: number): T[] {
+  return [...items.slice(0, position), item, ...items.slice(position)]
 }

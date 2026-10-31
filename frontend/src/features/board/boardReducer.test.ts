@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { BoardResponse, CardResponse } from '../../api/types.ts'
-import { boardReducer } from './boardReducer.ts'
+import { type BoardState, boardReducer } from './boardReducer.ts'
 
 // テスト用の小さなボード
 function sampleBoard(name = 'マイボード'): BoardResponse {
@@ -147,6 +147,76 @@ describe('boardReducer', () => {
     expect(next?.labels.map((label) => label.id)).toEqual([2])
     expect(next?.columns[0].cards[0].labelIds).toEqual([2])
     expect(next?.columns[1]).toBe(before?.columns[1])
+  })
+
+  // 「未着手」に A, B, C、「作業中」に X, Y があるボード
+  function boardForMove(): BoardResponse {
+    const board = sampleBoard()
+    board.columns[0].cards = [newCard(11, 'A'), newCard(12, 'B'), newCard(13, 'C')]
+    board.columns[1].cards = [newCard(21, 'X'), newCard(22, 'Y')]
+    return board
+  }
+
+  function titles(state: BoardState, columnIndex: number): string[] {
+    return state?.columns[columnIndex].cards.map((card) => card.title) ?? []
+  }
+
+  it('columnMoved：リストを右へ動かせる（API設計書 A-11 の例：A を 2 へ → B, C, A）', () => {
+    const next = boardReducer(sampleBoard(), { type: 'columnMoved', columnId: 1, position: 2 })
+
+    expect(next?.columns.map((column) => column.name)).toEqual(['作業中', '完了', '未着手'])
+  })
+
+  it('columnMoved：リストを左へ動かせる。中のカードはそのまま', () => {
+    const before = sampleBoard()
+
+    const next = boardReducer(before, { type: 'columnMoved', columnId: 3, position: 0 })
+
+    expect(next?.columns.map((column) => column.name)).toEqual(['完了', '未着手', '作業中'])
+    expect(next?.columns[1]).toBe(before.columns[0])
+  })
+
+  it('cardMoved：同じリストの中で、下へも上へも動かせる', () => {
+    const down = boardReducer(boardForMove(), { type: 'cardMoved', cardId: 11, toColumnId: 1, position: 2 })
+    const up = boardReducer(boardForMove(), { type: 'cardMoved', cardId: 13, toColumnId: 1, position: 0 })
+
+    expect(titles(down, 0)).toEqual(['B', 'C', 'A'])
+    expect(titles(up, 0)).toEqual(['C', 'A', 'B'])
+  })
+
+  it('cardMoved：別のリストの間に移すと、移動元から消えて移動先に入る。関係ないリストは変わらない', () => {
+    const before = boardForMove()
+
+    // API設計書 A-15 の例と同じ形：「X, Y」へ B を 1 で移す → X, B, Y
+    const next = boardReducer(before, { type: 'cardMoved', cardId: 12, toColumnId: 2, position: 1 })
+
+    expect(titles(next, 0)).toEqual(['A', 'C'])
+    expect(titles(next, 1)).toEqual(['X', 'B', 'Y'])
+    expect(next?.columns[2]).toBe(before.columns[2])
+  })
+
+  it('cardMoved：一番下や空のリストにも移せる', () => {
+    const toBottom = boardReducer(boardForMove(), { type: 'cardMoved', cardId: 11, toColumnId: 2, position: 2 })
+    const toEmpty = boardReducer(boardForMove(), { type: 'cardMoved', cardId: 11, toColumnId: 3, position: 0 })
+
+    expect(titles(toBottom, 1)).toEqual(['X', 'Y', 'A'])
+    expect(titles(toEmpty, 2)).toEqual(['A'])
+  })
+
+  it('cardMoved：カードか移動先のリストが見つからなければ何もしない', () => {
+    const before = boardForMove()
+
+    expect(boardReducer(before, { type: 'cardMoved', cardId: 99, toColumnId: 2, position: 0 })).toBe(before)
+    expect(boardReducer(before, { type: 'cardMoved', cardId: 11, toColumnId: 99, position: 0 })).toBe(before)
+  })
+
+  it('restored：動かす前のボードに戻る', () => {
+    const before = boardForMove()
+    const moved = boardReducer(before, { type: 'cardMoved', cardId: 11, toColumnId: 2, position: 0 })
+
+    const next = boardReducer(moved, { type: 'restored', board: before })
+
+    expect(next).toBe(before)
   })
 
   it('まだ読み込んでいない（null）ときは何もしない', () => {

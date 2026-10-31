@@ -13,6 +13,11 @@
     0 1px 3px rgba(16, 24, 40, 0.16),
     0 0 0 1px rgba(16, 24, 40, 0.06);
 }
+/* ドラッグ中のカード（少し傾けて、持ち上げているように見せる） */
+.dragging {
+  transform: rotate(2deg);
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.24);
+}
 /* 左端の色の帯が重要度（要件 C-06） */
 .card::before {
   content: '';

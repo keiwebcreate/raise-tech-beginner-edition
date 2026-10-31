@@ -3,8 +3,8 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #34（ラベル管理）がマージ済みかを `gh pr view 34` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
-2. 講義の次の回の画面を私が貼るので、それを見て次にやることを決める（下の「次にやること」）
+1. PR #36（ドラッグ＆ドロップ）がマージ済みかを `gh pr view 36` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 下の「次にやること」から、次に作るものを私と決める（講義のアプリ側は、品質チェックの回で終わっている）
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
@@ -29,7 +29,7 @@
 
 ## 今の状態（2026-10-31）
 
-**できていること**（講義の CRUD はカード・リスト・ラベルについてひととおり完了）
+**できていること**（講義の CRUD はカード・リスト・ラベルについてひととおり完了。ドラッグ＆ドロップも完了）
 
 | 機能 | API | 画面 |
 |---|---|---|
@@ -39,8 +39,9 @@
 | カードの追加・保存・削除 | A-12・A-13・A-14 | 「＋ カードを追加」、W-04 カード詳細（全項目の保存・削除） |
 | ラベルの付け外し | A-13 の `labelIds` | カード詳細の「＋」 |
 | ラベル管理（追加・変更・削除） | A-16・A-17・A-18 | W-05。ヘッダーの「ラベル管理」と、カード詳細のラベル一覧の下の「ラベルを管理」（カード詳細の上に重ねて開く） |
+| ドラッグ＆ドロップ（リストの並び替え、カードの並び替え・移動） | A-11・A-15 | W-03。リストは名前を、カードはカード全体をつかむ。キーボードでも動かせる |
 
-- テスト：サーバー 73件（`./gradlew test`）、画面 38件（`npm test`）。すべて成功
+- テスト：サーバー 88件（`./gradlew test`）、画面 45件（`npm test`）。すべて成功
 - コードのチェック（#27）：サーバーは Checkstyle・SpotBugs（`./gradlew check`）、画面は oxlint の規則を足し、Prettier を入れた（`npm run lint`・`npm run format:check`）。道具と規則は `detailed-design.md` 5.2
 - 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は最初に SQL で入れたもの
 
@@ -48,7 +49,6 @@
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| **ドラッグ＆ドロップ**（並び替え・移動） | L-05・C-04、A-11・A-15 | **次の候補**。@hello-pangea/dnd。並び順の振り直しの部品 `Positions.renumber` はもうある |
 | ゲストログイン・24時間後の削除 | U-06〜U-08、A-03 | サンプルデータはモックアップのゲスト用と同じ。ログイン画面の「ゲストとして試す」もこのとき |
 | 退会 | U-11、W-08、A-19 | ヘッダーのメニュー（▾）もこのとき |
 | ログイン失敗の回数制限 | U-10 | 方式が未決（`detailed-design.md` 7章） |
@@ -58,9 +58,18 @@
 | 見直し（急がない） | | 要件：改訂履歴・前提条件と制約・非機能要件の ID・受け入れ基準。テーブル：論理名と物理名・CRUD 表 |
 
 ## 次にやること
-講義の次の回の内容を確かめてから決める。候補は **ドラッグ＆ドロップ**（L-05・C-04、A-11・A-15。講義のアプリにもある機能）。
-- 使い回せる部品：サーバーの `Positions.renumber`（並び順の振り直し）、`InvalidPositionException`（400 INVALID_POSITION。まだ作っていない）、画面の `boardReducer`（`cardMoved` などを足す）
+講義のアプリ側は、品質チェックの回（初級編16）で終わっている。残りの機能から、私と相談して決める。候補：
+- **ゲストログイン・24時間後の削除**（U-06〜U-08、A-03）：ポートフォリオで、見る人が登録なしで試せるようになる
+- **GitHub Actions（自動テスト）**：PR ごとにテストとチェックを自動で走らせる
+- 退会（U-11、W-08、A-19）、ログイン失敗の回数制限（U-10）
+- AWS へのデプロイ（G-04）
 - 作ったら、スキル `quality-check`（差分だけ）で確かめてから PR を作る
+
+**ドラッグ＆ドロップ（#35）で決めたこと**（詳細は `detailed-design.md` 3.8.2・4.5）
+- ドロップしたら先に画面を変えて API を呼び、失敗したら `restored` で動かす前に戻す。保存を待つ間は次のドラッグをさせない
+- つかむところは、カードはタイトルのボタン（カード全体に広がっている）、リストは名前のボタン。Enter・クリックはこれまでどおり、スペースキーでつかむ。見出し全体をつかむところにすると、ボタンの入ったボタンになるのでやめた
+- 読み上げの文言は日本語（`features/board/dragAndDrop.ts`）。ライブラリは CSS の `gap` を数えないので、間は `margin` で空ける
+- リストとカードの追加・削除・並び替えは、最初にボードの行に鍵をかける（`BoardRepository.findWithLockByUserId`）。2つのタブから同時に操作しても、番号が重ならず上限も超えない
 
 **ラベル管理（#33）で決めたこと**
 - 色の選択肢は HTML のラジオボタン（`ColorSwatches`）。見た目だけを色の四角にする（矢印キーで選べ、読み上げでも伝わる）
@@ -77,12 +86,12 @@
   - Controller → Service → Repository。1件を探すときは必ず「ID ＋ 持ち主」のメソッド（`findByIdAndColumnBoardUserId` など）。他人のデータは 404
   - エラーは独自の例外を投げ、`common/error/ApiExceptionHandler` が Problem Details（＋`code`）にする。Spring Security の 401・403 もここに回している
   - ログインは自作の API（`AuthService`）。セッションは Spring Session JDBC（30分）。CSRF は `csrf.spa()` ＋ `CsrfCookieFilter`（GET でも `XSRF-TOKEN` の Cookie を返す）
-  - 上限は `application.yml` の `app.limits` → `LimitsProperties`。並び順の振り直しは `common/position/Positions.renumber`
+  - 上限は `application.yml` の `app.limits` → `LimitsProperties`。並び順の振り直しは `common/position/Positions.renumber`。並び順や数を変える処理は、最初に `findWithLockByUserId` でボードに鍵をかける
   - テーブルは Flyway（V1・V2）だけが作る。JPA は `ddl-auto: validate`。`labels.color` は CHAR(7) なので `@JdbcTypeCode(SqlTypes.CHAR)` が必要
   - API のテストは `@SpringBootTest` ＋ MockMvc ＋ Testcontainers。テストごとに `UUID` 入りのメールアドレスで登録する。API で作れないデータ（ラベルなど）や position の確認は `JdbcTemplate`
 - **画面**（`frontend/src/`）
   - `api/client.ts` の `apiFetch` を必ず通す（CSRF ヘッダー、`ApiError`、401 でログイン画面へ）
-  - ボードのデータは `BoardContext` の `boardReducer` だけで変える。API が成功してから、返ってきたデータで action を送る
+  - ボードのデータは `BoardContext` の `boardReducer` だけで変える。API が成功してから、返ってきたデータで action を送る（ドラッグ＆ドロップだけは先に送り、失敗したら `restored` で戻す）
   - 共通の部品は `shared/ui/`（`Modal`・`ConfirmDialog`・`InlineForm`・`InlineEdit`・`LinkifiedText`・`ToastProvider`）。共通の見た目（ボタン・入力欄）は `styles/global.css`
   - 一度に開くその場の入力欄は1つだけ（`BoardPage` の `openForm`）
   - モーダルは `shared/ui/Modal`（HTML の `<dialog>` を `showModal()`）。Esc は `cancel` で受け取り、Tab はモーダルの中だけを回す。開いたときのカーソルの位置は `data-autofocus`（`autoFocus` は使わない）
@@ -112,6 +121,6 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#34（イシューと PR は番号を共有している）。#33（ラベル管理）の PR が #34
+- これまでのイシューと PR：#1〜#36（イシューと PR は番号を共有している）。#35（ドラッグ＆ドロップ）の PR が #36
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

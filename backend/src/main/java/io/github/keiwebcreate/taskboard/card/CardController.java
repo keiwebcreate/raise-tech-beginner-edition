@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import io.github.keiwebcreate.taskboard.auth.LoginUser;
 import io.github.keiwebcreate.taskboard.card.dto.CardCreateRequest;
+import io.github.keiwebcreate.taskboard.card.dto.CardPositionRequest;
 import io.github.keiwebcreate.taskboard.card.dto.CardRequest;
 import io.github.keiwebcreate.taskboard.card.dto.CardResponse;
 import jakarta.validation.Valid;
@@ -48,6 +49,14 @@ public class CardController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long cardId) {
 		cardService.delete(loginUser.getId(), cardId);
+	}
+
+	// A-15 カードの並び替え・別のリストへの移動。成功したら 204（中身なし。画面はもう並びを変えてある）
+	@PutMapping("/api/cards/{cardId}/position")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void move(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long cardId,
+			@Valid @RequestBody CardPositionRequest request) {
+		cardService.move(loginUser.getId(), cardId, request);
 	}
 
 }
