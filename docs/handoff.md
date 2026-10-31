@@ -80,7 +80,11 @@
   - 共通のボタン（`.btn`・`.btn-primary`）と `.muted` は `styles/global.css` に置いた（どの画面でも使うため）
 - 済み（2026-10-31）：**サーバーのポートのルール**（イシュー #9。講義の指示）：ポートは 5173・8080・5432 から変えず、使われていたら止めてから起動する（何が使っていても止めてよい、と決定）。Vite に `strictPort: true`、スキル `dev-servers`（`beginner_version/.claude/skills/`）、`CLAUDE.md` に記載
 - 済み（2026-10-31）：**CORS は設定しない**と `api-design.md` 2.3 に明記（同じオリジンのため。本番も同じドメインにする）
-- 次の一歩の候補：ログイン（`auth`）→ `BoardController` をつなぎ MSW を外す → 変更の機能（追加・変更・削除・モーダル・ドラッグ＆ドロップ）。講義の次の回に合わせて決める
+- 講義（初級編12の後半）は「画面に出ているのが本当に DB のデータか、SQL で1〜2件足して確かめる」。MSW のままでは確かめられないので、① サーバーのログイン＋`BoardController`（API で確かめる）→ ② 画面のログイン＋MSW を外す（画面で確かめる）の2段階にすると決定（2026-10-31）
+  - 済み（2026-10-31）：**① サーバーのログイン**（イシュー #11）：`SecurityConfig`（`csrf.spa()`＋全レスポンスで XSRF-TOKEN を返す `CsrfCookieFilter`、401・403 は `ApiExceptionHandler` に回す）、`ApiExceptionHandler`、`AuthService`・`AuthController`（A-01 登録・A-02 ログイン・A-04 ログアウト・A-05 自分）、`BoardController`（A-06）、セッション30分。`AuthControllerTest` 12件。起動したサーバーに Vite 経由で登録し、SQL で足したカード2枚が `GET /api/board` で返ることを確認
+  - 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる（「未着手」に SQL で足したカードが2枚）
+  - まだないもの：ゲスト（A-03）・退会（A-19）・回数制限、`/api/auth/me` でユーザーが消えていたときの処理（ゲストの削除を作るときに足す）
+  - 次の一歩：**② 画面のログイン（W-01・W-02）＋ MSW を外す**。画面で SQL のデータが出ることを確かめる
   - その後：ログイン → MSW を外して本物の `GET /api/board` につなぐ
 - バージョンは、そのときの最新の安定版にする
 
