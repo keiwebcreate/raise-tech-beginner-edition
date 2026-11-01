@@ -156,6 +156,7 @@
 - ポート 3306 は別プロジェクト（cytech_step9_app）の Docker MySQL。触らないこと
 - Git Bash で `docker exec` にコンテナ内のパスを渡すときは `MSYS_NO_PATHCONV=1` が必要
 - **画面の動きを自動で確かめる方法**：スクラッチパッド（チャットごとの作業用フォルダ）に `puppeteer-core` を入れ、パソコンの Chrome（`C:/Program Files/Google/Chrome/Application/chrome.exe`）を画面なしで動かした。プロジェクトには入れていない。新しいチャットでは、スクラッチパッドに入れ直す。`demo` のデータを変えないように、毎回新しいユーザーを登録して試す（開発用の DB に `label-（数字）@example.com` などが残っている）
+  - 作り直すときのコツ（2026-11-01）：カードは `main article`、カードのタイトルは `article p button`、ドラッグのライブラリの印は `data-rfd-…`（`rbd` ではない）。メニューは `aria-controls` の先の要素（`role="menu"` は使っていない）。「▾」のボタンは文字の「▾」で探す（「絞り込み」ボタンにも `aria-controls` があるため）。ゲストを何度も作るときは、先に `rate_limit_events` を消す
 - サーバーのコードを変えたら、Spring Boot を起動し直す（Vite は自動で読み込むが、Spring Boot は読み込まない）。`bootRun` は開発用の設定（プロファイル `dev`）で起動し、SQL をログに出す
 - 2026-10-25 に、OneDrive のファイルロックで Gradle が失敗したため、フォルダを OneDrive の外（`C:\dev\Raise_Tech`）に移した。OneDrive の中に開発フォルダを置かないこと
 
