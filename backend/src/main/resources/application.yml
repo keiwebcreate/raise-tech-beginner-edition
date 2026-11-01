@@ -23,3 +23,11 @@ app:
     columns: 20
     cards-per-column: 100
     labels: 30
+  # 回数制限（要件 U-10）。同じ IP アドレスから、window の間に max-count 回まで。RateLimitProperties で読む
+  rate-limit:
+    login-failure:
+      max-count: 10
+      window: 15m
+    guest-creation:
+      max-count: 10
+      window: 1h

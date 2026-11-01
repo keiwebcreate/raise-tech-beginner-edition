@@ -79,6 +79,14 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem(HttpStatus.UNAUTHORIZED, "LOGIN_FAILED", e.getMessage());
 	}
 
+	// 回数制限（要件 U-10）。何秒後に試せるかを Retry-After で返す（API設計書 4.3）
+	@ExceptionHandler(RateLimitedException.class)
+	ResponseEntity<ProblemDetail> handleRateLimited(RateLimitedException e) {
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+				.header(HttpHeaders.RETRY_AFTER, String.valueOf(e.getRetryAfterSeconds()))
+				.body(problemDetail(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", e.getMessage()));
+	}
+
 	// ログインしていない（Spring Security の AuthenticationEntryPoint から回ってくる）
 	@ExceptionHandler(AuthenticationException.class)
 	ResponseEntity<ProblemDetail> handleUnauthenticated(AuthenticationException e) {
