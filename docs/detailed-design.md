@@ -413,7 +413,7 @@ frontend/src/
 │   └─ types.ts             APIのJSONの型（API設計書 5章）
 ├─ features/
 │   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、UserMenu（ヘッダーのメニュー）、WithdrawModal（W-08）、authApi
-│   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi、CardSearch・FilterBar・cardFilter・useCardFilter（検索・絞り込み。4.8）
+│   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi、CardSearch・FilterBar・cardFilter・useCardFilter（検索・絞り込み。4.8）、MobileMenu（スマートフォン幅の ☰）
 │   ├─ card/                CardItem、AddCardForm、CardModal（W-04）、cardApi
 │   └─ label/               LabelModal（W-05）、LabelChip、LabelPicker、labelApi
 ├─ shared/
@@ -494,6 +494,7 @@ frontend/src/
 | モーダル | `shared/ui/Modal` は HTML の `<dialog>` を `showModal()` で開く。ブラウザが、いちばん上に出す・後ろの画面を操作できなくする・背景を暗くする。`<dialog>` だけだと、最後の部品の次で Tab がブラウザのアドレスバーなどに移るので、最後の次は最初へ、最初の前は最後へ戻す（フォーカストラップ）。開いたときにカーソルを置く部品には `data-autofocus` を付ける（`autoFocus` は使わない） |
 | 押せるもの | クリックで動くものは `<button>` にする（Enter・Space で動き、読み上げでもボタンになる）。中にリンクがあって全体をボタンにできないとき（カード、カード詳細の説明）は、見えないボタンを全体に広げ、リンクはその上に重ねる |
 | 見えない文字 | 見た目は数字や記号だけで、読み上げには文で伝えたいとき（「絞り込み 3」→「（3件選択中）」）は、見える部分を `aria-hidden` にし、`global.css` の `sr-only` の文字を添える。`<span>` に `aria-label` を付けない |
+| スマートフォンの幅 | 幅 640px 以下で並びを変える（`@media (max-width: 640px)`）。ヘッダーは、パソコン用の部品（`desktopActions`）とスマートフォン用の ☰（`MobileMenu`）を両方置き、CSS で片方を `display: none` にする（画面の幅を JavaScript で見張らなくて済み、隠したほうは読み上げにも出ない）。右側の箱は `display: contents` で箱をなくし、`order` と `flex-basis: 100%` で検索欄を2段目に回す（イシュー #47） |
 | Esc | モーダルは、カーソルのあるいちばん上のものだけが閉じる。メニューやラベルの一覧は `useEscapeKey` で先に受け取り、モーダルまで届かないようにする |
 
 ### 4.7 テスト（要件 5.5）

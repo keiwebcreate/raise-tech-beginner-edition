@@ -49,11 +49,20 @@
   font-size: 16px;
 }
 
-.right {
+.end {
   margin-left: auto;
   display: flex;
   align-items: center;
   gap: 12px;
+}
+.desktopActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+/* ☰ はスマートフォンの幅だけ（下の @media で出す） */
+.mobileMenu {
+  display: none;
 }
 /* ゲストの札と、ヘッダーの下の注意書きの帯（要件 U-07） */
 .guestBadge {
@@ -83,12 +92,30 @@
   .sep {
     display: none;
   }
+  /* 1段目：TaskBoard・ボード名・☰。ボード名は残りの幅いっぱいまで使い、長ければ「…」で切る */
+  .heading {
+    flex: 1;
+  }
+  .boardName {
+    max-width: 100%;
+  }
   .boardNameEdit {
     width: 100%;
   }
-  .right {
-    flex-wrap: wrap;
-    gap: 8px;
+  /* 右側の箱をなくし、中身をヘッダーに直接並べる（order で並ぶ順を変えるため） */
+  .end {
+    display: contents;
+  }
+  .desktopActions {
+    display: none;
+  }
+  .mobileMenu {
+    display: block;
+  }
+  /* 2段目：検索欄と「絞り込み」を横いっぱいに */
+  .search {
+    order: 1;
+    flex-basis: 100%;
   }
   .guestBar {
     padding: 8px 16px;

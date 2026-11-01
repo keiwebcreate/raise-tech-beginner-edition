@@ -85,8 +85,14 @@
 
 /* スマートフォン（要件 5.1） */
 @media (max-width: 640px) {
+  /* ヘッダーの2段目に横いっぱいで並ぶ（BoardHeader.module.css の .search） */
+  .root {
+    width: 100%;
+  }
   .search {
-    width: 140px;
+    flex: 1;
+    width: auto;
+    min-width: 0;
   }
   /* 狭い画面では、ヘッダーが折り返して高さが変わるので、画面の下から出す（ボトムシート） */
   .panel {
