@@ -1,6 +1,6 @@
 # テーブル設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-10-25（DBを MySQL から PostgreSQL 18 に変更）
+最終更新：2026-11-01（回数制限の記録 `rate_limit_events` を追加。イシュー #41）
 
 要件は `requirements.md` を参照。
 
@@ -76,9 +76,11 @@ erDiagram
     }
 ```
 
+回数制限の記録 `rate_limit_events`（3.9）は、どのテーブルともつながらないので、図には入れていない。
+
 ## 3. テーブル定義
 
-全テーブル共通で、次の列を持つ（`card_labels` は `created_at` のみ）。
+全テーブル共通で、次の列を持つ（`card_labels`・`rate_limit_events` は `created_at` のみ）。
 
 | 列 | 型 | 内容 |
 |---|---|---|
@@ -163,6 +165,7 @@ PostgreSQL は文字列を厳密に比べるので、「パン」と「ハン」
 | board_columns | `name` が空でない。`position` が0以上 |
 | cards | `title` が空でない。`position` が0以上。`importance`・`urgency` が `HIGH`・`MEDIUM`・`LOW` のどれか |
 | labels | `name` が空でない。`color` が `#` と小文字の英数字6桁（例：`#e5484d`） |
+| rate_limit_events | `kind` が `LOGIN_FAILURE`・`GUEST_CREATION` のどちらか |
 
 - 文字数の上限は列の型（`VARCHAR(50)` など）で決まるので、CHECK制約には書かない
 - 色は「色コードの形」だけを確かめ、「8色のどれか」は Java で確かめる。8色をDBで決めると、色を変えるたびにテーブルの変更が必要になるため
@@ -177,6 +180,22 @@ PostgreSQL には「行を更新したら、自動で更新日時を入れる」
 2. トリガー：`card_labels` 以外の各テーブルに「行を更新する直前に `set_updated_at()` を呼ぶ」仕掛けを付ける
 
 SQLは10章。Java（JPA）からは `created_at`・`updated_at` に書き込まない。
+
+### 3.9 rate_limit_events（回数制限の記録）
+
+2026-11-01 に追加（`V3__create_rate_limit_events.sql`）。ログインの失敗とゲストの作成のたびに1行を入れ、「直近の決まった時間に、同じ IP アドレスから何行あるか」を数える（要件 U-10、`detailed-design.md` 3.8.8）。
+
+| 列 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|
+| id | BIGINT | 不可 | 自動採番 | 主キー |
+| kind | VARCHAR(20) | 不可 | | 種類。`LOGIN_FAILURE`（ログインの失敗）/ `GUEST_CREATION`（ゲストの作成） |
+| ip_address | VARCHAR(45) | 不可 | | 接続元の IP アドレス。45文字は IPv6 の最長の書き方に合わせた |
+| created_at | TIMESTAMPTZ | 不可 | now() | 記録した日時。ほかのテーブルと違い、Java が入れる（数えるときの「今」と同じ時計にそろえるため） |
+
+インデックス：`(kind, ip_address, created_at)`（数えるため）、`(created_at)`（古い行を消すため）
+
+- users とは結びつけない（ログイン前の操作なので、まだ誰かわからない）。更新しないので `updated_at` もトリガーもない
+- 古い行は、毎時0分に消す（いちばん長い数える時間の1時間より古いもの）。数えないので残す意味がなく、行が増え続けない
 
 ## 4. 並び順（position）のルール
 
@@ -349,7 +368,7 @@ CREATE TRIGGER trg_cards_updated_at         BEFORE UPDATE ON cards         FOR E
 CREATE TRIGGER trg_labels_updated_at        BEFORE UPDATE ON labels        FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 ```
 
-セッション（ログイン状態）を保存する Spring Session JDBC のテーブルは、`V2__create_session_tables.sql` で作る（`detailed-design.md` 3.9）。
+セッション（ログイン状態）を保存する Spring Session JDBC のテーブルは、`V2__create_session_tables.sql` で作る（`detailed-design.md` 3.9）。回数制限の記録（3.9）は `V3__create_rate_limit_events.sql` で作る。
 
 ## 11. まだ決めていないこと
 

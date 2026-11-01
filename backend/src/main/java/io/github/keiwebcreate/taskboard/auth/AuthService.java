@@ -33,6 +33,7 @@ import io.github.keiwebcreate.taskboard.column.BoardColumn;
 import io.github.keiwebcreate.taskboard.column.BoardColumnRepository;
 import io.github.keiwebcreate.taskboard.common.error.EmailDuplicatedException;
 import io.github.keiwebcreate.taskboard.common.error.LoginFailedException;
+import io.github.keiwebcreate.taskboard.common.error.RateLimitedException;
 import io.github.keiwebcreate.taskboard.user.User;
 import io.github.keiwebcreate.taskboard.user.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
@@ -57,13 +58,14 @@ public class AuthService {
 	private final SecurityContextRepository securityContextRepository;
 	private final CsrfTokenRepository csrfTokenRepository;
 	private final GuestSampleData guestSampleData;
+	private final RateLimiter rateLimiter;
 	private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 			.getContextHolderStrategy();
 
 	public AuthService(UserRepository userRepository, BoardRepository boardRepository,
 			BoardColumnRepository boardColumnRepository, PasswordEncoder passwordEncoder,
 			AuthenticationManager authenticationManager, SecurityContextRepository securityContextRepository,
-			CsrfTokenRepository csrfTokenRepository, GuestSampleData guestSampleData) {
+			CsrfTokenRepository csrfTokenRepository, GuestSampleData guestSampleData, RateLimiter rateLimiter) {
 		this.userRepository = userRepository;
 		this.boardRepository = boardRepository;
 		this.boardColumnRepository = boardColumnRepository;
@@ -72,6 +74,7 @@ public class AuthService {
 		this.securityContextRepository = securityContextRepository;
 		this.csrfTokenRepository = csrfTokenRepository;
 		this.guestSampleData = guestSampleData;
+		this.rateLimiter = rateLimiter;
 	}
 
 	/**
@@ -106,9 +109,16 @@ public class AuthService {
 	/**
 	 * A-03 ゲストログイン（要件 U-06）。押すたびに新しいゲストを作り、サンプルデータの入ったボードを用意して、ログインした状態にする。
 	 * メールアドレスとパスワードはランダム。パスワードは誰も知らないので、ゲストのメールアドレスではログインできない（A-02）。
+	 *
+	 * @throws RateLimitedException 同じ IP アドレスから、1時間に10回を超えて作ろうとしたとき（要件 U-10）
 	 */
 	@Transactional
 	public UserResponse guest(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+		// 回数制限：数えてから記録する。どちらも同じトランザクションの中なので、ゲストの作成が失敗したら記録も取り消される
+		String ipAddress = httpRequest.getRemoteAddr();
+		rateLimiter.check(RateLimitKind.GUEST_CREATION, ipAddress);
+		rateLimiter.record(RateLimitKind.GUEST_CREATION, ipAddress);
+
 		// UUID は乱数で作る128ビットの値なので、重なったり当てられたりしない
 		String email = "guest-" + UUID.randomUUID() + "@guest.local";
 		String password = UUID.randomUUID().toString();
@@ -120,11 +130,21 @@ public class AuthService {
 	/**
 	 * A-02 ログイン。
 	 *
+	 * 先に回数制限を確かめる。制限中は、パスワードを照合せずに 429 にする（正しいパスワードでも）。
+	 * 失敗したら、その IP アドレスの失敗を1回記録する。成功しても、記録は消さない（詳細設計書 3.8.8）。
+	 *
+	 * noRollbackFor：ふつうは例外を投げるとトランザクションの変更が取り消されるが、LoginFailedException のときは
+	 * 取り消さない。こうしないと、失敗の記録が消えてしまう。
+	 *
+	 * @throws RateLimitedException 同じ IP アドレスから、15分に10回を超えて失敗したとき（要件 U-10）
 	 * @throws LoginFailedException メールアドレスかパスワードが違うとき（どちらが違うかは教えない）
 	 */
-	@Transactional(readOnly = true)
+	@Transactional(noRollbackFor = LoginFailedException.class)
 	public UserResponse login(LoginRequest request, HttpServletRequest httpRequest,
 			HttpServletResponse httpResponse) {
+		String ipAddress = httpRequest.getRemoteAddr();
+		rateLimiter.check(RateLimitKind.LOGIN_FAILURE, ipAddress);
+
 		String email = normalizeEmail(request.email());
 		String password = request.password() == null ? "" : request.password();
 		Authentication authentication;
@@ -133,6 +153,7 @@ public class AuthService {
 			authentication = authenticationManager
 					.authenticate(UsernamePasswordAuthenticationToken.unauthenticated(email, password));
 		} catch (AuthenticationException e) {
+			rateLimiter.record(RateLimitKind.LOGIN_FAILURE, ipAddress);
 			throw new LoginFailedException();
 		}
 		// 照合に成功すると、中身は LoginUserDetailsService が返した LoginUser になる（型の上では null もありうるので確かめる）

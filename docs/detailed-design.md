@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-10-25（DBを PostgreSQL 18 に変更。開発用DBを Docker に変更）
+最終更新：2026-11-01（回数制限を追加。イシュー #41）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -62,6 +62,10 @@ io.github.keiwebcreate.taskboard
 │   ├─ AuthService               登録・ゲスト作成・退会
 │   ├─ GuestSampleData           ゲストのサンプルデータを作る
 │   ├─ GuestCleanupJob           24時間たったゲストを1時間ごとに削除する
+│   ├─ RateLimiter               回数制限（ログインの失敗・ゲストの作成。3.8.8）
+│   ├─ RateLimitEvent, RateLimitEventRepository, RateLimitKind
+│   ├─ RateLimitProperties       回数制限の設定値（app.rate-limit）
+│   ├─ RateLimitCleanupJob       古い回数制限の記録を1時間ごとに削除する
 │   ├─ LoginUser                 ログイン中のユーザー（Spring Security の UserDetails）
 │   ├─ LoginUserDetailsService   メールアドレスからユーザーを探す（ログイン時）
 │   └─ dto/                      SignupRequest, LoginRequest, WithdrawRequest, UserResponse
@@ -110,10 +114,12 @@ io.github.keiwebcreate.taskboard
 | `BoardColumn` | board_columns | `@ManyToOne Board board` | name, position |
 | `Card` | cards | `@ManyToOne BoardColumn column` | title, description, importance, urgency, dueDate, position, `@ManyToMany Set<Label> labels`（card_labels） |
 | `Label` | labels | `@ManyToOne User user` | name, color |
+| `RateLimitEvent` | rate_limit_events | なし | kind（`RateLimitKind`）, ipAddress, createdAt |
 
 - `@ManyToOne` は `fetch = FetchType.LAZY`（必要になるまで親を読まない）にする
 - `Level`（`HIGH`・`MEDIUM`・`LOW`）は `@Enumerated(EnumType.STRING)` で文字列として保存する
 - `created_at`・`updated_at` は DB が自動で入れる（更新日時はトリガー。テーブル設計書 3.8）ので、Java からは書き込まない（`insertable = false, updatable = false`）。型は `Instant`
+  - 例外：`RateLimitEvent` の `createdAt` は Java の時計（`Instant.now()`）で入れる。数えるときの「今」と同じ時計にそろえるため（3.8.8）
 - setter は作らず、変えてよい項目だけを変えるメソッドを用意する（例：`Card.update(title, description, ...)`、`Card.moveTo(column, position)`）
 - 削除は DB の `ON DELETE CASCADE` に任せる。JPA の `cascade` 設定は使わない
 - 設定 `spring.jpa.open-in-view: false`（画面に返したあとで勝手にSQLが走るのを防ぐ）、`spring.jpa.hibernate.ddl-auto: validate`（テーブルは Flyway だけが作る。JPA はクラスとテーブルが合っているかを確かめるだけ）
@@ -178,6 +184,10 @@ public record CardRequest(
 | | `existsByUserIdAndName(userId, name)` | 名前の重複 |
 | `UserRepository` | `findByEmail(email)`、`existsByEmail(email)` | ログイン・登録 |
 | | `deleteGuestsCreatedBefore(time)`（`@Modifying @Query`） | 古いゲストの削除 |
+| `RateLimitEventRepository` | `lock(key)`（`@Query` のネイティブ SQL） | 「種類:IPアドレス」に鍵をかける（3.8.8） |
+| | `countByKindAndIpAddressAndCreatedAtAfter(kind, ip, since)` | 数える時間の中の回数 |
+| | `findCreatedAtSkipping(kind, ip, since, skip)`（`@Query`。`limit 1 offset :skip`） | 古いほうから skip 件を飛ばした記録の日時（Retry-After を出すため） |
+| | `deleteCreatedBefore(time)`（`@Modifying @Query`） | 古い記録の削除 |
 
 - Service では、見つからなければ `NotFoundException`（404）を投げる。他人のデータも存在しないデータも同じ扱いになる
 - カードにラベルを付けるとき：`findAllByIdInAndUserId` で取れた件数が、送られてきたID（重複を除く）の数より少なければ 404
@@ -196,6 +206,7 @@ Service は次の独自の例外を投げる。`common/error/ApiExceptionHandler
 | `FieldValidationException(field, message)` | 400 | VALIDATION_ERROR | Bean Validation では表せない入力のエラー（例：退会のパスワード違い、8色以外の色、空白だけの名前） |
 | `GuestNotAllowedException` | 403 | GUEST_NOT_ALLOWED | ゲストの退会 |
 | `LoginFailedException` | 401 | LOGIN_FAILED | ログイン失敗 |
+| `RateLimitedException(retryAfterSeconds)` | 429 | RATE_LIMITED | 回数制限（3.8.8）。ヘッダー `Retry-After` に秒数を入れる |
 
 Spring が投げる例外も同じ形にそろえる。`ApiExceptionHandler` は Spring 標準の `ResponseEntityExceptionHandler` を継承する。Spring MVC の例外は、これが正しいステータスを決めて、最後に `handleExceptionInternal` を呼ぶ。そこで、ステータスに合わせて `code` と日本語の `detail` を付ける（2026-10-31、品質チェック #31。それまでは自分で例外を1つずつ受け取っていたため、URL の ID に数字以外が来ると 500 になっていた）。
 
@@ -217,6 +228,7 @@ Spring が投げる例外も同じ形にそろえる。`ApiExceptionHandler` は
 | JVMのタイムゾーン | UTC（ログの時刻などをそろえるため。テーブル設計書 6章） |
 | セッション | `spring.session.timeout: 30m`（要件 U-09）。保存先は JDBC。テーブルは Flyway で作る（3.9） |
 | 上限 | `app.limits.columns: 20`・`cards-per-column: 100`・`labels: 30`。`LimitsProperties`（`@ConfigurationProperties`）で読む（要件 3.7） |
+| 回数制限 | `app.rate-limit.login-failure`（`max-count: 10`・`window: 15m`）、`app.rate-limit.guest-creation`（`max-count: 10`・`window: 1h`）。`RateLimitProperties` で読む（要件 U-10、3.8.8）。`@Validated` で、書き忘れや0以下の数があれば起動の時点でエラーにする |
 | Flyway | `src/main/resources/db/migration/` の SQL を起動時に流す |
 | 開発だけの設定 | `application-dev.yml`（プロファイル `dev`）。`./gradlew bootRun` のときだけ読み込む（`build.gradle` の `bootRun`）。実行した SQL をログに出す（`logging.level.org.hibernate.SQL: debug`）。本番とテストでは出さない |
 
@@ -276,7 +288,7 @@ sequenceDiagram
 - `AuthenticationManager` を自分で呼ぶので、認証情報のセッションへの保存とセッションIDの変更は自分で書く（API設計書 7章）。登録（A-01）・ゲスト（A-03）のあとも同じ処理でログイン状態にする。この処理は `AuthService` の1つのメソッドにまとめる
 - `LoginUser` にはユーザーのID・メールアドレス・ゲストかどうかを持たせる。Controller はここからユーザーのIDを取り出して Service に渡す
 - ゲストのメールアドレスでのログインは、パスワードがランダムなので成功しない（API設計書 A-02）
-- 回数制限（要件 U-10）の実装方法は未決（7章）
+- 回数制限（要件 U-10）：照合の前に確かめ、失敗したら記録する（3.8.8）
 
 #### 3.8.4 CSRF
 
@@ -306,7 +318,7 @@ sequenceDiagram
 - ログアウト：ゲストなら users の行を削除する（`deleteGuestById`。ゲストでない行は消さない。関連データは `ON DELETE CASCADE` で消える）。そのあとセッションを破棄する
 - `GuestCleanupJob`：`@Scheduled(cron = "0 0 * * * *")`（毎時0分）で `deleteGuestsCreatedBefore(現在時刻(UTC) − 24時間)` を呼ぶ（テーブル設計書 5章）。起動クラスに `@EnableScheduling` を付ける
 - 削除されたゲストのセッションが残っていた場合：`GET /api/auth/me` はユーザーが見つからなければセッションを破棄して 401 を返す（Spring Security の `InsufficientAuthenticationException` を投げ、`ApiExceptionHandler` が 401 UNAUTHENTICATED にする）。ほかのAPIはボードなどが見つからないので 404 になる
-- ゲストの作成の回数制限（要件 U-10）は、ログイン失敗の回数制限と一緒に作る（7章。AWS で公開する前に必ず作る）
+- ゲストの作成の回数制限（要件 U-10）は 3.8.8
 
 #### 3.8.7 退会（A-19）
 
@@ -314,12 +326,58 @@ sequenceDiagram
 2. パスワードを `PasswordEncoder.matches` で照合する。違えば 400 VALIDATION_ERROR（`errors` の `password` に「パスワードが正しくありません」）
 3. users の行を削除し（関連データは CASCADE で消える）、セッションを破棄する
 
+#### 3.8.8 回数制限（要件 U-10）
+
+2026-11-01 に追加（イシュー #41）。同じ IP アドレスからの、ログインの失敗とゲストの作成の回数を数える。
+
+| 種類（`RateLimitKind`） | 数えるもの | 上限 |
+|---|---|---|
+| `LOGIN_FAILURE` | A-02 のログインの失敗 | 15分に10回 |
+| `GUEST_CREATION` | A-03 のゲストの作成 | 1時間に10回 |
+
+**決めたこと**
+
+| 項目 | 決定 | 理由 |
+|---|---|---|
+| 記録する場所 | DB（`rate_limit_events`。テーブル設計書 3.9）。1回ごとに1行を入れる | 起動し直しても回数が消えない。AWS でサーバーを2台以上にしても、台ごとにバラバラに数えない。セッションも DB に置いている |
+| 数え方 | 「今から15分（1時間）前より新しい行」を数える（スライディングウィンドウ） | 要件の言い方どおり。「15分ごとの区切り」で数えると、区切りの直前と直後で短い間に20回試せてしまう |
+| 制限中 | パスワードを照合せずに 429。正しいパスワードでも通さない。制限中の失敗は記録しない | 照合の結果で応答を変えると、制限中もパスワードを試せてしまう |
+| ログインに成功したとき | 失敗の回数は消さない | 回数は IP アドレスごとなので、消すと「他人のパスワードを9回試す → 自分のアカウントで成功して0に戻す」をくり返せてしまう |
+| 同時に送られたとき | 「種類:IPアドレス」の名前に鍵をかけてから数える（PostgreSQL の `pg_advisory_xact_lock`）。鍵はトランザクションが終わると外れる | 鍵がないと、一度に送られた分が全部「まだ0回」と数えられて通ってしまう。鍵をかける行がまだないので、行ではなく名前に鍵をかける |
+| IP アドレス | `HttpServletRequest.getRemoteAddr()` | 中継役（ロードバランサーなど）の扱いは Spring Boot に任せる（下の「AWS で公開するとき」） |
+| Retry-After | 古いほうから数えて「これが外れれば上限を下回る」記録が、数える時間から外れるまでの秒数（切り上げ、最低1秒）。ふつうはいちばん古い記録 | そのときに1回分あいて、また試せる。上限の数を設定で下げたあとは、上限より多く記録が残っていることがあるので、その分も待たせる |
+| 時刻 | 記録の `created_at` も Java の時計で入れる | 数えるときの「今」（`Instant.now()`）と同じ時計にそろえる。DB は Docker の中で動き、時計が少しずれることがある |
+
+**流れ**
+
+- ゲスト（`AuthService.guest`、`@Transactional`）：`check`（鍵をかけて数える。上限に達していたら 429）→ `record`（1行入れる）→ ゲストを作る。ゲストの作成が失敗したら、記録も一緒に取り消される
+- ログイン（`AuthService.login`、`@Transactional(noRollbackFor = LoginFailedException.class)`）：`check` → パスワードを照合 → 失敗なら `record` して 401
+  - ふつうは例外を投げるとトランザクションの変更が取り消されるが、`noRollbackFor` で `LoginFailedException` のときは取り消さない。こうしないと失敗の記録が消える
+  - 鍵は照合（BCrypt。0.1秒ほど）の間もかかったままなので、同じ IP アドレスからのログインは1つずつ順に処理される。ほかの IP アドレスは待たない
+- `RateLimiter.check`・`record` は `@Transactional(propagation = MANDATORY)`。呼ぶ側のトランザクションがないとエラーにする（鍵が「数える → 記録する」の間ずっとかかっているようにするため）
+- 回数制限が働きはじめたら（`record` で記録して、ちょうど上限の数になったとき）、警告のログ（種類・IP アドレス）を1回だけ出す（要件 5章のログ）。制限中に断るたびには出さない（大量に送られたときに、ログがふくらまないように）
+- `RateLimitCleanupJob`：毎時0分に、いちばん長い数える時間（1時間）より古い行を消す
+
+**AWS で公開するとき**（まだ入れていない）
+
+- ロードバランサーなどの中継役を通すと、`getRemoteAddr()` は全員が中継役の IP アドレスになる。本当の接続元は、中継役がヘッダー `X-Forwarded-For` に書いて渡す
+- このヘッダーはブラウザ側でも好きな値を書けるので、自分で読まない。本番の設定で `server.forward-headers-strategy: native` を有効にし、Tomcat に任せる。Tomcat は、信用できる中継役（初期設定では 10.x・192.168.x などの内部のアドレス）から来たときだけ、ヘッダーの値を `getRemoteAddr()` にする。AWS の構成を決めるときに、中継役のアドレスが内部のものかを確かめる（7章）
+- 知っておくこと：IPv6 は1人が多くのアドレスを持てるので、アドレスを変えながら試されると防ぎきれない。必要になったら、IPv6 は上の64ビットだけで数えるようにする
+
+**テスト**（`RateLimitApiTest`）
+
+- MockMvc の接続元はすべて 127.0.0.1 になり、ほかのテストのログイン失敗・ゲスト作成と合わせて数えられてしまう。そこで、すべてのテストでリクエストごとに違う IP アドレスにする（`TestcontainersConfiguration` の `MockMvcBuilderCustomizer`）。回数制限のテストだけ、決まった IP アドレスを付けて送る
+- 時間がたったことにするときは、`JdbcTemplate` で記録の `created_at` を前にずらす
+- 回数制限のテストだけ、上限を3回にしている。10回だと DB の接続の数（同時に10本）と同じになり、「同時に送る」テストで、鍵がなくても偶然うまくいってしまうため（鍵を外して、テストが失敗することを確かめた）。本番の値（10回・15分・1時間）と、書き忘れ・0回で起動が止まることは `RateLimitPropertiesTest` で確かめる
+- ログが1回だけ出ることは、Spring Boot の `OutputCaptureExtension`（テストの中でログを読める）で確かめる
+
 ### 3.9 Flyway のファイル
 
 | ファイル | 内容 |
 |---|---|
 | `V1__create_tables.sql` | テーブル設計書 10章の CREATE TABLE と、更新日時のトリガー |
 | `V2__create_session_tables.sql` | Spring Session JDBC のテーブル（`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES`）。Spring Session に入っている PostgreSQL 用の SQL（`schema-postgresql.sql`）を元にする |
+| `V3__create_rate_limit_events.sql` | 回数制限の記録（`rate_limit_events`。テーブル設計書 3.9。2026-11-01 追加） |
 
 ### 3.10 テスト（要件 5.5）
 
@@ -528,5 +586,5 @@ AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめ�
 
 ## 7. まだ決めていないこと
 
-- 回数制限（要件 U-10）の数え方の実装（メモリに持つか、DBに持つか）。AWS の構成とあわせて決める（API設計書 8章）
-- AWS の構成（本番での画面とAPIの配信のしかた、ドメイン）
+- ~~回数制限（要件 U-10）の数え方の実装~~ → DB に記録する（3.8.8。2026-11-01 決定）
+- AWS の構成（本番での画面とAPIの配信のしかた、ドメイン）。あわせて、回数制限のための `server.forward-headers-strategy` の設定と、中継役のアドレスの確認（3.8.8）

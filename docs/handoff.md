@@ -1,9 +1,9 @@
-# 引き継ぎ書（2026-10-31 更新）
+# 引き継ぎ書（2026-11-01 更新）
 
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #40（GitHub Actions）がマージ済みかを `gh pr view 40` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+1. PR #42（回数制限）がマージ済みかを `gh pr view 42` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
 2. 下の「次にやること」から、次に作るものを私と決める（講義のアプリ側は、品質チェックの回で終わっている）
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
@@ -27,7 +27,7 @@
 - 機能を作ったら、README の「進み具合」と、この引き継ぎ書も直す
 - 応答はすべて日本語（`C:\dev\Raise_Tech\.claude\CLAUDE.md`）
 
-## 今の状態（2026-10-31）
+## 今の状態（2026-11-01）
 
 **できていること**（講義の CRUD はカード・リスト・ラベルについてひととおり完了。ドラッグ＆ドロップも完了）
 
@@ -42,8 +42,9 @@
 | ドラッグ＆ドロップ（リストの並び替え、カードの並び替え・移動） | A-11・A-15 | W-03。リストは名前を、カードはカード全体をつかむ。キーボードでも動かせる |
 | ゲストログイン・ログアウトでの削除・24時間後の削除 | A-03・A-04・A-05 | W-01 の「ゲストとして試す」、W-03 の「ゲスト」の札と注意書きの帯 |
 | GitHub Actions（自動テスト） | 要件 5章 | `.github/workflows/ci.yml`。PR と main への反映で `backend`・`frontend` が走り、成功しないとマージできない（`detailed-design.md` 5.3） |
+| ログイン失敗・ゲスト作成の回数制限 | U-10、A-02・A-03 の 429 | W-01 に「しばらくしてから再度お試しください」（画面のコードは変えていない。API の `detail` をそのまま出す） |
 
-- テスト：サーバー 98件（`./gradlew test`）、画面 45件（`npm test`）。すべて成功
+- テスト：サーバー 114件（`./gradlew test`）、画面 45件（`npm test`）。すべて成功
 - コードのチェック（#27）：サーバーは Checkstyle・SpotBugs（`./gradlew check`）、画面は oxlint の規則を足し、Prettier を入れた（`npm run lint`・`npm run format:check`）。道具と規則は `detailed-design.md` 5.2
 - 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は最初に SQL で入れたもの
 
@@ -52,16 +53,22 @@
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
 | 退会 | U-11、W-08、A-19 | ヘッダーのメニュー（▾）もこのとき |
-| ログイン失敗・ゲスト作成の回数制限 | U-10 | 方式が未決（`detailed-design.md` 7章）。**AWS で公開する前に必ず作る**（ゲストを無制限に作れるため） |
-| AWS へのデプロイ | G-04 | 構成が未決。画面と API は同じドメインにする（CORS を設定しないため） |
+| AWS へのデプロイ | G-04 | 構成が未決。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
 | 見直し（急がない） | | 要件：改訂履歴・前提条件と制約・非機能要件の ID・受け入れ基準。テーブル：論理名と物理名・CRUD 表 |
 
 ## 次にやること
 講義のアプリ側は、品質チェックの回（初級編16）で終わっている。残りの機能から、私と相談して決める。候補：
 - **退会**（U-11、W-08、A-19）。ヘッダーのメニュー（▾）も。ゲストには出さない
-- ログイン失敗・ゲスト作成の回数制限（U-10）。AWS の前に必ず
 - AWS へのデプロイ（G-04）
 - 作ったら、スキル `quality-check`（差分だけ）で確かめてから PR を作る
+
+**回数制限（#41）で決めたこと**（詳細は `detailed-design.md` 3.8.8、テーブルは `database-design.md` 3.9）
+- 回数は DB の `rate_limit_events`（Flyway V3）に1回1行で記録し、直近15分（ゲストは1時間）の行を数える。古い行は `RateLimitCleanupJob` が毎時消す
+- 制限中は正しいパスワードでも 429。ログインに成功しても失敗の回数は消さない。429 には `Retry-After`（秒）を付ける。ログは上限に達したときに1回だけ。設定（`app.rate-limit`）は `@Validated` で、書き忘れると起動しない
+- 同時に送られても上限を超えないように、「種類:IPアドレス」に PostgreSQL のアドバイザリーロックをかけてから数える。ログインは `noRollbackFor = LoginFailedException.class` で、失敗の記録を取り消さない
+- IP アドレスは `getRemoteAddr()`。AWS では `server.forward-headers-strategy: native` で中継役（ロードバランサー）の後ろの本当の接続元を取る（まだ入れていない）
+- テストの注意：MockMvc の接続元は、すべてのテストでリクエストごとに違う IP アドレスにしている（`TestcontainersConfiguration`）。回数制限のテスト（`RateLimitApiTest`）は上限を3回にしている（10回だと DB の接続の数と同じで、鍵がなくても同時のテストが通ってしまうため）
+- 開発中は接続元がいつも自分のパソコン（`0:0:0:0:0:0:0:1`）なので、確かめると自分も止められる。戻すときは `docker exec taskboard-db-1 psql -U task_app_user -d task_app -c "DELETE FROM rate_limit_events;"`
 
 **GitHub Actions（#39）で決めたこと**（詳細は `detailed-design.md` 5.3）
 - 走らせるのは、PR（作ったとき・push したとき）と main への反映。PR を作る前のブランチへの push では走らない。要件 5章もこれに合わせて直した
@@ -130,6 +137,6 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・GitHub Actions の `backend`・`frontend` の成功が必須・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#40（イシューと PR は番号を共有している）。#39（GitHub Actions）の PR が #40
+- これまでのイシューと PR：#1〜#42（イシューと PR は番号を共有している）。#41（回数制限）の PR が #42
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい
