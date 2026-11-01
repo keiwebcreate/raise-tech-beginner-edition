@@ -112,3 +112,20 @@
   background: var(--yellow);
   color: #1c2024;
 }
+
+/* 右上のゴミ箱（要件 C-03。イシュー #61）。ふだんは隠し、マウスを乗せたときと、
+   キーボードでカードの中を選んだとき（タイトルのボタンかゴミ箱にカーソルがあるとき）だけ出す。
+   visibility で隠すので、隠れている間は Tab でも選ばれない（タイトルを選ぶと出て、次の Tab で選べる） */
+.deleteSlot {
+  visibility: hidden;
+}
+.card:hover .deleteSlot,
+.card:focus-within .deleteSlot {
+  visibility: visible;
+}
+/* ホバーできない画面（スマートフォンの指）では出さない。カード詳細から消す */
+@media (hover: none) {
+  .deleteSlot {
+    display: none;
+  }
+}

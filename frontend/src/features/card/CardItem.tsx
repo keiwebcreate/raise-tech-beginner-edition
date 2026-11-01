@@ -2,6 +2,7 @@ import type { DraggableProvidedDragHandleProps } from '@hello-pangea/dnd'
 import type { CardResponse, LabelResponse, Level } from '../../api/types.ts'
 import { dueStatus, formatDue } from '../../shared/lib/due.ts'
 import { LabelChip } from '../label/LabelChip.tsx'
+import { CardDeleteButton } from './CardDeleteButton.tsx'
 import { CardDescription } from './CardDescription.tsx'
 import styles from './CardItem.module.css'
 
@@ -25,6 +26,7 @@ type Props = {
 // 「もっと見る」と URL のリンクは、その上に重ねてあるので、それぞれの動きをする
 // ドラッグでつかむところもタイトルのボタン（見えない部分がカード全体に広がっているので、どこをつかんでも動かせる）
 // Enter でカード詳細を開き、スペースキーでつかむ
+// 右上のゴミ箱（CardDeleteButton）は、マウスを乗せたときとキーボードで選んだときだけ出す。ドラッグ中は出さない
 export function CardItem({ card, labels, onOpen, dragHandleProps, isDragging }: Props) {
   // ボードのラベルの順番のまま、このカードに付いているものだけを選ぶ
   const cardLabels = labels.filter((label) => card.labelIds.includes(label.id))
@@ -54,6 +56,11 @@ export function CardItem({ card, labels, onOpen, dragHandleProps, isDragging }: 
               {formatDue(card.dueDate)}
             </span>
           )}
+        </div>
+      )}
+      {!isDragging && (
+        <div className={styles.deleteSlot}>
+          <CardDeleteButton card={card} />
         </div>
       )}
     </article>

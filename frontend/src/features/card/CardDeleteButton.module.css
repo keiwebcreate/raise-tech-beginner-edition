@@ -1,0 +1,24 @@
+/* カードの右上のゴミ箱。タイトルのボタンの見えない部分（カード全体）より上に重ねる */
+.button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  /* 長いタイトルと重なっても読めるように、白い丸い背景を付ける */
+  background: var(--surface);
+  box-shadow: 0 0 0 1px rgba(16, 24, 40, 0.08);
+  color: var(--muted);
+  cursor: pointer;
+}
+.button:hover {
+  color: var(--red);
+  background: #fdecec;
+}
