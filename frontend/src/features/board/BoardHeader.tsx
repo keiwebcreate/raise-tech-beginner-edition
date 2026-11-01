@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ApiError, fieldErrorsOf } from '../../api/client.ts'
+import type { LabelResponse } from '../../api/types.ts'
 import { MAX_LENGTH } from '../../shared/lib/constants.ts'
 import { validateText } from '../../shared/lib/validation.ts'
 import { InlineEdit } from '../../shared/ui/InlineEdit.tsx'
@@ -10,6 +11,7 @@ import { WithdrawModal } from '../auth/WithdrawModal.tsx'
 import * as boardApi from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
 import styles from './BoardHeader.module.css'
+import { CardSearch } from './CardSearch.tsx'
 
 type Props = {
   boardName?: string // 読み込み中・失敗したときは undefined（ボード名を出さない）
@@ -17,12 +19,20 @@ type Props = {
   onStartRename?: () => void
   onEndRename?: () => void
   onOpenLabels?: () => void // 「ラベル管理」（W-05）を開く。読み込み中・失敗したときは undefined（ボタンを出さない）
+  labels?: LabelResponse[] // 絞り込みのラベルの選択肢。読み込み中・失敗したときは undefined（検索欄を出さない）
 }
 
 // 画面の上のヘッダー（画面設計書 W-03）
 // - 登録したユーザー：メールアドレスと「▾」のメニュー（ログアウト・退会する）
 // - ゲスト：「ゲスト」の札と「ログアウト」ボタン、ヘッダーの下に注意書きの帯（要件 U-07）。退会はない
-export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEndRename, onOpenLabels }: Props) {
+export function BoardHeader({
+  boardName,
+  isRenaming = false,
+  onStartRename,
+  onEndRename,
+  onOpenLabels,
+  labels,
+}: Props) {
   const { user, logout } = useAuth()
   const { dispatch } = useBoard()
   const { showApiError } = useToast()
@@ -73,6 +83,7 @@ export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEn
         )}
         {user && (
           <div className={styles.right}>
+            {labels && <CardSearch labels={labels} />}
             {onOpenLabels && (
               <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={onOpenLabels}>
                 ラベル管理

@@ -1,0 +1,20 @@
+/* 絞り込み中の帯（ゲストの注意書きの帯と同じ並び。色は青系で区別する） */
+.bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  background: #edf2fe;
+  color: #1f2d5c;
+  border-bottom: 1px solid #d2deff;
+  padding: 8px 20px;
+  font-size: 13px;
+}
+
+/* スマートフォン（要件 5.1） */
+@media (max-width: 640px) {
+  .bar {
+    padding: 8px 16px;
+  }
+}

@@ -6,7 +6,7 @@ import {
   type DropResult,
   type ResponderProvided,
 } from '@hello-pangea/dnd'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ApiError } from '../../api/client.ts'
 import type { BoardResponse } from '../../api/types.ts'
 import { LIMITS, MESSAGES } from '../../shared/lib/constants.ts'
@@ -19,6 +19,7 @@ import { getBoard } from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
 import { BoardHeader } from './BoardHeader.tsx'
 import styles from './BoardPage.module.css'
+import { isFilterActive, matchesCard } from './cardFilter.ts'
 import { Column } from './Column.tsx'
 import { moveColumn } from './columnApi.ts'
 import {
@@ -30,6 +31,8 @@ import {
   startMessage,
   updateMessage,
 } from './dragAndDrop.ts'
+import { FilterBar } from './FilterBar.tsx'
+import { useCardFilter } from './useCardFilter.ts'
 
 // 開いているその場の入力欄。一度に開くのは1つだけ（ほかを開いたら前のものは閉じる）
 type OpenForm =
@@ -55,6 +58,22 @@ export function BoardPage() {
   // （続けて動かしたあとで前の保存が失敗すると、戻す先の「動かす前」が古くなってしまうため）
   const [savingMove, setSavingMove] = useState(false)
   const { showToast, showApiError } = useToast()
+
+  // 検索・絞り込み（要件 S-01〜S-04）。条件は URL から読む（ボードにないラベルは外す）
+  const { filter, clear: clearFilter } = useCardFilter(board?.labels)
+  const filtering = isFilterActive(filter)
+  // 絞り込み中はカードを追加しないので、開いていた「＋ カードを追加」の入力欄は閉じる
+  // （閉じないと、条件をクリアしたときに入力欄が開いたまま戻ってくる）
+  // React の「描くときに直す」書き方。useEffect で閉じると1回余分に描き直すため
+  if (filtering && openForm?.kind === 'card') {
+    setOpenForm(null)
+  }
+  // 絞り込み中だけ、リストごとに条件に合うカードを選んでおく（絞り込んでいないときは null）
+  // 期限の「今日」は matchesCard の中で決める（描く処理の中で new Date() を呼ばない。カードの期限の色分けと同じ）
+  const visibleCards = useMemo(() => {
+    if (!board || !filtering) return null
+    return new Map(board.columns.map((column) => [column.id, column.cards.filter((c) => matchesCard(c, filter))]))
+  }, [board, filter, filtering])
 
   // その入力欄がまだ開いているときだけ閉じる
   // （名前の保存を待っている間に、別の入力欄を開いていたら、そちらは閉じない）
@@ -151,7 +170,15 @@ export function BoardPage() {
         onStartRename={() => setOpenForm(renameBoardForm)}
         onEndRename={() => closeForm(renameBoardForm)}
         onOpenLabels={() => setLabelsOpen(true)}
+        labels={board.labels}
       />
+      {visibleCards && (
+        <FilterBar
+          matched={[...visibleCards.values()].reduce((sum, cards) => sum + cards.length, 0)}
+          total={board.columns.reduce((sum, column) => sum + column.cards.length, 0)}
+          onClear={clearFilter}
+        />
+      )}
       <DragDropContext
         onDragStart={(start: DragStart, provided: ResponderProvided) => provided.announce(startMessage(board, start))}
         onDragUpdate={(update: DragUpdate, provided: ResponderProvided) =>
@@ -175,6 +202,7 @@ export function BoardPage() {
                         column={column}
                         index={index}
                         dragDisabled={savingMove}
+                        visibleCards={visibleCards?.get(column.id)}
                         labels={board.labels}
                         isAddingCard={isSameForm(openForm, addCardForm)}
                         onOpenAddCard={() => setOpenForm(addCardForm)}

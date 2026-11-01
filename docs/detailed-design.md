@@ -413,7 +413,7 @@ frontend/src/
 │   └─ types.ts             APIのJSONの型（API設計書 5章）
 ├─ features/
 │   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、UserMenu（ヘッダーのメニュー）、WithdrawModal（W-08）、authApi
-│   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi
+│   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi、CardSearch・FilterBar・cardFilter・useCardFilter（検索・絞り込み。4.8）
 │   ├─ card/                CardItem、AddCardForm、CardModal（W-04）、cardApi
 │   └─ label/               LabelModal（W-05）、LabelChip、LabelPicker、labelApi
 ├─ shared/
@@ -493,6 +493,7 @@ frontend/src/
 | 送る値 | 名前・タイトルは、画面で確かめたのと同じ「前後の空白を除いた値」を送る（サーバーは受け取った値で文字数を数えるため） |
 | モーダル | `shared/ui/Modal` は HTML の `<dialog>` を `showModal()` で開く。ブラウザが、いちばん上に出す・後ろの画面を操作できなくする・背景を暗くする。`<dialog>` だけだと、最後の部品の次で Tab がブラウザのアドレスバーなどに移るので、最後の次は最初へ、最初の前は最後へ戻す（フォーカストラップ）。開いたときにカーソルを置く部品には `data-autofocus` を付ける（`autoFocus` は使わない） |
 | 押せるもの | クリックで動くものは `<button>` にする（Enter・Space で動き、読み上げでもボタンになる）。中にリンクがあって全体をボタンにできないとき（カード、カード詳細の説明）は、見えないボタンを全体に広げ、リンクはその上に重ねる |
+| 見えない文字 | 見た目は数字や記号だけで、読み上げには文で伝えたいとき（「絞り込み 3」→「（3件選択中）」）は、見える部分を `aria-hidden` にし、`global.css` の `sr-only` の文字を添える。`<span>` に `aria-label` を付けない |
 | Esc | モーダルは、カーソルのあるいちばん上のものだけが閉じる。メニューやラベルの一覧は `useEscapeKey` で先に受け取り、モーダルまで届かないようにする |
 
 ### 4.7 テスト（要件 5.5）
@@ -503,6 +504,29 @@ Vitest で、ロジックのある部分だけを自動テストする。
 - `linkify`（URLのリンク化。`javascript:` などはリンクにしない）
 - `validation`（入力チェック）
 - `boardReducer`（各 action でデータが正しく変わるか。特に `cardMoved` と `labelDeleted`）
+- `cardFilter`（検索の文字のそろえ方、絞り込みの判定、URL との読み書き。4.8）
+
+### 4.8 検索・絞り込み（要件 S-01〜S-04）
+
+2026-11-01 に追加（イシュー #45）。サーバーは変えず、画面にあるボードのデータだけで絞り込む（ボードのデータは A-06 で全部読み込んでいるため）。
+
+| ファイル | 役割 |
+|---|---|
+| `features/board/cardFilter.ts` | 画面を持たない関数。`normalizeText`（文字のそろえ方）、`matchesCard`（カードが条件に合うか）、`parseFilter`・`toSearchParams`（URL との読み書き）、`countConditions`・`isFilterActive` |
+| `features/board/useCardFilter.ts` | 条件を URL（React Router の `useSearchParams`）から読み書きするフック。書き換えは `replace`（1文字ごとに「戻る」の履歴を増やさない） |
+| `features/board/CardSearch.tsx` | ヘッダーの検索欄と「絞り込み」ボタン・小窓 |
+| `features/board/FilterBar.tsx` | 絞り込み中の帯 |
+
+- **条件の持ち場所**：URL だけ。検索欄と `BoardPage` の両方が `useCardFilter` で同じ URL を見る。形は `/?q=資料&label=3&label=none&due=overdue&importance=HIGH&urgency=LOW`（同じ名前をくり返す）。知らない値・重なった値は無視する（URL は手で書き換えられるため）
+- **文字のそろえ方**：`normalize('NFKC')`（全角英数字→半角、半角カタカナ→全角）→ 小文字 → カタカナ（U+30A1〜U+30F6）を 0x60 引いてひらがな。検索の文字は空白（全角も）で言葉に分け、すべてを含むカードだけ
+- **判定**：同じ種類の中は「どれか」、種類どうしは「すべて」。期限の区切りは `dueStatus`（C-05 の色分け）を使い、`normal` を「それより先」、期限なしを「期限なし」とする。「今日」は `matchesCard` の中で決める（描く処理の中で `new Date()` を呼ぶと、React の規則（純粋さ）に反するため）
+- **表示**：`BoardPage` が、絞り込み中だけリストごとの合うカードを `useMemo` で作り、`Column` に `visibleCards` で渡す。`Column` は渡されたら、そのカードだけを出し、枚数を「2 / 5」にし、カードのドラッグ（`isDragDisabled`）と「＋ カードを追加」を止める。リストの削除の確認の枚数は、隠れたカードも数える（本当に消えるため）
+- **ドラッグを止める理由**：ライブラリの位置（`destination.index`）は見えているカードの中の何番目なので、隠れたカードがあると本当の並び順（position）に置き換えられない
+- **日本語の変換中**：検索欄の文字は部品の中にも持ち、変換中（`InputEvent.isComposing`）は URL に入れない。確定したとき（`compositionend`）に入れる。URL の文字が外から変わった（帯の「条件をクリア」）ときは、前の値と比べて検索欄もそろえる（React の「描くときに直す」書き方）
+- **読み上げ**：帯の件数は `<output aria-live="polite">`（条件を変えるたびに読み上げる）。条件は `<fieldset>`・`<legend>` とチェックボックス。「絞り込み」ボタンは `aria-expanded`・`aria-controls`。ボタンの数字とリストの「2 / 5」は `aria-hidden` にし、読み上げには `sr-only`（画面に見えない文字。`global.css`）で「（3件選択中）」「5枚中2枚」と文で伝える（役割のない `<span>` の `aria-label` は読み上げソフトによっては無視されるため）
+- **ボードにないラベル**：URL のラベルの ID がボードにない（手で書き換えた、絞り込みに使っていたラベルを削除した）ときは、`withKnownLabels` で条件から外す（`useCardFilter` にボードのラベルを渡す）。外さないと、小窓にチェックがないのにどのカードも合わなくなる。外した ID は、次に条件を変えたときに URL からも消える
+- **カードの追加欄**：絞り込みが始まったら、開いていた「＋ カードを追加」の入力欄を閉じる（閉じないと、条件をクリアしたときに開いたまま戻ってくる）
+- 品質チェック（イシュー #45）で、上の3つ（読み上げ・ボードにないラベル・カードの追加欄）を直した
 
 ## 5. 使うライブラリ
 

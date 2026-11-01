@@ -1,0 +1,100 @@
+/* ヘッダーの検索欄と「絞り込み」（画面設計書 W-03） */
+.root {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.search {
+  width: 200px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+/* 条件を選んでいるときの「絞り込み」ボタン */
+.active {
+  color: var(--primary);
+}
+.badge {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* 「絞り込み」で開く小窓 */
+.panel {
+  position: absolute;
+  z-index: 20;
+  right: 0;
+  top: calc(100% + 4px);
+  width: 280px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border-radius: 8px;
+  box-shadow: var(--shadow-modal);
+  padding: 10px 12px;
+}
+/* 種類ごとのまとまり（<fieldset> の標準の枠・余白を消す） */
+.group {
+  border: 0;
+  margin: 0 0 10px;
+  padding: 0;
+  min-width: 0;
+}
+/* <legend> はブラウザが枠の線の上に置くので、float で中に入れて見出しのように並べる */
+.legend {
+  float: left;
+  width: 100%;
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.legend + * {
+  clear: both;
+}
+.option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 4px;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.option:hover {
+  background: var(--list-bg);
+}
+/* 高・中・低は横に並べる */
+.row {
+  display: flex;
+  gap: 4px;
+}
+.foot {
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+}
+
+/* スマートフォン（要件 5.1） */
+@media (max-width: 640px) {
+  .search {
+    width: 140px;
+  }
+  /* 狭い画面では、ヘッダーが折り返して高さが変わるので、画面の下から出す（ボトムシート） */
+  .panel {
+    position: fixed;
+    left: 16px;
+    right: 16px;
+    top: auto;
+    bottom: 16px;
+    width: auto;
+  }
+}

@@ -87,6 +87,7 @@
     width: 100%;
   }
   .right {
+    flex-wrap: wrap;
     gap: 8px;
   }
   .guestBar {
