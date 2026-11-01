@@ -11,14 +11,15 @@ type Props = {
   loggingOut: boolean // ログアウトの通信中は、もう一度押せないようにする
   onLogout: () => void
   onOpenAccountModal: (kind: AccountModalKind) => void // メールアドレス・パスワードの変更、退会のモーダルを開く
-  onOpenLabels?: () => void // ラベル管理（W-05）を開く。ボードの読み込み中・失敗したときは undefined（出さない）
+  onOpenLabels?: () => void // ラベル管理（W-05）を開く。ボードの読み込み中・失敗したとき、一覧の画面では undefined（出さない）
+  onDeleteBoard?: () => void // ボードの削除（確認ダイアログを開く）。undefined なら出さない
 }
 
 // スマートフォン幅のヘッダーの ☰ と、押すと開くメニュー（画面設計書 W-03。イシュー #47）
-// パソコンの幅の「ラベル管理」「メールアドレス ▾」（ゲストは「ゲスト」の札と「ログアウト」）を、ここにまとめる
+// パソコンの幅の「ラベル管理」、ボード名の横の「…」（ボードを削除）、「メールアドレス ▾」（ゲストは「ゲスト」の札と「ログアウト」）を、ここにまとめる
 // どちらを見せるかは BoardHeader.module.css の @media で切り替える（隠したほうは読み上げにも出ない）
 // 作りはリストの「…」（ColumnMenu）と同じ。外のクリックか Esc で閉じる
-export function MobileMenu({ user, loggingOut, onLogout, onOpenAccountModal, onOpenLabels }: Props) {
+export function MobileMenu({ user, loggingOut, onLogout, onOpenAccountModal, onOpenLabels, onDeleteBoard }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
@@ -54,6 +55,11 @@ export function MobileMenu({ user, loggingOut, onLogout, onOpenAccountModal, onO
           {onOpenLabels && (
             <button type="button" aria-haspopup="dialog" onClick={run(onOpenLabels)}>
               ラベル管理
+            </button>
+          )}
+          {onDeleteBoard && (
+            <button type="button" className={menuStyles.danger} aria-haspopup="dialog" onClick={run(onDeleteBoard)}>
+              ボードを削除
             </button>
           )}
           {/* ゲストのメールアドレスはダミーで、パスワードは誰も知らないので、変更はない（要件 U-12・U-13） */}

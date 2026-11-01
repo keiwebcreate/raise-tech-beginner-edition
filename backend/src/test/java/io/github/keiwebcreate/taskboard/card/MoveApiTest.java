@@ -1,5 +1,6 @@
 package io.github.keiwebcreate.taskboard.card;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -92,7 +93,7 @@ class MoveApiTest {
 		assertThat(cardTitles(todo)).containsExactly("W", "Y");
 		assertThat(cardPositions(todo)).containsExactly(0, 1);
 		// ボードの取得でも、移した先のリストに入っている
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[1].cards[*].title").value(contains("A", "X", "B")));
 	}
 
@@ -207,7 +208,7 @@ class MoveApiTest {
 		// API設計書 A-11 の例：「A, B, C」の A を 2 に動かす → B, C, A
 		moveColumn(session, todo, 2).andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[*].name").value(contains("作業中", "完了", "未着手")));
 		assertThat(columnPositions(session)).containsExactly(0, 1, 2);
 	}
@@ -219,7 +220,7 @@ class MoveApiTest {
 
 		moveColumn(session, done, 0).andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[*].name").value(contains("完了", "未着手", "作業中")));
 		assertThat(columnPositions(session)).containsExactly(0, 1, 2);
 	}
@@ -239,7 +240,7 @@ class MoveApiTest {
 				.content("{}"))
 				.andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[*].name").value(contains("未着手", "作業中", "完了")));
 	}
 
@@ -250,7 +251,7 @@ class MoveApiTest {
 
 		moveColumn(hanako, columnId(taro, 0), 2).andExpect(status().isNotFound());
 
-		mockMvc.perform(get("/api/board").cookie(taro))
+		mockMvc.perform(get(firstBoardPath(mockMvc, taro)).cookie(taro))
 				.andExpect(jsonPath("$.columns[*].name").value(contains("未着手", "作業中", "完了")));
 	}
 
@@ -275,7 +276,7 @@ class MoveApiTest {
 
 	// 左から index 番目（0から）のリストの ID
 	private long columnId(Cookie session, int index) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.columns[" + index + "].id").longValue();
 	}

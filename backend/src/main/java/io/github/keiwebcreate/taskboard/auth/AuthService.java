@@ -1,6 +1,5 @@
 package io.github.keiwebcreate.taskboard.auth;
 
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
@@ -36,10 +35,7 @@ import io.github.keiwebcreate.taskboard.auth.dto.PasswordChangeRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.SignupRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.UserResponse;
 import io.github.keiwebcreate.taskboard.auth.dto.WithdrawRequest;
-import io.github.keiwebcreate.taskboard.board.Board;
-import io.github.keiwebcreate.taskboard.board.BoardRepository;
-import io.github.keiwebcreate.taskboard.column.BoardColumn;
-import io.github.keiwebcreate.taskboard.column.BoardColumnRepository;
+import io.github.keiwebcreate.taskboard.board.BoardService;
 import io.github.keiwebcreate.taskboard.common.error.EmailDuplicatedException;
 import io.github.keiwebcreate.taskboard.common.error.FieldValidationException;
 import io.github.keiwebcreate.taskboard.common.error.GuestNotAllowedException;
@@ -59,13 +55,11 @@ public class AuthService {
 
 	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
-	// 登録したときに作るリスト（要件 U-02、テーブル設計書 9.1）
+	// 登録したときに作るボードの名前（要件 U-02、テーブル設計書 9.1）。3つのリストは BoardService が入れる
 	private static final String INITIAL_BOARD_NAME = "マイボード";
-	private static final List<String> INITIAL_COLUMN_NAMES = List.of("未着手", "作業中", "完了");
 
 	private final UserRepository userRepository;
-	private final BoardRepository boardRepository;
-	private final BoardColumnRepository boardColumnRepository;
+	private final BoardService boardService;
 	private final PasswordEncoder passwordEncoder;
 	private final AuthenticationManager authenticationManager;
 	private final SecurityContextRepository securityContextRepository;
@@ -77,15 +71,13 @@ public class AuthService {
 	private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 			.getContextHolderStrategy();
 
-	public AuthService(UserRepository userRepository, BoardRepository boardRepository,
-			BoardColumnRepository boardColumnRepository, PasswordEncoder passwordEncoder,
+	public AuthService(UserRepository userRepository, BoardService boardService, PasswordEncoder passwordEncoder,
 			AuthenticationManager authenticationManager, SecurityContextRepository securityContextRepository,
 			CsrfTokenRepository csrfTokenRepository, GuestSampleData guestSampleData, RateLimiter rateLimiter,
 			FindByIndexNameSessionRepository<? extends Session> sessionRepository,
 			TransactionTemplate transactionTemplate) {
 		this.userRepository = userRepository;
-		this.boardRepository = boardRepository;
-		this.boardColumnRepository = boardColumnRepository;
+		this.boardService = boardService;
 		this.passwordEncoder = passwordEncoder;
 		this.authenticationManager = authenticationManager;
 		this.securityContextRepository = securityContextRepository;
@@ -117,10 +109,7 @@ public class AuthService {
 			// DB の一意制約（uk_users_email）が2人目を止めるので、確認で見つかったときと同じ 409 にする
 			throw new EmailDuplicatedException();
 		}
-		Board board = boardRepository.save(new Board(user, INITIAL_BOARD_NAME));
-		for (int position = 0; position < INITIAL_COLUMN_NAMES.size(); position++) {
-			boardColumnRepository.save(new BoardColumn(board, INITIAL_COLUMN_NAMES.get(position), position));
-		}
+		boardService.createWithInitialColumns(user, INITIAL_BOARD_NAME);
 
 		return startSession(user, httpRequest, httpResponse);
 	}

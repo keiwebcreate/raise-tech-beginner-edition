@@ -52,7 +52,7 @@ foreach ($port in 5432, 8080, 5173) {
 ## 4. 動いたか確かめる
 
 - 画面：`Invoke-WebRequest http://localhost:5173 -UseBasicParsing` が 200
-- API：`Invoke-WebRequest http://localhost:5173/api/board -UseBasicParsing -SkipHttpErrorCheck` で、Vite 経由で Spring Boot に届く（ログインがまだないので、今は 401 が返れば届いている）
+- API：`Invoke-WebRequest http://localhost:5173/api/boards -UseBasicParsing -SkipHttpErrorCheck` で、Vite 経由で Spring Boot に届く（ログインがまだないので、今は 401 が返れば届いている）
 - ユーザーには `http://localhost:5173` を開いてもらう
 
 ## 5. 止める

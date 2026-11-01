@@ -35,7 +35,7 @@ npx serve mockup
 | `js/router.js` | 画面の切り替え（`#/login` など） | React Router |
 | `js/api.js` | **ニセのサーバー**。API設計書の A-01〜A-19 と同じ関数・同じ形 | `fetch` で `/api/...` を呼ぶ関数に置き換える |
 | `js/board-store.js` | 表示中のボードのデータ | `useState` / Context |
-| `js/sample-data.js` | サンプルデータ（`GET /api/board` と同じ形） | テストのデータに使える |
+| `js/sample-data.js` | サンプルデータ（`GET /api/boards/{id}` と同じ形） | テストのデータに使える |
 | `js/constants.js` | 上限・ラベルの色・メッセージ | そのまま使える |
 | `js/validation.js` | 入力チェック | そのまま使える |
 | `js/utils.js` | 期限の表示・URLのリンク化など | そのまま使える（Vitest でテストする部分） |

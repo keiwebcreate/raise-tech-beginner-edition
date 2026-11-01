@@ -1,5 +1,6 @@
 package io.github.keiwebcreate.taskboard.label;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -48,7 +49,7 @@ class LabelApiTest {
 				.andExpect(jsonPath("$.color").value("#3e63dd"));
 		addLabel(session, "買い物", "#30a46c").andExpect(status().isCreated());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.labels.length()").value(2))
 				.andExpect(jsonPath("$.labels[0].name").value("仕事"))
 				.andExpect(jsonPath("$.labels[1].name").value("買い物"));
@@ -122,7 +123,7 @@ class LabelApiTest {
 				.andExpect(jsonPath("$.name").value("急ぎ"))
 				.andExpect(jsonPath("$.color").value("#e5484d"));
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.labels[0].name").value("急ぎ"))
 				.andExpect(jsonPath("$.labels[0].color").value("#e5484d"));
 	}
@@ -187,7 +188,7 @@ class LabelApiTest {
 		mockMvc.perform(delete("/api/labels/{id}", work).with(csrf()).cookie(session))
 				.andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.labels.length()").value(1))
 				.andExpect(jsonPath("$.labels[0].id").value(shopping))
 				.andExpect(jsonPath("$.columns[0].cards.length()").value(1))
@@ -203,7 +204,7 @@ class LabelApiTest {
 		mockMvc.perform(delete("/api/labels/{id}", othersLabel).with(csrf()).cookie(signup()))
 				.andExpect(status().isNotFound());
 		// 持ち主のラベルは残っている
-		mockMvc.perform(get("/api/board").cookie(owner))
+		mockMvc.perform(get(firstBoardPath(mockMvc, owner)).cookie(owner))
 				.andExpect(jsonPath("$.labels.length()").value(1));
 	}
 
@@ -240,7 +241,7 @@ class LabelApiTest {
 
 	// 一番左のリストにカードを足して、その ID を返す
 	private long addCard(Cookie session, String title) throws Exception {
-		String board = mockMvc.perform(get("/api/board").cookie(session))
+		String board = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		long columnId = JsonPath.<Number>read(board, "$.columns[0].id").longValue();
 		String json = mockMvc.perform(post("/api/columns/{id}/cards", columnId).with(csrf()).cookie(session)

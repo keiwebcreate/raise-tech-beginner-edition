@@ -12,7 +12,7 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 /**
- * ボード（boards テーブルの1行）。ユーザー1人につき1つ。
+ * ボード（boards テーブルの1行）。ユーザー1人が複数持てる（要件 B-02）。
  */
 @Entity
 @Table(name = "boards")

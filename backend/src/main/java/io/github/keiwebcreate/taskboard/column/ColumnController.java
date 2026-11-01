@@ -8,7 +8,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -22,7 +21,6 @@ import jakarta.validation.Valid;
  * リストの API（API設計書 5.3）。
  */
 @RestController
-@RequestMapping("/api/columns")
 public class ColumnController {
 
 	private final ColumnService columnService;
@@ -31,29 +29,30 @@ public class ColumnController {
 		this.columnService = columnService;
 	}
 
-	// A-08 リストの追加
-	@PostMapping
+	// A-08 リストの追加。どのボードに足すかを URL で指定する
+	@PostMapping("/api/boards/{boardId}/columns")
 	@ResponseStatus(HttpStatus.CREATED)
-	public ColumnResponse add(@AuthenticationPrincipal LoginUser loginUser, @Valid @RequestBody ColumnRequest request) {
-		return columnService.add(loginUser.getId(), request);
+	public ColumnResponse add(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long boardId,
+			@Valid @RequestBody ColumnRequest request) {
+		return columnService.add(loginUser.getId(), boardId, request);
 	}
 
 	// A-09 リスト名の変更（名前だけを変えるので PATCH）
-	@PatchMapping("/{columnId}")
+	@PatchMapping("/api/columns/{columnId}")
 	public ColumnResponse rename(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId,
 			@Valid @RequestBody ColumnRequest request) {
 		return columnService.rename(loginUser.getId(), columnId, request);
 	}
 
 	// A-10 リストの削除。成功したら 204（中身なし）
-	@DeleteMapping("/{columnId}")
+	@DeleteMapping("/api/columns/{columnId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void delete(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId) {
 		columnService.delete(loginUser.getId(), columnId);
 	}
 
 	// A-11 リストの並び替え。成功したら 204（中身なし。画面はもう並びを変えてある）
-	@PutMapping("/{columnId}/position")
+	@PutMapping("/api/columns/{columnId}/position")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void move(@AuthenticationPrincipal LoginUser loginUser, @PathVariable Long columnId,
 			@Valid @RequestBody PositionRequest request) {

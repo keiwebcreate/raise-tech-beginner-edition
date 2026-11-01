@@ -81,7 +81,7 @@ class WithdrawApiTest {
 		withdraw(first, PASSWORD).andExpect(status().isNoContent());
 
 		// 消えたユーザーのボードの 404 ではなく、ログインしていない 401（画面はログイン画面へ移る）
-		mockMvc.perform(get("/api/board").cookie(second))
+		mockMvc.perform(get("/api/boards").cookie(second))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
 		assertThat(count("SELECT count(*) FROM spring_session WHERE principal_name = ?", email)).isZero();
@@ -94,7 +94,7 @@ class WithdrawApiTest {
 
 		withdraw(session, PASSWORD).andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(other)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(other)).andExpect(status().isOk());
 	}
 
 	@Test
@@ -110,7 +110,7 @@ class WithdrawApiTest {
 
 		assertThat(count("SELECT count(*) FROM users WHERE id = ?", userId)).isOne();
 		// ログインしたまま
-		mockMvc.perform(get("/api/board").cookie(session)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(session)).andExpect(status().isOk());
 	}
 
 	@Test

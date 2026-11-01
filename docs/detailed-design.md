@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-01（回数制限を追加。イシュー #41）
+最終更新：2026-11-01（複数ボードを追加。イシュー #51）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -72,10 +72,10 @@ io.github.keiwebcreate.taskboard
 ├─ user/
 │   ├─ User                      エンティティ
 │   └─ UserRepository
-├─ board/                         ボード（A-06・A-07）
+├─ board/                         ボード（A-06・A-07・A-22〜A-24）
 │   ├─ Board, BoardRepository
 │   ├─ BoardController, BoardService
-│   └─ dto/                      BoardResponse, BoardNameRequest, BoardNameResponse
+│   └─ dto/                      BoardResponse, BoardNameRequest, BoardSummaryResponse
 ├─ column/                        リスト（A-08〜A-11）
 │   ├─ BoardColumn, BoardColumnRepository
 │   ├─ ColumnController, ColumnService
@@ -137,8 +137,11 @@ API設計書 5章のJSONと1対1で対応させる。項目名はキャメルケ
 | A-19 退会 | `WithdrawRequest(password)` | なし（204） |
 | A-20 メールアドレスの変更 | `EmailChangeRequest(email, currentPassword)` | `UserResponse` |
 | A-21 パスワードの変更 | `PasswordChangeRequest(currentPassword, newPassword)` | なし（204） |
+| A-22 ボードの一覧 | なし | `List<BoardSummaryResponse(id, name)>` |
+| A-23 ボードの作成 | `BoardNameRequest(name)` | `BoardSummaryResponse` |
 | A-06 ボード | なし | `BoardResponse(id, name, labels, columns)`。中に `LabelResponse`、`ColumnWithCardsResponse(id, name, cards)`、`CardResponse` |
-| A-07 ボード名 | `BoardNameRequest(name)` | `BoardNameResponse(id, name)` |
+| A-07 ボード名 | `BoardNameRequest(name)` | `BoardSummaryResponse` |
+| A-24 ボードの削除 | なし | なし（204） |
 | A-08・A-09 リスト | `ColumnRequest(name)` | `ColumnResponse(id, name)` |
 | A-11・A-15 並び替え | `PositionRequest(position)`、カードは `CardPositionRequest(columnId, position)` | なし（204） |
 | A-12 カード追加 | `CardCreateRequest(title)` | `CardResponse` |
@@ -170,8 +173,11 @@ public record CardRequest(
 
 | Repository | 主なメソッド | 内容 |
 |---|---|---|
-| `BoardRepository` | `findByUserId(userId)` | 自分のボード |
+| `BoardRepository` | `findByIdAndUserId(boardId, userId)` | 自分のボード1件 |
+| | `findByUserIdOrderById(userId)`、`countByUserId(userId)` | ボードの一覧（作った順）、ボードの数（上限の確認） |
+| | `findWithLockByIdAndUserId`・`findWithLockByColumnIdAndUserId`・`findWithLockByCardIdAndUserId`（`@Lock`。あとの2つは `@Query`） | ボード・リスト・カードの ID から、そのボードに鍵をかけて取る（3.8.2） |
 | `BoardColumnRepository` | `findByIdAndBoardUserId(columnId, userId)` | 自分のリスト1件 |
+| | `findByIdAndBoardId(columnId, boardId)` | ボードの中のリスト1件（カードの移動先が同じボードか） |
 | | `findByBoardIdOrderByPosition(boardId)` | ボードのリスト一覧（並び順） |
 | | `countByBoardId(boardId)` | 上限の確認 |
 | `CardRepository` | `findByIdAndColumnBoardUserId(cardId, userId)` | 自分のカード1件 |
@@ -183,8 +189,8 @@ public record CardRequest(
 | | `findByUserIdOrderById(userId)` | ラベル一覧（作成順） |
 | | `countByUserId(userId)` | ラベルの数（上限の確認） |
 | | `existsByUserIdAndName(userId, name)`、`existsByUserIdAndNameAndIdNot(userId, name, labelId)` | 同じ名前のラベルがあるか（追加のとき・変更のとき。変更では自分自身を除く）。ほぼ同時の操作は DB の一意制約 `uk_labels_user_name` で止め、そのエラーも 409 LABEL_NAME_DUPLICATED にする |
-| | `existsByUserIdAndName(userId, name)` | 名前の重複 |
 | `UserRepository` | `findByEmail(email)`、`existsByEmail(email)` | ログイン・登録 |
+| | `findWithLockById(id)`（`@Lock`） | ユーザーの行に鍵をかけて取る（ボードの作成。3.8.10） |
 | | `deleteGuestsCreatedBefore(time)`（`@Modifying @Query`） | 古いゲストの削除 |
 | `RateLimitEventRepository` | `lock(key)`（`@Query` のネイティブ SQL） | 「種類:IPアドレス」に鍵をかける（3.8.8） |
 | | `countByKindAndIpAddressAndCreatedAtAfter(kind, ip, since)` | 数える時間の中の回数 |
@@ -240,7 +246,7 @@ Spring が投げる例外も同じ形にそろえる。`ApiExceptionHandler` は
 
 SQLはカードの枚数に関係なく、次の3回で済ませる。
 
-1. `findByUserId` で自分のボード
+1. `findByIdAndUserId` で自分のボード（他人のボードなら 404）
 2. `findByBoardIdOrderByPosition` でリスト一覧
 3. `findAllForBoard` で全カード（`left join fetch c.labels` でラベルも一緒に。`order by c.position`）
 4. ラベル一覧は `findByUserIdOrderById`
@@ -253,8 +259,8 @@ Service でカードを `columnId` ごとに振り分け、`BoardResponse` を�
 
 カードの移動（`CardService.move`）：
 
-1. 自分のボードに鍵をかける（`BoardRepository.findWithLockByUserId`。`SELECT … FOR UPDATE`）
-2. 自分のカードと、自分の移動先のリストを探す（なければ 404）
+1. カードのボードに鍵をかける（`BoardRepository.findWithLockByCardIdAndUserId`。`SELECT … FOR UPDATE`）
+2. 自分のカードと、**同じボードの** 移動先のリストを探す（`findByIdAndBoardId`。なければ 404。自分の別のボードのリストへも移せない。別のボードには鍵をかけていないため）
 3. 位置の範囲を確かめる。同じリスト内は 0〜枚数−1、別のリストへは 0〜枚数（範囲外は 400 INVALID_POSITION）
 4. 別のリストへ移すとき、移動先が100枚なら 409 LIMIT_EXCEEDED
 5. 移動先のリストのカードを並び順で取り、Java の `List` の上で「取り除いて、指定の位置に差し込む」
@@ -264,6 +270,8 @@ Service でカードを `columnId` ごとに振り分け、`BoardResponse` を�
 リストの並び替え（`ColumnService.move`）も同じ手順。振り直しの処理は `common/position` に共通の部品として置き、リストとカードで使い回す。
 
 **ボードの鍵**（2026-10-31 に追加。イシュー #35）：同じ人が2つのタブから同時に操作すると、「数える・並びを読む」と「書き込む」の間に割り込まれ、番号が重なったり上限を超えたりする。そこで、並び順や数を変える処理（リストとカードの追加・削除・並び替え）は、最初にボードの行に鍵をかける。同じボードへの別の処理は、鍵が放される（トランザクションが終わる）まで待つ。鍵はほかのデータを読む前にかける（先に読んだデータは古いままになるため）。テストは `BoardLockTest`。
+
+複数ボード（イシュー #51）になってからは、鍵をかけるボードを「ユーザーのボード」ではなく、操作するもののボードにした。リストの追加はボードの ID から（`findWithLockByIdAndUserId`）、リストの変更・削除・並び替えとカードの追加はリストの ID から（`findWithLockByColumnIdAndUserId`）、カードの削除・並び替えはカードの ID から（`findWithLockByCardIdAndUserId`）。あとの2つは、`select b from Board b where b.user.id = :userId and b.id = (リストやカードのボードの ID を探す副問い合わせ)` に `@Lock` を付けたもの。持ち主の条件も入っているので、他人のリスト・カードならここで 404 になる。別々のボードへの操作は、互いに待たない。
 
 #### 3.8.3 ログイン（A-02）とセッション
 
@@ -305,7 +313,7 @@ sequenceDiagram
 
 1. メールアドレスを小文字にそろえ、前後の空白を取り除く
 2. 登録済みなら 409 EMAIL_DUPLICATED
-3. パスワードを BCrypt でハッシュ化し、users・boards・board_columns（未着手・作業中・完了）を作る（テーブル設計書 9.1）
+3. パスワードを BCrypt でハッシュ化し、users を作る。ボードと3つのリスト（未着手・作業中・完了）は `BoardService.createWithInitialColumns` で作る（ボードの作成 A-23 と共通。テーブル設計書 9.1）
    - 2 と 3 の間に同じメールアドレスで登録された（ほぼ同時の登録）ときは、DB の一意制約で users の保存が失敗する。その `DataIntegrityViolationException` を受け取り、2 と同じ 409 EMAIL_DUPLICATED にする
 4. 3.8.3 と同じ処理でログイン状態にする
 
@@ -370,6 +378,17 @@ sequenceDiagram
 
 - テストは `AccountChangeApiTest`。CSRF トークンをすぐ受け取れることは `CsrfCookieTest`（MockMvc の `with(csrf())` を使うと Cookie が返らないため。3.10）
 
+#### 3.8.10 複数ボード（A-22〜A-24。要件 B-02〜B-04）
+
+2026-11-01 に追加（イシュー #51）。
+
+- **テーブル**：`boards.user_id` の一意制約を外しただけ（`V4__allow_multiple_boards.sql`）。今あるボードはそのまま、一覧の1つ目になる
+- **一覧（A-22）**：`findByUserIdOrderById`。ID は作った順に増えるので、作った順になる。ID と名前だけを返す（リストやカードは読まない）
+- **作成（A-23）**：先にユーザーの行に鍵をかけ（`UserRepository.findWithLockById`）、ボードを数えて10個なら 409。まだないボードには鍵をかけられないので、数は「ユーザーの行」の鍵で守る（2つのタブから同時に作っても11個にならない）。作るのは登録と同じ `createWithInitialColumns`
+- **削除（A-24）**：ボードに鍵をかけて取ってから消す（同じボードにカードを足している途中なら、それを待つ）。中のリスト・カードは DB の `ON DELETE CASCADE` で消える。ラベルはユーザー単位なので残る。0個になってもよい
+- **ラベル**：ユーザー単位のまま。A-06 はどのボードでも同じラベル一覧を返す（テーブル設計書 1章）
+- **テスト**：`BoardApiTest`（一覧・作成・上限・削除・他人のボード・別のボードへのカードの移動）、`BoardLockTest`（作成はユーザーの行の鍵、削除はボードの鍵を待つ）。ボードの ID が要るほかのテストは、`TestBoards.firstBoardId`・`firstBoardPath` で一覧の1つ目（登録したときのボード）を使う
+
 #### 3.8.8 回数制限（要件 U-10）
 
 2026-11-01 に追加（イシュー #41）。同じ IP アドレスからの、ログインの失敗とゲストの作成の回数を数える。
@@ -422,6 +441,7 @@ sequenceDiagram
 | `V1__create_tables.sql` | テーブル設計書 10章の CREATE TABLE と、更新日時のトリガー |
 | `V2__create_session_tables.sql` | Spring Session JDBC のテーブル（`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES`）。Spring Session に入っている PostgreSQL 用の SQL（`schema-postgresql.sql`）を元にする |
 | `V3__create_rate_limit_events.sql` | 回数制限の記録（`rate_limit_events`。テーブル設計書 3.9。2026-11-01 追加） |
+| `V4__allow_multiple_boards.sql` | `boards.user_id` の一意制約を外し、ふつうのインデックスを作る（複数ボード。テーブル設計書 3.2。2026-11-01 追加） |
 
 ### 3.10 テスト（要件 5.5）
 
@@ -442,7 +462,7 @@ frontend/src/
 │   └─ types.ts             APIのJSONの型（API設計書 5章）
 ├─ features/
 │   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、UserMenu（ヘッダーのメニュー）、WithdrawModal（W-08）、EmailChangeModal（W-09）、PasswordChangeModal（W-10）、AccountModal.module.css（W-08〜W-10 の共通の見た目）、authApi
-│   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi、CardSearch・FilterBar・cardFilter・useCardFilter（検索・絞り込み。4.8）、MobileMenu（スマートフォン幅の ☰）
+│   ├─ board/               BoardListPage（W-11）、BoardRoute・BoardPage（W-03）、BoardHeader、BoardMenu（ボード名の横の「…」）、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi、CardSearch・FilterBar・cardFilter・useCardFilter（検索・絞り込み。4.8）、MobileMenu（スマートフォン幅の ☰）
 │   ├─ card/                CardItem、AddCardForm、CardModal（W-04）、cardApi
 │   └─ label/               LabelModal（W-05）、LabelChip、LabelPicker、labelApi
 ├─ shared/
@@ -461,11 +481,15 @@ frontend/src/
 
 | URL | 部品 | 条件 |
 |---|---|---|
-| `/` | BoardPage | ログインが必要。していなければ `/login` へ |
+| `/` | BoardListPage（W-11） | ログインが必要。していなければ `/login` へ |
+| `/boards/:boardId` | BoardRoute → BoardPage（W-03） | ログインが必要。ID が数字でない・大きすぎる（`Number.isSafeInteger` で確かめる）ときは NotFoundPage。他人・存在しないボード（A-06 が 404）でも NotFoundPage |
 | `/login` | LoginPage | ログイン済みなら `/` へ |
 | `/signup` | SignupPage | ログイン済みなら `/` へ |
 | それ以外 | NotFoundPage | なし |
 
+- `BoardRoute` は `BoardProvider` に `key={ボードの ID}` を付ける。別のボードへ移ったときに、前のボードのデータ・開いていた入力欄・モーダルを残さず作り直すため（イシュー #51）
+- ボード一覧のデータは一覧の画面だけで使うので、`BoardContext` ではなく `BoardListPage` の `useState` で持つ
+- `BoardHeader` はボード画面と一覧の画面の両方で使う。ボード名の変更（A-07）と削除（A-24）は `BoardPage` が行い、`onRename`・`onDeleteBoard` で渡す（一覧の画面には `BoardContext` がないため）
 - `AuthContext` がログイン中のユーザー（`UserResponse` または「ログインしていない」）を持つ。アプリを開いたときに `GET /api/auth/me` を1回呼んで決める（API設計書 6.1）
 - セッション切れのお知らせなど、次の画面に1回だけ出すメッセージは React Router の `state` で渡す
 - お知らせ付きでログイン画面へ移るとき（セッション切れ・退会）は、`navigate` と `setUser(null)` を `startTransition` で囲み、一緒に反映させる。React Router は画面の移動を「急がない更新」（startTransition）で行うので、別々だと先に「ログインしていない」が反映され、`RequireLogin` がお知らせなしで `/login` へ移してしまう（2026-11-01 イシュー #43 で見つけて直した。それまでセッション切れのお知らせが出ていなかった）
@@ -480,7 +504,7 @@ frontend/src/
 4. 失敗したら Problem Details を読み、`ApiError`（`status`・`code`・`detail`・`errors`）を投げる。レスポンスがない（つながらない）ときは INTERNAL_ERROR と同じ扱いにする
 5. 401 UNAUTHENTICATED のときは、ログイン中だったなら「ログインの有効期限が切れました…」を付けて `/login` へ移す（API設計書 4.3）
 
-機能ごとの `xxxApi.ts` は、API設計書の A-01〜A-21 と1対1の関数を持つ（モックアップの `api.js` と同じ名前にする）。
+機能ごとの `xxxApi.ts` は、API設計書の A-01〜A-24 と1対1の関数を持つ（モックアップの `api.js` と同じ名前にする）。
 
 ### 4.4 ボードの状態（BoardContext・boardReducer）
 
@@ -489,7 +513,7 @@ frontend/src/
 
 | action | いつ |
 |---|---|
-| `loaded` | `GET /api/board` が成功した |
+| `loaded` | `GET /api/boards/{id}` が成功した |
 | `boardRenamed` | ボード名を変えた |
 | `columnAdded`・`columnRenamed`・`columnDeleted`・`columnMoved` | リストの操作 |
 | `cardAdded`・`cardSaved`・`cardDeleted`・`cardMoved` | カードの操作 |
@@ -524,7 +548,7 @@ frontend/src/
 | 押せるもの | クリックで動くものは `<button>` にする（Enter・Space で動き、読み上げでもボタンになる）。中にリンクがあって全体をボタンにできないとき（カード、カード詳細の説明）は、見えないボタンを全体に広げ、リンクはその上に重ねる |
 | 見えない文字 | 見た目は数字や記号だけで、読み上げには文で伝えたいとき（「絞り込み 3」→「（3件選択中）」）は、見える部分を `aria-hidden` にし、`global.css` の `sr-only` の文字を添える。`<span>` に `aria-label` を付けない |
 | スマートフォンの幅 | 幅 640px 以下で並びを変える（`@media (max-width: 640px)`）。ヘッダーは、パソコン用の部品（`desktopActions`）とスマートフォン用の ☰（`MobileMenu`）を両方置き、CSS で片方を `display: none` にする（画面の幅を JavaScript で見張らなくて済み、隠したほうは読み上げにも出ない）。右側の箱は `display: contents` で箱をなくし、`order` と `flex-basis: 100%` で検索欄を2段目に回す（イシュー #47） |
-| 通知 | `useToast` の `showToast(メッセージ, 種類)`。種類を省くと赤い「!」のエラー、`'success'` で緑の「✓」（メールアドレス・パスワードの変更。2026-11-01 追加）。どちらも `role="alert"`（あとから足した要素の `role="status"` は読まれないことがあるため） |
+| 通知 | `useToast` の `showToast(メッセージ, 種類)`。種類を省くと赤い「!」のエラー、`'success'` で緑の「✓」（メールアドレス・パスワードの変更、ボードの削除。2026-11-01 追加）。どちらも `role="alert"`（あとから足した要素の `role="status"` は読まれないことがあるため） |
 | アカウントのモーダル | W-08〜W-10 はどれか1つだけ開く（`BoardHeader` の `accountModal`）。ほかの端末のログアウトとセッションの作り直しはサーバーが行うので、画面は A-20 の返事で `AuthContext` のユーザーを入れ替えるだけ（`userUpdated`） |
 | Esc | モーダルは、カーソルのあるいちばん上のものだけが閉じる。メニューやラベルの一覧は `useEscapeKey` で先に受け取り、モーダルまで届かないようにする |
 
@@ -549,7 +573,7 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | `features/board/CardSearch.tsx` | ヘッダーの検索欄と「絞り込み」ボタン・小窓 |
 | `features/board/FilterBar.tsx` | 絞り込み中の帯 |
 
-- **条件の持ち場所**：URL だけ。検索欄と `BoardPage` の両方が `useCardFilter` で同じ URL を見る。形は `/?q=資料&label=3&label=none&due=overdue&importance=HIGH&urgency=LOW`（同じ名前をくり返す）。知らない値・重なった値は無視する（URL は手で書き換えられるため）
+- **条件の持ち場所**：URL だけ。検索欄と `BoardPage` の両方が `useCardFilter` で同じ URL を見る。形は `/boards/12?q=資料&label=3&label=none&due=overdue&importance=HIGH&urgency=LOW`（同じ名前をくり返す）。知らない値・重なった値は無視する（URL は手で書き換えられるため）
 - **文字のそろえ方**：`normalize('NFKC')`（全角英数字→半角、半角カタカナ→全角）→ 小文字 → カタカナ（U+30A1〜U+30F6）を 0x60 引いてひらがな。検索の文字は空白（全角も）で言葉に分け、すべてを含むカードだけ
 - **判定**：同じ種類の中は「どれか」、種類どうしは「すべて」。期限の区切りは `dueStatus`（C-05 の色分け）を使い、`normal` を「それより先」、期限なしを「期限なし」とする。「今日」は `matchesCard` の中で決める（描く処理の中で `new Date()` を呼ぶと、React の規則（純粋さ）に反するため）
 - **表示**：`BoardPage` が、絞り込み中だけリストごとの合うカードを `useMemo` で作り、`Column` に `visibleCards` で渡す。`Column` は渡されたら、そのカードだけを出し、枚数を「2 / 5」にし、カードのドラッグ（`isDragDisabled`）と「＋ カードを追加」を止める。リストの削除の確認の枚数は、隠れたカードも数える（本当に消えるため）

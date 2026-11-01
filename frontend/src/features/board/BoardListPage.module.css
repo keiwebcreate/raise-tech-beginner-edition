@@ -1,0 +1,108 @@
+/* W-11 ボード一覧 */
+.page {
+  flex: 1;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+.title {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+.empty {
+  margin: 0 0 16px;
+}
+
+/* タイルを並べる。幅に合わせて1行に入る数が変わる（最大10個なので、折り返して縦に並べる） */
+.grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+/* ボードのタイル（押すとそのボードを開く） */
+.tile {
+  height: 96px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--primary);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--shadow-card);
+  /* 長いボード名は2行まで出し、残りは「…」で切る */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.tile:hover {
+  background: var(--primary-hover);
+}
+
+/* 「＋ ボードを追加」（「＋ リストを追加」と同じ見た目） */
+.add {
+  width: 100%;
+  height: 96px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--muted);
+  border: 0;
+  text-align: left;
+  vertical-align: top;
+}
+.add:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--text);
+}
+.formBox {
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--list-bg);
+}
+.formBox > form {
+  margin-top: 0;
+}
+
+/* 読み込み中・失敗 */
+.skel {
+  background: linear-gradient(90deg, #e3e5ea 25%, #eef0f3 50%, #e3e5ea 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.2s infinite;
+  box-shadow: none;
+}
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+.message {
+  text-align: center;
+  padding: 32px 16px;
+}
+.message p {
+  margin: 0 0 8px;
+}
+
+/* スマートフォン（要件 5.1） */
+@media (max-width: 640px) {
+  .page {
+    padding: 16px 16px 80px;
+  }
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .tile,
+  .add {
+    height: 80px;
+  }
+}

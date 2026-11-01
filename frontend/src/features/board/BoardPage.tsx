@@ -7,15 +7,18 @@ import {
   type ResponderProvided,
 } from '@hello-pangea/dnd'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ApiError } from '../../api/client.ts'
+import { useNavigate } from 'react-router'
+import { ApiError, fieldErrorsOf } from '../../api/client.ts'
 import type { BoardResponse } from '../../api/types.ts'
 import { LIMITS, MESSAGES } from '../../shared/lib/constants.ts'
+import { NotFoundPage } from '../../shared/pages/NotFoundPage.tsx'
+import { ConfirmDialog } from '../../shared/ui/ConfirmDialog.tsx'
 import { useToast } from '../../shared/ui/ToastContext.ts'
 import { moveCard } from '../card/cardApi.ts'
 import { CardModal } from '../card/CardModal.tsx'
 import { LabelModal } from '../label/LabelModal.tsx'
 import { AddColumnForm } from './AddColumnForm.tsx'
-import { getBoard } from './boardApi.ts'
+import * as boardApi from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
 import { BoardHeader } from './BoardHeader.tsx'
 import styles from './BoardPage.module.css'
@@ -46,10 +49,14 @@ function isSameForm(a: OpenForm, b: OpenForm): boolean {
   return JSON.stringify(a) === JSON.stringify(b)
 }
 
-// W-03 ボード画面
-export function BoardPage() {
+// W-03 ボード画面（/boards/{boardId}）
+// ボードを切り替えたときは、App.tsx で key を変えて作り直す（前のボードのデータや入力欄を残さないため）
+export function BoardPage({ boardId }: { boardId: number }) {
   const { board, dispatch } = useBoard()
+  const navigate = useNavigate()
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false) // 他人のボード・存在しないボード（W-07 を出す）
+  const [confirmingDelete, setConfirmingDelete] = useState(false) // ボードの削除の確認ダイアログ
   const [openForm, setOpenForm] = useState<OpenForm>(null)
   const [openCardId, setOpenCardId] = useState<number | null>(null) // カード詳細を開いているカード
   const closeCard = useCallback(() => setOpenCardId(null), [])
@@ -83,22 +90,33 @@ export function BoardPage() {
   useEffect(() => {
     // 画面を閉じたあとに結果が返ってきても、何もしないようにする目印
     let ignore = false
-    getBoard()
+    boardApi
+      .getBoard(boardId)
       .then((loaded) => {
         if (!ignore) dispatch({ type: 'loaded', board: loaded })
       })
       .catch((error: unknown) => {
-        if (!ignore) setLoadError(error instanceof ApiError ? error.detail : MESSAGES.network)
+        if (ignore) return
+        // 他人のボード・存在しない（消した）ボードの URL は「ページが見つかりません」（画面設計書 W-07）
+        if (error instanceof ApiError && error.code === 'NOT_FOUND') {
+          setNotFound(true)
+        } else {
+          setLoadError(error instanceof ApiError ? error.detail : MESSAGES.network)
+        }
       })
     return () => {
       ignore = true
     }
-  }, [dispatch])
+  }, [dispatch, boardId])
+
+  if (notFound) {
+    return <NotFoundPage />
+  }
 
   if (loadError) {
     return (
       <>
-        <BoardHeader />
+        <BoardHeader backToList />
         <div className={styles.centerBox}>
           <h1 className={styles.centerTitle}>ボードを読み込めませんでした</h1>
           <p className="muted">{loadError}</p>
@@ -113,7 +131,7 @@ export function BoardPage() {
   if (!board) {
     return (
       <>
-        <BoardHeader />
+        <BoardHeader backToList />
         <BoardSkeleton />
       </>
     )
@@ -161,14 +179,45 @@ export function BoardPage() {
     }
   }
 
+  // A-07 ボード名の変更（要件 B-01）
+  async function renameBoard(name: string): Promise<string | null> {
+    if (!board) return ''
+    try {
+      const saved = await boardApi.renameBoard(board.id, name)
+      dispatch({ type: 'boardRenamed', name: saved.name })
+      return null
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'VALIDATION_ERROR') {
+        return fieldErrorsOf(e).name ?? e.detail
+      }
+      showApiError(e)
+      return ''
+    }
+  }
+
+  // A-24 ボードの削除（要件 B-04）。消したら一覧へ戻り、通知を出す
+  async function deleteBoard() {
+    if (!board) return
+    try {
+      await boardApi.deleteBoard(board.id)
+      navigate('/', { replace: true })
+      showToast(MESSAGES.boardDeleted, 'success')
+    } catch (e) {
+      showApiError(e)
+    }
+  }
+
   const renameBoardForm: OpenForm = { kind: 'renameBoard' }
   return (
     <>
       <BoardHeader
+        backToList
         boardName={board.name}
         isRenaming={openForm?.kind === 'renameBoard'}
         onStartRename={() => setOpenForm(renameBoardForm)}
         onEndRename={() => closeForm(renameBoardForm)}
+        onRename={renameBoard}
+        onDeleteBoard={() => setConfirmingDelete(true)}
         onOpenLabels={() => setLabelsOpen(true)}
         labels={board.labels}
       />
@@ -230,6 +279,16 @@ export function BoardPage() {
       </DragDropContext>
       {openCardId !== null && <CardModal cardId={openCardId} onClose={closeCard} />}
       {labelsOpen && <LabelModal onClose={() => setLabelsOpen(false)} />}
+      {confirmingDelete && (
+        <ConfirmDialog
+          title="ボードを削除しますか？"
+          message={`「${board.name}」と中のリスト・カードをすべて削除します。ラベルはほかのボードで使えるので残ります。この操作は取り消せません。`}
+          onAnswer={(ok) => {
+            setConfirmingDelete(false)
+            if (ok) deleteBoard()
+          }}
+        />
+      )}
     </>
   )
 }

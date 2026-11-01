@@ -1,5 +1,7 @@
 package io.github.keiwebcreate.taskboard.column;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardId;
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -46,7 +48,7 @@ class CreateColumnAndCardApiTest {
 				.andExpect(jsonPath("$.id").isNumber())
 				.andExpect(jsonPath("$.name").value("保留")); // 前後の空白は取り除く
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns.length()").value(4))
 				.andExpect(jsonPath("$.columns[3].name").value("保留"))
 				.andExpect(jsonPath("$.columns[3].cards.length()").value(0));
@@ -80,7 +82,7 @@ class CreateColumnAndCardApiTest {
 
 	@Test
 	void ログインしていないとリストを追加できない() throws Exception {
-		mockMvc.perform(post("/api/columns").with(csrf())
+		mockMvc.perform(post("/api/boards/{id}/columns", 1).with(csrf())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{ "name": "保留" }
@@ -106,7 +108,7 @@ class CreateColumnAndCardApiTest {
 				.andExpect(jsonPath("$.dueDate").isEmpty())
 				.andExpect(jsonPath("$.labelIds.length()").value(0));
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[0].cards[0].title").value("1枚目"))
 				.andExpect(jsonPath("$.columns[0].cards[1].title").value("2枚目"));
 	}
@@ -150,7 +152,7 @@ class CreateColumnAndCardApiTest {
 				.andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
 		// たろうのリストには何も増えていない
-		mockMvc.perform(get("/api/board").cookie(taro))
+		mockMvc.perform(get(firstBoardPath(mockMvc, taro)).cookie(taro))
 				.andExpect(jsonPath("$.columns[0].cards.length()").value(0));
 	}
 
@@ -177,13 +179,14 @@ class CreateColumnAndCardApiTest {
 
 	// ボードの一番左のリスト（未着手）の ID
 	private long firstColumnId(Cookie session) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.columns[0].id").longValue();
 	}
 
 	private ResultActions addColumn(Cookie session, String name) throws Exception {
-		return mockMvc.perform(post("/api/columns").with(csrf()).cookie(session)
+		long boardId = firstBoardId(mockMvc, session);
+		return mockMvc.perform(post("/api/boards/{id}/columns", boardId).with(csrf()).cookie(session)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{ "name": "%s" }

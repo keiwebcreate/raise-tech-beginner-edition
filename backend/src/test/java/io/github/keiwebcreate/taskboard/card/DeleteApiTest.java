@@ -1,5 +1,7 @@
 package io.github.keiwebcreate.taskboard.card;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardId;
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -56,7 +58,7 @@ class DeleteApiTest {
 
 		deleteCard(session, b).andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[0].cards[*].title").value(contains("A", "C", "D")));
 		// 真ん中を消しても、番号に抜けがない（0, 2, 3 ではなく 0, 1, 2）
 		assertThat(cardPositions(columnId)).containsExactly(0, 1, 2);
@@ -72,7 +74,7 @@ class DeleteApiTest {
 
 		addCard(session, columnId, "C");
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[0].cards[*].title").value(contains("B", "C")));
 		assertThat(cardPositions(columnId)).containsExactly(0, 1);
 	}
@@ -89,7 +91,7 @@ class DeleteApiTest {
 		deleteCard(taro, 999_999_999L).andExpect(status().isNotFound());
 
 		// たろうのカードは残っている
-		mockMvc.perform(get("/api/board").cookie(taro))
+		mockMvc.perform(get(firstBoardPath(mockMvc, taro)).cookie(taro))
 				.andExpect(jsonPath("$.columns[0].cards.length()").value(1));
 	}
 
@@ -108,7 +110,7 @@ class DeleteApiTest {
 		assertThat(jdbcTemplate.queryForObject(
 				"SELECT count(*) FROM card_labels WHERE card_id = ?", Long.class, cardId))
 				.isZero();
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.labels.length()").value(1));
 	}
 
@@ -123,7 +125,7 @@ class DeleteApiTest {
 
 		deleteColumn(session, doingId).andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[*].name").value(contains("未着手", "完了")));
 		assertThat(jdbcTemplate.queryForObject("SELECT count(*) FROM cards WHERE column_id = ?", Long.class, doingId))
 				.isZero();
@@ -140,10 +142,10 @@ class DeleteApiTest {
 		deleteColumn(session, second).andExpect(status().isNoContent());
 		deleteColumn(session, first).andExpect(status().isNoContent());
 		deleteColumn(session, third).andExpect(status().isNoContent());
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns.length()").value(0));
 
-		mockMvc.perform(post("/api/columns").with(csrf()).cookie(session)
+		mockMvc.perform(post("/api/boards/{id}/columns", firstBoardId(mockMvc, session)).with(csrf()).cookie(session)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{ "name": "新しいリスト" }
@@ -159,7 +161,7 @@ class DeleteApiTest {
 
 		deleteColumn(hanako, columnId(taro, 0)).andExpect(status().isNotFound());
 
-		mockMvc.perform(get("/api/board").cookie(taro))
+		mockMvc.perform(get(firstBoardPath(mockMvc, taro)).cookie(taro))
 				.andExpect(jsonPath("$.columns.length()").value(3));
 	}
 
@@ -184,7 +186,7 @@ class DeleteApiTest {
 
 	// 左から index 番目（0から）のリストの ID
 	private long columnId(Cookie session, int index) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.columns[" + index + "].id").longValue();
 	}

@@ -4,9 +4,12 @@ import java.time.Instant;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.LockModeType;
 
 /**
  * users テーブルとのやりとり。
@@ -20,6 +23,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
 	// 同じメールアドレスが登録済みか（ユーザー登録で使う）
 	boolean existsByEmail(String email);
+
+	/**
+	 * SELECT ... FROM users WHERE id = ? FOR UPDATE（ユーザーの行に鍵をかけて取る。詳細設計書 3.8.2）
+	 * ボードの作成（A-23）で、数えてから作るまでの間に、別のタブからボードを作られないようにする。
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	Optional<User> findWithLockById(Long id);
 
 	/**
 	 * DELETE FROM users WHERE id = ? AND is_guest = TRUE（ゲストのログアウトで使う。要件 U-08）

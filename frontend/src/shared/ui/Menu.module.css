@@ -37,3 +37,8 @@
 .danger {
   color: var(--danger);
 }
+/* 左端をボタンにそろえて、右へ開く（画面の左寄りにあるボードの「…」。右にそろえると画面の左にはみ出すため） */
+.alignStart {
+  left: 0;
+  right: auto;
+}

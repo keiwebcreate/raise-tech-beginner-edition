@@ -3,8 +3,8 @@ import { AuthProvider } from './features/auth/AuthProvider.tsx'
 import { LoginPage } from './features/auth/LoginPage.tsx'
 import { GuestOnly, RequireLogin } from './features/auth/RouteGuards.tsx'
 import { SignupPage } from './features/auth/SignupPage.tsx'
-import { BoardPage } from './features/board/BoardPage.tsx'
-import { BoardProvider } from './features/board/BoardProvider.tsx'
+import { BoardListPage } from './features/board/BoardListPage.tsx'
+import { BoardRoute } from './features/board/BoardRoute.tsx'
 import { NotFoundPage } from './shared/pages/NotFoundPage.tsx'
 import { ToastProvider } from './shared/ui/ToastProvider.tsx'
 
@@ -19,9 +19,15 @@ function App() {
               path="/"
               element={
                 <RequireLogin>
-                  <BoardProvider>
-                    <BoardPage />
-                  </BoardProvider>
+                  <BoardListPage />
+                </RequireLogin>
+              }
+            />
+            <Route
+              path="/boards/:boardId"
+              element={
+                <RequireLogin>
+                  <BoardRoute />
                 </RequireLogin>
               }
             />
