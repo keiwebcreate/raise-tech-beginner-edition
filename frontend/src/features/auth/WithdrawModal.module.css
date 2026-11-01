@@ -1,0 +1,17 @@
+/* W-08 退会の確認。並び方は確認ダイアログ（W-06）と同じ */
+.body {
+  padding: 24px 24px 8px;
+}
+.body p {
+  margin: 0 0 16px;
+}
+.title {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+.foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 24px 20px;
+}

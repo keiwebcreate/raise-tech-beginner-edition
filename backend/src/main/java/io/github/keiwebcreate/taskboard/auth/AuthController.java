@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import io.github.keiwebcreate.taskboard.auth.dto.LoginRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.SignupRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.UserResponse;
+import io.github.keiwebcreate.taskboard.auth.dto.WithdrawRequest;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
@@ -56,6 +57,14 @@ public class AuthController {
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	public void logout(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
 		authService.logout(httpRequest, httpResponse);
+	}
+
+	// A-19 退会
+	@PostMapping("/withdraw")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void withdraw(@AuthenticationPrincipal LoginUser loginUser, @RequestBody WithdrawRequest request,
+			HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
+		authService.withdraw(loginUser, request, httpRequest, httpResponse);
 	}
 
 	// A-05 ログイン中のユーザー

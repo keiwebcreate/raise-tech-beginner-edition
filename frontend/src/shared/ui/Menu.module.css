@@ -1,4 +1,5 @@
-/* 「…」メニュー（モックアップの style.css から移した） */
+/* 押すと開く小さなメニュー（リストの「…」・ヘッダーのメールアドレス）の共通の見た目
+   モックアップの style.css の .menu から移した。品質チェック（イシュー #43）で、2つの部品の写しをまとめた */
 .anchor {
   position: relative;
 }
@@ -6,7 +7,7 @@
   position: absolute;
   z-index: 20;
   right: 0;
-  top: 32px;
+  top: calc(100% + 4px);
   width: 200px;
   background: var(--surface);
   border-radius: 8px;
@@ -30,7 +31,7 @@
   background: transparent;
   border-radius: 4px;
 }
-.menu button:hover {
+.menu button:hover:not(:disabled) {
   background: var(--list-bg);
 }
 .danger {

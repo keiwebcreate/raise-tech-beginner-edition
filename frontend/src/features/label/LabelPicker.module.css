@@ -36,11 +36,22 @@
   padding: 10px;
   max-height: 320px;
   overflow-y: auto;
+  /* <fieldset> の標準の枠・余白を消す */
+  border: 0;
+  margin: 0;
+  min-width: 0;
 }
 .popoverTitle {
+  /* <legend> はブラウザが枠の線の上に置くので、float で中に入れ、ふつうの見出しのように並べる */
+  float: left;
+  width: 100%;
+  padding: 0;
   font-size: 12px;
   color: var(--muted);
   margin-bottom: 6px;
+}
+.popoverTitle + * {
+  clear: both;
 }
 .foot {
   border-top: 1px solid var(--border);

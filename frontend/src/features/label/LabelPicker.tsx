@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react'
+import { useCallback, useId, useRef, useState } from 'react'
 import type { LabelResponse } from '../../api/types.ts'
 import { useEscapeKey } from '../../shared/lib/useEscapeKey.ts'
 import { useOutsideClick } from '../../shared/lib/useOutsideClick.ts'
@@ -18,6 +18,7 @@ type Props = {
 export function LabelPicker({ labels, selectedIds, onToggle, onManage }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
+  const listId = useId() // aria-controls で、「＋」と開く一覧を結ぶ
   const selected = labels.filter((label) => selectedIds.includes(label.id))
 
   // 一覧の外をクリックするか Esc で閉じる（Esc でカード詳細は閉じない）
@@ -36,14 +37,18 @@ export function LabelPicker({ labels, selectedIds, onToggle, onManage }: Props) 
           className={styles.add}
           aria-label="ラベルを選ぶ"
           aria-expanded={open}
+          aria-controls={listId}
           onClick={() => setOpen(!open)}
         >
           ＋
         </button>
       </div>
       {open && (
-        <div className={styles.popover} role="menu">
-          <div className={styles.popoverTitle}>ラベルを選ぶ</div>
+        // role="menu" は「矢印キーで選ぶメニュー」の意味になるので付けない（Tab で選ぶ作りのため。品質チェック #43）
+        // 選ぶものの一まとまりなので <fieldset>、見出しは <legend>（読み上げで「ラベルを選ぶ」のまとまりと伝わる）
+        // 付いているかどうかは、押された状態のボタン（aria-pressed）で伝える
+        <fieldset id={listId} className={styles.popover}>
+          <legend className={styles.popoverTitle}>ラベルを選ぶ</legend>
           {labels.length === 0 && (
             <p className={`muted ${styles.empty}`}>ラベルがありません。「ラベルを管理」から作れます。</p>
           )}
@@ -54,8 +59,7 @@ export function LabelPicker({ labels, selectedIds, onToggle, onManage }: Props) 
                 key={label.id}
                 type="button"
                 className={styles.option}
-                role="menuitemcheckbox"
-                aria-checked={on}
+                aria-pressed={on}
                 onClick={() => onToggle(label.id)}
               >
                 <span className={`${styles.check} ${on ? styles.on : ''}`}>{on ? '✓' : ''}</span>
@@ -76,7 +80,7 @@ export function LabelPicker({ labels, selectedIds, onToggle, onManage }: Props) 
               ラベルを管理
             </button>
           </div>
-        </div>
+        </fieldset>
       )}
     </div>
   )

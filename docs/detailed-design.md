@@ -100,7 +100,7 @@ io.github.keiwebcreate.taskboard
 | 層 | 役割 | ルール |
 |---|---|---|
 | Controller | APIの受け口。URL・HTTPメソッド・ステータスコードを決め、DTO を受け取って Service を呼び、DTO を返す | 処理の中身（判断）を書かない。リクエストの DTO には `@Valid` を付ける。ログイン中のユーザーは `@AuthenticationPrincipal LoginUser` で受け取る |
-| Service | 処理の中身。所有者の確認、上限のチェック、重複のチェック、並び順の振り直し | 変更するメソッドには `@Transactional` を付ける（途中で失敗したら全部元に戻す）。読むだけのメソッドは `@Transactional(readOnly = true)`。ルール違反は独自の例外を投げる。エンティティを DTO に変換して返す |
+| Service | 処理の中身。所有者の確認、上限のチェック、重複のチェック、並び順の振り直し | 変更するメソッドには `@Transactional` を付ける（途中で失敗したら全部元に戻す。例外：退会は `TransactionTemplate`。3.8.7）。読むだけのメソッドは `@Transactional(readOnly = true)`。ルール違反は独自の例外を投げる。エンティティを DTO に変換して返す |
 | Repository | DBとのやりとり（Spring Data JPA） | 持ち主を確認しないで1件を探すメソッド（`findById` など）は、Service から使わない（3.5） |
 
 ### 3.3 エンティティ
@@ -323,8 +323,23 @@ sequenceDiagram
 #### 3.8.7 退会（A-19）
 
 1. ゲストなら 403 GUEST_NOT_ALLOWED
-2. パスワードを `PasswordEncoder.matches` で照合する。違えば 400 VALIDATION_ERROR（`errors` の `password` に「パスワードが正しくありません」）
-3. users の行を削除し（関連データは CASCADE で消える）、セッションを破棄する
+2. 回数制限を確かめる（ログインの失敗と同じ `LOGIN_FAILURE` で数える。3.8.8）。制限中は 429 RATE_LIMITED
+3. パスワードを `PasswordEncoder.matches` で照合する。空・違えば 400 VALIDATION_ERROR（`errors` の `password` に「パスワードが正しくありません」）。違うときは失敗を1回記録する（空は、パスワードを試したことにならないので数えない）
+4. users の行を削除し（関連データは CASCADE で消える）、その人のセッションを全部消す（ほかのブラウザ・端末のものも）。今のセッションの Cookie も消し、新しい CSRF トークンを渡す（ログアウトと同じ）
+5. 退会をログに残す（ユーザー ID だけ。メールアドレスは出さない）
+
+2026-11-01 に決めたこと（イシュー #43）：
+
+| 項目 | 決定 | 理由 |
+|---|---|---|
+| パスワード違いの回数制限 | ログインの失敗と一緒に数える | 退会はパスワードが合っているかを答えるので、ログイン中のパソコンを使われたり、セッションを盗まれたりすると、ここで何度でも試されてしまう。一緒に数えれば、ログインと退会を交互に使ってすり抜けることもできない |
+| ほかの端末のセッション | 全部消す | 消えたアカウントのログイン状態を残さない。消さないと、ほかの端末ではボードが見つからない 404 の通知になる。消せば 401 になり、ログイン画面へ移る |
+
+- セッションは Spring Session の `FindByIndexNameSessionRepository.findByPrincipalName`（ログイン状態の持ち主の名前で探す）で探して消す。持ち主の名前は `LoginUser.getUsername()`（メールアドレス）で、Spring Session がログインのときに `SPRING_SESSION.PRINCIPAL_NAME` に入れている
+- トランザクションは `@Transactional` ではなく、`TransactionTemplate`（コードの中でトランザクションの範囲を決める仕組み）で 2〜3 とユーザーの削除だけにかける。セッションを消すのは、削除を確定して DB の接続を返したあと（品質チェックで直した）
+  - Spring Session はセッションの削除を別のトランザクション（`REQUIRES_NEW`）で動かす（jar で確かめた）。トランザクションの中で呼ぶと、削除が取り消されてもセッションだけ消え、1つの退会が DB の接続を2本使うので、退会が重なると接続が足りなくなる
+  - パスワード違いでも失敗の記録は確定させたいので、中では例外を投げずに「消したか」（true / false）を返し、外で 400 にする
+- テストは `WithdrawApiTest`
 
 #### 3.8.8 回数制限（要件 U-10）
 
@@ -397,7 +412,7 @@ frontend/src/
 │   ├─ client.ts            fetch を包んだ関数（CSRF・エラーの変換。4.3）
 │   └─ types.ts             APIのJSONの型（API設計書 5章）
 ├─ features/
-│   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、WithdrawModal（W-08）、authApi
+│   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、UserMenu（ヘッダーのメニュー）、WithdrawModal（W-08）、authApi
 │   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi
 │   ├─ card/                CardItem、AddCardForm、CardModal（W-04）、cardApi
 │   └─ label/               LabelModal（W-05）、LabelChip、LabelPicker、labelApi
@@ -424,6 +439,7 @@ frontend/src/
 
 - `AuthContext` がログイン中のユーザー（`UserResponse` または「ログインしていない」）を持つ。アプリを開いたときに `GET /api/auth/me` を1回呼んで決める（API設計書 6.1）
 - セッション切れのお知らせなど、次の画面に1回だけ出すメッセージは React Router の `state` で渡す
+- お知らせ付きでログイン画面へ移るとき（セッション切れ・退会）は、`navigate` と `setUser(null)` を `startTransition` で囲み、一緒に反映させる。React Router は画面の移動を「急がない更新」（startTransition）で行うので、別々だと先に「ログインしていない」が反映され、`RequireLogin` がお知らせなしで `/login` へ移してしまう（2026-11-01 イシュー #43 で見つけて直した。それまでセッション切れのお知らせが出ていなかった）
 
 ### 4.3 APIの呼び出し（api/client.ts）
 

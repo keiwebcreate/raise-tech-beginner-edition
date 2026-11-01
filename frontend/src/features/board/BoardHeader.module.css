@@ -55,14 +55,6 @@
   align-items: center;
   gap: 12px;
 }
-.user {
-  color: var(--muted);
-  font-size: 13px;
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* ゲストの札と、ヘッダーの下の注意書きの帯（要件 U-07） */
 .guestBadge {
   font-size: 12px;
@@ -96,9 +88,6 @@
   }
   .right {
     gap: 8px;
-  }
-  .user {
-    max-width: 160px;
   }
   .guestBar {
     padding: 8px 16px;

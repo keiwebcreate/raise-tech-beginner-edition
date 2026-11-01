@@ -79,6 +79,11 @@ public class ApiExceptionHandler extends ResponseEntityExceptionHandler {
 		return problem(HttpStatus.UNAUTHORIZED, "LOGIN_FAILED", e.getMessage());
 	}
 
+	@ExceptionHandler(GuestNotAllowedException.class)
+	ResponseEntity<ProblemDetail> handleGuestNotAllowed(GuestNotAllowedException e) {
+		return problem(HttpStatus.FORBIDDEN, "GUEST_NOT_ALLOWED", e.getMessage());
+	}
+
 	// 回数制限（要件 U-10）。何秒後に試せるかを Retry-After で返す（API設計書 4.3）
 	@ExceptionHandler(RateLimitedException.class)
 	ResponseEntity<ProblemDetail> handleRateLimited(RateLimitedException e) {

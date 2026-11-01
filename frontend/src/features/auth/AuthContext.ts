@@ -11,6 +11,8 @@ type AuthContextValue = {
   loggedIn: (user: UserResponse) => void
   // ログアウトして、ログイン画面へ移る
   logout: () => Promise<void>
+  // 退会が成功したときに呼ぶ。ログイン画面へ移り、「退会しました」を出す
+  withdrawn: () => void
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
