@@ -55,7 +55,7 @@ GitHub の操作（イシュー・PR・設定）は `gh` コマンドで行う�
 | フォルダ | 中身 | 起動 | テスト |
 |---|---|---|---|
 | `backend/` | Spring Boot（Java 25・Gradle） | `./gradlew bootRun` | `./gradlew test`（テストとチェック〈Checkstyle・SpotBugs〉をまとめて走らせるのは `./gradlew check`） |
-| `frontend/` | React（Vite・TypeScript） | `npm run dev` | `npm test`（チェックは `npm run lint` と `npm run format:check`、書き方を直すのは `npm run format`、本番用の作成は `npm run build`） |
+| `frontend/` | React（Vite・TypeScript） | `npm run dev` | `npm test`（チェックは `npm run lint` と `npm run format:check`、書き方を直すのは `npm run format`、本番用の作成は `npm run build`、本番用の画面を手元で動かすのは `npm run preview`〈5173。開発中の Vite を止めてから〉） |
 | `mockup/` | モックアップ | `npx serve mockup`（`beginner_version` で実行） | なし |
 
 - 開発中は `http://localhost:5173` を開く。`/api` は Vite が Spring Boot（8080）へ転送する
