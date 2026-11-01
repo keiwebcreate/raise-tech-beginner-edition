@@ -1,6 +1,7 @@
 package io.github.keiwebcreate.taskboard.auth;
 
 import java.util.Locale;
+import java.util.Objects;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -91,26 +92,45 @@ public class AuthService {
 	/**
 	 * A-01 ユーザー登録。ボードと3つのリストも作り、そのままログインした状態にする。
 	 *
+	 * 回数制限（要件 U-10、詳細設計書 3.8.8）：登録できたときと、登録済みで断ったときを数える。
+	 * 登録済みも数えるのは、409 の返事で「このメールアドレスは使われているか」を次々に調べられないようにするため。
+	 * 制限中は、登録済みかどうかを確かめずに 429 にする。
+	 *
+	 * トランザクションは TransactionTemplate で書く（退会 withdraw と同じ）。登録済みのときも記録は確定させたいので、
+	 * 中では例外を投げずに null を返し、外で 409 にする（中で例外を投げると、記録も取り消される）。
+	 *
+	 * @throws RateLimitedException     同じ IP アドレスから、1時間に10回を超えて登録しようとしたとき
 	 * @throws EmailDuplicatedException 登録済みのメールアドレスのとき
 	 */
-	@Transactional
 	public UserResponse signup(SignupRequest request, HttpServletRequest httpRequest,
 			HttpServletResponse httpResponse) {
 		String email = normalizeEmail(request.email());
-		if (userRepository.existsByEmail(email)) {
-			throw new EmailDuplicatedException();
-		}
+		String ipAddress = httpRequest.getRemoteAddr();
 
 		User user;
 		try {
-			user = userRepository.save(new User(email, passwordEncoder.encode(request.password()), false));
+			user = transactionTemplate.execute(status -> {
+				// 数えてから記録する。鍵はトランザクションが終わるまでかかっているので、同時に送られても上限を超えない
+				rateLimiter.check(RateLimitKind.REGISTRATION, ipAddress);
+				rateLimiter.record(RateLimitKind.REGISTRATION, ipAddress);
+				if (userRepository.existsByEmail(email)) {
+					return null;
+				}
+				User saved = userRepository.save(new User(email, passwordEncoder.encode(request.password()), false));
+				boardService.createWithInitialColumns(saved, INITIAL_BOARD_NAME);
+				return saved;
+			});
 		} catch (DataIntegrityViolationException e) {
 			// 上の確認と保存の間に、同じメールアドレスで登録された（ほぼ同時の登録）。
-			// DB の一意制約（uk_users_email）が2人目を止めるので、確認で見つかったときと同じ 409 にする
+			// DB の一意制約（uk_users_email）が2人目を止めるので、確認で見つかったときと同じ 409 にする。
+			// このときは記録も取り消される（めったに起きず、同じ IP アドレスからは鍵で1つずつ処理されるので起きない）
 			throw new EmailDuplicatedException();
 		}
-		boardService.createWithInitialColumns(user, INITIAL_BOARD_NAME);
-
+		if (user == null) {
+			throw new EmailDuplicatedException();
+		}
+		// 登録を残す（要件 5章のログ）。ユーザーは ID で記録し、メールアドレスは出さない
+		log.info("ユーザー登録しました（ユーザーID {}）", user.getId());
 		return startSession(user, httpRequest, httpResponse);
 	}
 
@@ -118,20 +138,27 @@ public class AuthService {
 	 * A-03 ゲストログイン（要件 U-06）。押すたびに新しいゲストを作り、サンプルデータの入ったボードを用意して、ログインした状態にする。
 	 * メールアドレスとパスワードはランダム。パスワードは誰も知らないので、ゲストのメールアドレスではログインできない（A-02）。
 	 *
+	 * トランザクションは TransactionTemplate で「回数制限・ゲストの作成」だけにかけ、確定したあとでログを出す
+	 * （確定の前に出すと、確定に失敗したときにログだけが残るため。品質チェック #53）。
+	 *
 	 * @throws RateLimitedException 同じ IP アドレスから、1時間に10回を超えて作ろうとしたとき（要件 U-10）
 	 */
-	@Transactional
 	public UserResponse guest(HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
-		// 回数制限：数えてから記録する。どちらも同じトランザクションの中なので、ゲストの作成が失敗したら記録も取り消される
 		String ipAddress = httpRequest.getRemoteAddr();
-		rateLimiter.check(RateLimitKind.GUEST_CREATION, ipAddress);
-		rateLimiter.record(RateLimitKind.GUEST_CREATION, ipAddress);
+		User user = Objects.requireNonNull(transactionTemplate.execute(status -> {
+			// 回数制限：数えてから記録する。どちらも同じトランザクションの中なので、ゲストの作成が失敗したら記録も取り消される
+			rateLimiter.check(RateLimitKind.GUEST_CREATION, ipAddress);
+			rateLimiter.record(RateLimitKind.GUEST_CREATION, ipAddress);
 
-		// UUID は乱数で作る128ビットの値なので、重なったり当てられたりしない
-		String email = "guest-" + UUID.randomUUID() + "@guest.local";
-		String password = UUID.randomUUID().toString();
-		User user = userRepository.save(new User(email, passwordEncoder.encode(password), true));
-		guestSampleData.create(user);
+			// UUID は乱数で作る128ビットの値なので、重なったり当てられたりしない
+			String email = "guest-" + UUID.randomUUID() + "@guest.local";
+			String password = UUID.randomUUID().toString();
+			User saved = userRepository.save(new User(email, passwordEncoder.encode(password), true));
+			guestSampleData.create(saved);
+			return saved;
+		}));
+		// ゲストのログインを残す（要件 5章のログ。ユーザー ID だけ）
+		log.info("ゲストでログインしました（ユーザーID {}）", user.getId());
 		return startSession(user, httpRequest, httpResponse);
 	}
 
@@ -141,34 +168,39 @@ public class AuthService {
 	 * 先に回数制限を確かめる。制限中は、パスワードを照合せずに 429 にする（正しいパスワードでも）。
 	 * 失敗したら、その IP アドレスの失敗を1回記録する。成功しても、記録は消さない（詳細設計書 3.8.8）。
 	 *
-	 * noRollbackFor：ふつうは例外を投げるとトランザクションの変更が取り消されるが、LoginFailedException のときは
-	 * 取り消さない。こうしないと、失敗の記録が消えてしまう。
+	 * トランザクションは TransactionTemplate で「回数制限・照合」だけにかける（登録・退会と同じ）。
+	 * 失敗の記録は確定させたいので、中では例外を投げずに null を返し、確定したあとでログを出して 401 にする
+	 * （中で例外を投げると、失敗の記録も取り消される）。
 	 *
 	 * @throws RateLimitedException 同じ IP アドレスから、15分に10回を超えて失敗したとき（要件 U-10）
 	 * @throws LoginFailedException メールアドレスかパスワードが違うとき（どちらが違うかは教えない）
 	 */
-	@Transactional(noRollbackFor = LoginFailedException.class)
 	public UserResponse login(LoginRequest request, HttpServletRequest httpRequest,
 			HttpServletResponse httpResponse) {
 		String ipAddress = httpRequest.getRemoteAddr();
-		rateLimiter.check(RateLimitKind.LOGIN_FAILURE, ipAddress);
-
 		String email = normalizeEmail(request.email());
 		String password = nullToEmpty(request.password());
-		Authentication authentication;
-		try {
-			// LoginUserDetailsService でユーザーを探し、BCrypt でパスワードを照合する
-			authentication = authenticationManager
-					.authenticate(UsernamePasswordAuthenticationToken.unauthenticated(email, password));
-		} catch (AuthenticationException e) {
-			rateLimiter.record(RateLimitKind.LOGIN_FAILURE, ipAddress);
-			throw new LoginFailedException();
-		}
+
+		Authentication authentication = transactionTemplate.execute(status -> {
+			rateLimiter.check(RateLimitKind.LOGIN_FAILURE, ipAddress);
+			try {
+				// LoginUserDetailsService でユーザーを探し、BCrypt でパスワードを照合する
+				return authenticationManager
+						.authenticate(UsernamePasswordAuthenticationToken.unauthenticated(email, password));
+			} catch (AuthenticationException e) {
+				rateLimiter.record(RateLimitKind.LOGIN_FAILURE, ipAddress);
+				return null;
+			}
+		});
 		// 照合に成功すると、中身は LoginUserDetailsService が返した LoginUser になる（型の上では null もありうるので確かめる）
-		if (!(authentication.getPrincipal() instanceof LoginUser loginUser)) {
+		if (authentication == null || !(authentication.getPrincipal() instanceof LoginUser loginUser)) {
+			// ログインの失敗を残す（要件 5章のログ）。まだ誰かわからず、メールアドレスは出さないので、IP アドレスを出す
+			log.info("ログインに失敗しました（IPアドレス {}）", ipAddress);
 			throw new LoginFailedException();
 		}
 		startSession(authentication, httpRequest, httpResponse);
+		// ログインの成功を残す（要件 5章のログ。ユーザー ID だけ）
+		log.info("ログインしました（ユーザーID {}）", loginUser.getId());
 		return UserResponse.from(loginUser);
 	}
 

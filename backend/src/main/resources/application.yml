@@ -32,3 +32,7 @@ app:
     guest-creation:
       max-count: 10
       window: 1h
+    # ユーザー登録（登録できたときと、登録済みで断ったとき）
+    registration:
+      max-count: 10
+      window: 1h

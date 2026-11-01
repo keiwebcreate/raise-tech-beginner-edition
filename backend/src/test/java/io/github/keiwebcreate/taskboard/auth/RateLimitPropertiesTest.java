@@ -31,9 +31,10 @@ class RateLimitPropertiesTest {
 	private RateLimitProperties properties;
 
 	@Test
-	void ログインの失敗は15分に10回まで_ゲストの作成は1時間に10回まで() {
+	void ログインの失敗は15分に10回まで_ゲストの作成と登録は1時間に10回まで() {
 		assertThat(properties.loginFailure()).isEqualTo(new RateLimitProperties.Rule(10, Duration.ofMinutes(15)));
 		assertThat(properties.guestCreation()).isEqualTo(new RateLimitProperties.Rule(10, Duration.ofHours(1)));
+		assertThat(properties.registration()).isEqualTo(new RateLimitProperties.Rule(10, Duration.ofHours(1)));
 		// 古い記録は、いちばん長い1時間より前のものを消す
 		assertThat(properties.longestWindow()).isEqualTo(Duration.ofHours(1));
 	}
@@ -41,18 +42,21 @@ class RateLimitPropertiesTest {
 	@Test
 	void 設定がそろっていれば起動できる() {
 		runner.withPropertyValues(loginFailure("10")).withPropertyValues(guestCreation("10"))
+				.withPropertyValues(registration("10"))
 				.run(context -> assertThat(context).hasNotFailed());
 	}
 
 	@Test
 	void 設定を書き忘れると_起動の時点でエラーになる() {
-		runner.withPropertyValues(loginFailure("10"))
+		// 登録（registration）を書き忘れた
+		runner.withPropertyValues(loginFailure("10")).withPropertyValues(guestCreation("10"))
 				.run(context -> assertThat(context).hasFailed());
 	}
 
 	@Test
 	void 回数が0だと_起動の時点でエラーになる() {
 		runner.withPropertyValues(loginFailure("10")).withPropertyValues(guestCreation("0"))
+				.withPropertyValues(registration("10"))
 				.run(context -> assertThat(context).hasFailed());
 	}
 
@@ -64,6 +68,11 @@ class RateLimitPropertiesTest {
 	private static String[] guestCreation(String maxCount) {
 		return new String[] {"app.rate-limit.guest-creation.max-count=" + maxCount,
 				"app.rate-limit.guest-creation.window=1h"};
+	}
+
+	private static String[] registration(String maxCount) {
+		return new String[] {"app.rate-limit.registration.max-count=" + maxCount,
+				"app.rate-limit.registration.window=1h"};
 	}
 
 	@EnableConfigurationProperties(RateLimitProperties.class)
