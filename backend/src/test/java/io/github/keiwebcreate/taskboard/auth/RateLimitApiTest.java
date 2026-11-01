@@ -52,7 +52,8 @@ import io.github.keiwebcreate.taskboard.TestcontainersConfiguration;
  */
 @SpringBootTest(properties = {
 		"app.rate-limit.login-failure.max-count=3",
-		"app.rate-limit.guest-creation.max-count=3" })
+		"app.rate-limit.guest-creation.max-count=3",
+		"app.rate-limit.registration.max-count=3" })
 @AutoConfigureMockMvc
 // ログに出た文字を、テストの中で読めるようにする（CapturedOutput）
 @ExtendWith(OutputCaptureExtension.class)
@@ -216,6 +217,73 @@ class RateLimitApiTest {
 		assertThat(Collections.frequency(statuses, 429)).isEqualTo(5);
 	}
 
+	// ===== A-01 ユーザー登録 =====
+
+	@Test
+	void 登録できた回数と登録済みで断った回数を合わせて_上限を超えると429になる() throws Exception {
+		String ip = newIpAddress();
+		String registered = newEmail();
+		signup(ip, registered).andExpect(status().isCreated());
+		signup(ip, registered).andExpect(status().isConflict());
+		signup(ip, newEmail()).andExpect(status().isCreated());
+
+		MvcResult result = signup(ip, newEmail())
+				.andExpect(status().isTooManyRequests())
+				.andExpect(jsonPath("$.code").value("RATE_LIMITED"))
+				.andExpect(jsonPath("$.detail").value("しばらくしてから再度お試しください"))
+				.andReturn();
+		assertThat(retryAfter(result)).isBetween(1L, 3600L);
+		// 制限中は、登録済みのアドレスでも 409 ではなく 429（使われているかを教えない）
+		signup(ip, registered).andExpect(status().isTooManyRequests());
+		assertThat(countEvents(ip)).isEqualTo(MAX_COUNT);
+		// ほかの IP アドレスからは登録できる
+		signup(newIpAddress(), newEmail()).andExpect(status().isCreated());
+	}
+
+	@Test
+	void 入力の誤りは登録の回数に数えない() throws Exception {
+		String ip = newIpAddress();
+		for (int i = 0; i < MAX_COUNT; i++) {
+			// パスワードが短い（8文字より少ない）
+			mockMvc.perform(signupRequest(ip, newEmail(), "short")).andExpect(status().isBadRequest());
+		}
+
+		assertThat(countEvents(ip)).isZero();
+		signup(ip, newEmail()).andExpect(status().isCreated());
+	}
+
+	@Test
+	void 登録の回数はゲストの作成と別に数える() throws Exception {
+		String ip = newIpAddress();
+		for (int i = 0; i < MAX_COUNT; i++) {
+			mockMvc.perform(guestRequest(ip)).andExpect(status().isCreated());
+		}
+
+		signup(ip, newEmail()).andExpect(status().isCreated());
+	}
+
+	@Test
+	void 一時間より前の登録は数えない() throws Exception {
+		String ip = newIpAddress();
+		for (int i = 0; i < MAX_COUNT; i++) {
+			signup(ip, newEmail()).andExpect(status().isCreated());
+		}
+		moveEventsBack(ip, Duration.ofMinutes(61));
+
+		signup(ip, newEmail()).andExpect(status().isCreated());
+	}
+
+	@Test
+	void 同時に登録しても_上限を超えない() throws Exception {
+		String ip = newIpAddress();
+
+		List<Integer> statuses = sendAtOnce(MAX_COUNT + 5, () -> signupRequest(ip, newEmail(), PASSWORD));
+
+		assertThat(Collections.frequency(statuses, 201)).isEqualTo(MAX_COUNT);
+		assertThat(Collections.frequency(statuses, 429)).isEqualTo(5);
+		assertThat(countEvents(ip)).isEqualTo(MAX_COUNT);
+	}
+
 	// ===== 古い記録の削除 =====
 
 	@Test
@@ -249,8 +317,22 @@ class RateLimitApiTest {
 		};
 	}
 
+	private static String newEmail() {
+		return "user-" + UUID.randomUUID() + "@example.com";
+	}
+
+	private static MockHttpServletRequestBuilder signupRequest(String ip, String email, String password) {
+		return post("/api/auth/signup").with(csrf()).with(from(ip))
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json(email, password));
+	}
+
+	private ResultActions signup(String ip, String email) throws Exception {
+		return mockMvc.perform(signupRequest(ip, email, PASSWORD));
+	}
+
 	private String signup() throws Exception {
-		String email = "user-" + UUID.randomUUID() + "@example.com";
+		String email = newEmail();
 		mockMvc.perform(post("/api/auth/signup").with(csrf())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content(json(email, PASSWORD)))

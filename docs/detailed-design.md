@@ -62,7 +62,7 @@ io.github.keiwebcreate.taskboard
 │   ├─ AuthService               登録・ゲスト作成・退会
 │   ├─ GuestSampleData           ゲストのサンプルデータを作る
 │   ├─ GuestCleanupJob           24時間たったゲストを1時間ごとに削除する
-│   ├─ RateLimiter               回数制限（ログインの失敗・ゲストの作成。3.8.8）
+│   ├─ RateLimiter               回数制限（ログインの失敗・ゲストの作成・ユーザー登録。3.8.8）
 │   ├─ RateLimitEvent, RateLimitEventRepository, RateLimitKind
 │   ├─ RateLimitProperties       回数制限の設定値（app.rate-limit）
 │   ├─ RateLimitCleanupJob       古い回数制限の記録を1時間ごとに削除する
@@ -236,7 +236,7 @@ Spring が投げる例外も同じ形にそろえる。`ApiExceptionHandler` は
 | JVMのタイムゾーン | UTC（ログの時刻などをそろえるため。テーブル設計書 6章） |
 | セッション | `spring.session.timeout: 30m`（要件 U-09）。保存先は JDBC。テーブルは Flyway で作る（3.9） |
 | 上限 | `app.limits.columns: 20`・`cards-per-column: 100`・`labels: 30`。`LimitsProperties`（`@ConfigurationProperties`）で読む（要件 3.7） |
-| 回数制限 | `app.rate-limit.login-failure`（`max-count: 10`・`window: 15m`）、`app.rate-limit.guest-creation`（`max-count: 10`・`window: 1h`）。`RateLimitProperties` で読む（要件 U-10、3.8.8）。`@Validated` で、書き忘れや0以下の数があれば起動の時点でエラーにする |
+| 回数制限 | `app.rate-limit.login-failure`（`max-count: 10`・`window: 15m`）、`app.rate-limit.guest-creation`（`max-count: 10`・`window: 1h`）、`app.rate-limit.registration`（`max-count: 10`・`window: 1h`）。`RateLimitProperties` で読む（要件 U-10、3.8.8）。`@Validated` で、書き忘れや0以下の数があれば起動の時点でエラーにする |
 | Flyway | `src/main/resources/db/migration/` の SQL を起動時に流す |
 | 開発だけの設定 | `application-dev.yml`（プロファイル `dev`）。`./gradlew bootRun` のときだけ読み込む（`build.gradle` の `bootRun`）。実行した SQL をログに出す（`logging.level.org.hibernate.SQL: debug`）。本番とテストでは出さない |
 
@@ -299,6 +299,7 @@ sequenceDiagram
 - `LoginUser` にはユーザーのID・メールアドレス・ゲストかどうかを持たせる。Controller はここからユーザーのIDを取り出して Service に渡す
 - ゲストのメールアドレスでのログインは、パスワードがランダムなので成功しない（API設計書 A-02）
 - 回数制限（要件 U-10）：照合の前に確かめ、失敗したら記録する（3.8.8）
+- ログ（要件 5章）：成功は「ログインしました（ユーザーID …）」、失敗は「ログインに失敗しました（IPアドレス …）」（まだ誰かわからず、メールアドレスは出さないため）。ゲストは「ゲストでログインしました（ユーザーID …）」。2026-11-01 追加（イシュー #53。前からの漏れ）
 
 #### 3.8.4 CSRF
 
@@ -312,10 +313,14 @@ sequenceDiagram
 登録：
 
 1. メールアドレスを小文字にそろえ、前後の空白を取り除く
-2. 登録済みなら 409 EMAIL_DUPLICATED
-3. パスワードを BCrypt でハッシュ化し、users を作る。ボードと3つのリスト（未着手・作業中・完了）は `BoardService.createWithInitialColumns` で作る（ボードの作成 A-23 と共通。テーブル設計書 9.1）
-   - 2 と 3 の間に同じメールアドレスで登録された（ほぼ同時の登録）ときは、DB の一意制約で users の保存が失敗する。その `DataIntegrityViolationException` を受け取り、2 と同じ 409 EMAIL_DUPLICATED にする
-4. 3.8.3 と同じ処理でログイン状態にする
+2. 回数制限を確かめて（`REGISTRATION`。制限中は 429）、1回分を記録する（3.8.8。2026-11-01 追加、イシュー #53）
+3. 登録済みなら 409 EMAIL_DUPLICATED（2 の記録は残す）
+4. パスワードを BCrypt でハッシュ化し、users を作る。ボードと3つのリスト（未着手・作業中・完了）は `BoardService.createWithInitialColumns` で作る（ボードの作成 A-23 と共通。テーブル設計書 9.1）
+   - 3 と 4 の間に同じメールアドレスで登録された（ほぼ同時の登録）ときは、DB の一意制約で users の保存が失敗する。その `DataIntegrityViolationException` を受け取り、3 と同じ 409 EMAIL_DUPLICATED にする（このときは 2 の記録も取り消される。同じ IP アドレスからは鍵で1つずつ処理されるので、別々の IP アドレスから同時に送ったときだけ起きる）
+5. 登録をログに残す（ユーザー ID だけ。トランザクションを確定したあと。2026-11-01 追加、イシュー #53）
+6. 3.8.3 と同じ処理でログイン状態にする
+
+- トランザクションは `@Transactional` ではなく `TransactionTemplate` で 2〜4 にかける（退会 3.8.7 と同じ）。3 で例外を投げると 2 の記録も取り消されるので、中では null を返し、外で 409 にする
 
 ゲスト：
 
@@ -391,12 +396,13 @@ sequenceDiagram
 
 #### 3.8.8 回数制限（要件 U-10）
 
-2026-11-01 に追加（イシュー #41）。同じ IP アドレスからの、ログインの失敗とゲストの作成の回数を数える。
+2026-11-01 に追加（イシュー #41）。同じ IP アドレスからの、ログインの失敗・ゲストの作成・ユーザー登録の回数を数える。
 
 | 種類（`RateLimitKind`） | 数えるもの | 上限 |
 |---|---|---|
 | `LOGIN_FAILURE` | A-02 のログインの失敗、A-19・A-20・A-21 のパスワード違い | 15分に10回 |
 | `GUEST_CREATION` | A-03 のゲストの作成 | 1時間に10回 |
+| `REGISTRATION` | A-01 のユーザー登録（登録できたときと、登録済み 409 で断ったとき。400 は数えない） | 1時間に10回（2026-11-01 追加。イシュー #53） |
 
 **決めたこと**
 
@@ -411,11 +417,22 @@ sequenceDiagram
 | Retry-After | 古いほうから数えて「これが外れれば上限を下回る」記録が、数える時間から外れるまでの秒数（切り上げ、最低1秒）。ふつうはいちばん古い記録 | そのときに1回分あいて、また試せる。上限の数を設定で下げたあとは、上限より多く記録が残っていることがあるので、その分も待たせる |
 | 時刻 | 記録の `created_at` も Java の時計で入れる | 数えるときの「今」（`Instant.now()`）と同じ時計にそろえる。DB は Docker の中で動き、時計が少しずれることがある |
 
+2026-11-01 に決めたこと（ユーザー登録。イシュー #53）：
+
+| 項目 | 決定 | 理由 |
+|---|---|---|
+| ゲストの作成と | 別に数える（`REGISTRATION`） | ポートフォリオを見る人がゲストを何度か試しても、本当に登録したいときに止められない。上限も別々に変えられる |
+| 数えるもの | 登録できたときと、登録済み（409）で断ったとき。入力の誤り（400）は数えない | アカウントの大量作成と、409 の返事で「このメールアドレスは使われているか」を次々に調べられるのを両方防ぐ。400 は打ち間違えただけの人を数えないため |
+| 上限 | 1時間に10回 | ゲストと同じ。家族や職場で IP アドレスを共有していても、ふつうは困らない |
+| 制限中 | 登録済みかどうかを確かめずに 429 | 確かめて 409 と 429 を出し分けると、制限中も調べられてしまう |
+
 **流れ**
 
-- ゲスト（`AuthService.guest`、`@Transactional`）：`check`（鍵をかけて数える。上限に達していたら 429）→ `record`（1行入れる）→ ゲストを作る。ゲストの作成が失敗したら、記録も一緒に取り消される
-- ログイン（`AuthService.login`、`@Transactional(noRollbackFor = LoginFailedException.class)`）：`check` → パスワードを照合 → 失敗なら `record` して 401
-  - ふつうは例外を投げるとトランザクションの変更が取り消されるが、`noRollbackFor` で `LoginFailedException` のときは取り消さない。こうしないと失敗の記録が消える
+- ゲスト（`AuthService.guest`、`TransactionTemplate`）：`check`（鍵をかけて数える。上限に達していたら 429）→ `record`（1行入れる）→ ゲストを作る。ゲストの作成が失敗したら、記録も一緒に取り消される。確定したあとでログを出し、ログイン状態にする
+- 登録（`AuthService.signup`、`TransactionTemplate`）：`check` → `record` → 登録済みなら null を返して確定し、外で 409 → ユーザーとボードを作る（3.8.5）
+- ログイン（`AuthService.login`、`TransactionTemplate`）：`check` → パスワードを照合 → 失敗なら `record` して null を返す → 確定したあとでログを出し、401
+  - 中で例外を投げると、トランザクションの変更（失敗の記録）が取り消される。なので中では null を返し、外で 401 にする（登録・退会と同じ）
+  - 2026-11-01 に、`@Transactional(noRollbackFor = LoginFailedException.class)` からこの形に変えた（イシュー #53）。ログを確定のあとに出すため（確定の前に出すと、確定に失敗したときにログだけが残る）
   - 鍵は照合（BCrypt。0.1秒ほど）の間もかかったままなので、同じ IP アドレスからのログインは1つずつ順に処理される。ほかの IP アドレスは待たない
 - `RateLimiter.check`・`record` は `@Transactional(propagation = MANDATORY)`。呼ぶ側のトランザクションがないとエラーにする（鍵が「数える → 記録する」の間ずっとかかっているようにするため）
 - 回数制限が働きはじめたら（`record` で記録して、ちょうど上限の数になったとき）、警告のログ（種類・IP アドレス）を1回だけ出す（要件 5章のログ）。制限中に断るたびには出さない（大量に送られたときに、ログがふくらまないように）
@@ -433,6 +450,7 @@ sequenceDiagram
 - 時間がたったことにするときは、`JdbcTemplate` で記録の `created_at` を前にずらす
 - 回数制限のテストだけ、上限を3回にしている。10回だと DB の接続の数（同時に10本）と同じになり、「同時に送る」テストで、鍵がなくても偶然うまくいってしまうため（鍵を外して、テストが失敗することを確かめた）。本番の値（10回・15分・1時間）と、書き忘れ・0回で起動が止まることは `RateLimitPropertiesTest` で確かめる
 - ログが1回だけ出ることは、Spring Boot の `OutputCaptureExtension`（テストの中でログを読める）で確かめる
+- 登録（イシュー #53）：登録できた回数と 409 の回数を合わせて上限を超えると 429（制限中は登録済みのアドレスでも 429）、400 は数えない、ゲストの作成とは別に数える、1時間より前は数えない、同時に送っても上限を超えない
 
 ### 3.9 Flyway のファイル
 
@@ -442,6 +460,7 @@ sequenceDiagram
 | `V2__create_session_tables.sql` | Spring Session JDBC のテーブル（`SPRING_SESSION`・`SPRING_SESSION_ATTRIBUTES`）。Spring Session に入っている PostgreSQL 用の SQL（`schema-postgresql.sql`）を元にする |
 | `V3__create_rate_limit_events.sql` | 回数制限の記録（`rate_limit_events`。テーブル設計書 3.9。2026-11-01 追加） |
 | `V4__allow_multiple_boards.sql` | `boards.user_id` の一意制約を外し、ふつうのインデックスを作る（複数ボード。テーブル設計書 3.2。2026-11-01 追加） |
+| `V5__add_registration_rate_limit.sql` | `rate_limit_events.kind` の CHECK 制約に `REGISTRATION` を足す（ユーザー登録の回数制限。テーブル設計書 3.9。2026-11-01 追加） |
 
 ### 3.10 テスト（要件 5.5）
 

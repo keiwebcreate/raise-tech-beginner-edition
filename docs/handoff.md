@@ -3,8 +3,8 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #52（複数ボード）がマージ済みかを `gh pr view 52` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
-2. 下の「次にやること」を私と決める（要件の機能はそろった。講義の「自分で作りこむ」に合わせて、要件定義書 7章の「後回し」を作っている。残りはパスワードの再設定（AWS の SES が要る））
+1. PR #54（登録の回数制限）がマージ済みかを `gh pr view 54` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 下の「次にやること」を進める（2026-11-01 に「登録の回数制限 → AWS → パスワードの再設定」の順と決めた。次は AWS へのデプロイ）
 
 **サーバーの状態**：前のチャットの終わり（2026-11-01）に、DB・Spring Boot・Vite をすべて止めた（ほかのチャットで起動したときにポートがぶつかってエラーになるため）。ポート 5432・8080・5173 は空いている。DB はコンテナを止めただけなので、データ（`demo@example.com` など）は残っている。動作確認のときは、スキル `dev-servers` の手順で DB → Spring Boot → Vite の順に起動する。チャットを終えるときも、起動したサーバーは止めておく
 
@@ -45,15 +45,15 @@
 | ドラッグ＆ドロップ（リストの並び替え、カードの並び替え・移動） | A-11・A-15 | W-03。リストは名前を、カードはカード全体をつかむ。キーボードでも動かせる |
 | ゲストログイン・ログアウトでの削除・24時間後の削除 | A-03・A-04・A-05 | W-01 の「ゲストとして試す」、W-03 の「ゲスト」の札と注意書きの帯 |
 | GitHub Actions（自動テスト） | 要件 5章 | `.github/workflows/ci.yml`。PR と main への反映で `backend`・`frontend` が走り、成功しないとマージできない（`detailed-design.md` 5.3） |
-| ログイン失敗・ゲスト作成の回数制限 | U-10、A-02・A-03 の 429 | W-01 に「しばらくしてから再度お試しください」（画面のコードは変えていない。API の `detail` をそのまま出す） |
+| ログイン失敗・ゲスト作成・ユーザー登録の回数制限 | U-10、A-01・A-02・A-03 の 429 | W-01・W-02 に「しばらくしてから再度お試しください」（画面のコードは変えていない。API の `detail` をそのまま出す） |
 | スマートフォン幅のハンバーガーメニュー | 画面設計書 W-03 | 幅 640px 以下でヘッダーを2段にし、ラベル管理とアカウントの操作を ☰（`MobileMenu`）にまとめる |
 | カードの検索・絞り込み | S-01〜S-04（要件 3.8） | W-03 のヘッダーの検索欄と「絞り込み」（`CardSearch`）、絞り込み中の帯（`FilterBar`）。サーバーは変えていない |
 | 退会 | U-11、A-19 | ヘッダーのメールアドレス（▾）のメニュー（`UserMenu`）と W-08（`WithdrawModal`）。ゲストにはメニューを出さない |
 | メールアドレス・パスワードの変更 | U-12・U-13、A-20・A-21 | ▾ と ☰ のメニューから W-09（`EmailChangeModal`）・W-10（`PasswordChangeModal`）。成功は緑の通知。ゲストには出さない |
 
-- テスト：サーバー 167件（`./gradlew test`）、画面 67件（`npm test`）。すべて成功
+- テスト：サーバー 173件（`./gradlew test`）、画面 67件（`npm test`）。すべて成功
 - コードのチェック（#27）：サーバーは Checkstyle・SpotBugs（`./gradlew check`）、画面は oxlint の規則を足し、Prettier を入れた（`npm run lint`・`npm run format:check`）。道具と規則は `detailed-design.md` 5.2
-- 開発用の DB は Flyway V4（複数ボード）まで当たっている（2026-11-01）。確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は SQL で入れたもの。2026-11-01 に退会の確認で消えたので、登録の API で作り直した（カードは空）。**退会を試すときは、新しく登録したユーザーで**
+- 開発用の DB は Flyway V5（登録の回数制限）まで当たっている（2026-11-01）。確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は SQL で入れたもの。2026-11-01 に退会の確認で消えたので、登録の API で作り直した（カードは空）。**退会を試すときは、新しく登録したユーザーで**
 
 **まだないもの**
 
@@ -63,11 +63,18 @@
 | 見直し（急がない） | | 要件：改訂履歴・前提条件と制約・非機能要件の ID・受け入れ基準。テーブル：論理名と物理名・CRUD 表 |
 
 ## 次にやること
-講義のアプリ側は、品質チェックの回（初級編16）で終わっている。講義で「自分で作りこむ」ように言われたので、要件定義書 7章の「後回し」を順に作っている（検索・絞り込みは #45、ユーザーの提案でスマートフォン幅のハンバーガーメニューを #47、メールアドレス・パスワードの変更を #49、複数ボードを #51 で作った）。残りの候補：
-- パスワードの再設定（メール送信が要る。AWS の SES とあわせて）
-- **AWS へのデプロイ**（G-04）。構成（EC2・RDS・画面の配信・ドメイン）を決めるところから。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）
-- （相談）ユーザー登録（A-01）の回数制限。要件にはないが、ゲストと同じく大量に作られる心配がある。AWS の前に要件に足すかを決める
+講義のアプリ側は、品質チェックの回（初級編16）で終わっている。講義で「自分で作りこむ」ように言われたので、要件定義書 7章の「後回し」を順に作っている（検索・絞り込みは #45、ユーザーの提案でスマートフォン幅のハンバーガーメニューを #47、メールアドレス・パスワードの変更を #49、複数ボードを #51、登録の回数制限を #53 で作った）。2026-11-01 に、残りは次の順と決めた：
+1. **AWS へのデプロイ**（G-04）。構成（EC2・RDS・画面の配信・ドメイン）を決めるところから。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）
+2. パスワードの再設定（メール送信が要る。AWS の SES とあわせて）
 - 作ったら、スキル `quality-check`（差分だけ）で確かめてから PR を作る
+
+**登録の回数制限（#53）で決めたこと**（詳細は `detailed-design.md` 3.8.5・3.8.8、`api-design.md` A-01）
+- ゲストの作成とは別に数える（種類 `REGISTRATION`。Flyway V5 で `rate_limit_events.kind` の CHECK 制約を作り直した）。上限は1時間に10回（`app.rate-limit.registration`）
+- 数えるのは、登録できたときと、登録済み（409）で断ったとき。409 も数えるのは、メールアドレスが使われているかを次々に調べられないようにするため。入力の誤り（400）は数えない。制限中は、登録済みかどうかを確かめずに 429
+- 409 でも記録を残すため、登録は `TransactionTemplate` で書き、中では null を返して外で 409 にする（退会と同じ形）
+- 前からの漏れ：要件 5章のログ（ログインの成功・失敗、登録）を出していなかった。成功はユーザー ID、失敗は IP アドレスで出す（メールアドレスは出さない）。ゲストログインも出す
+- 品質チェックで直したこと：ログが DB の確定の前に出ていたので、ゲストとログインも `TransactionTemplate` にし、確定したあとで出すようにした（ログインの `noRollbackFor` はやめた）
+- 確認の注意：開発中は接続元がいつも自分のパソコンなので、登録を何度も試すと自分も1時間止められる。戻すときは `rate_limit_events` を消す（回数制限（#41）の項）。Claude が実行すると許可で止められることがあるので、そのときは私が PowerShell で実行する
 
 **複数ボード（#51）で決めたこと**（詳細は `detailed-design.md` 3.8.10・4.2、`api-design.md` 5.2、`screen-design.md` W-11）
 - ボード一覧の画面（W-11）を `/` に作り、ボードは `/boards/{ID}` で開く。ログイン・登録・ゲストのあとは一覧へ。1人10個まで（ゲストも）。並びは作った順（`id` の順。テーブルに列は足していない）
@@ -113,7 +120,7 @@
 **回数制限（#41）で決めたこと**（詳細は `detailed-design.md` 3.8.8、テーブルは `database-design.md` 3.9）
 - 回数は DB の `rate_limit_events`（Flyway V3）に1回1行で記録し、直近15分（ゲストは1時間）の行を数える。古い行は `RateLimitCleanupJob` が毎時消す
 - 制限中は正しいパスワードでも 429。ログインに成功しても失敗の回数は消さない。429 には `Retry-After`（秒）を付ける。ログは上限に達したときに1回だけ。設定（`app.rate-limit`）は `@Validated` で、書き忘れると起動しない
-- 同時に送られても上限を超えないように、「種類:IPアドレス」に PostgreSQL のアドバイザリーロックをかけてから数える。ログインは `noRollbackFor = LoginFailedException.class` で、失敗の記録を取り消さない
+- 同時に送られても上限を超えないように、「種類:IPアドレス」に PostgreSQL のアドバイザリーロックをかけてから数える。ログインは失敗の記録を取り消さないように、中では例外を投げない（#53 で `noRollbackFor` から `TransactionTemplate` に変えた）
 - IP アドレスは `getRemoteAddr()`。AWS では `server.forward-headers-strategy: native` で中継役（ロードバランサー）の後ろの本当の接続元を取る（まだ入れていない）
 - テストの注意：MockMvc の接続元は、すべてのテストでリクエストごとに違う IP アドレスにしている（`TestcontainersConfiguration`）。回数制限のテスト（`RateLimitApiTest`）は上限を3回にしている（10回だと DB の接続の数と同じで、鍵がなくても同時のテストが通ってしまうため）
 - 開発中は接続元がいつも自分のパソコン（`0:0:0:0:0:0:0:1`）なので、確かめると自分も止められる。戻すときは `docker exec taskboard-db-1 psql -U task_app_user -d task_app -c "DELETE FROM rate_limit_events;"`
@@ -151,7 +158,7 @@
   - エラーは独自の例外を投げ、`common/error/ApiExceptionHandler` が Problem Details（＋`code`）にする。Spring Security の 401・403 もここに回している
   - ログインは自作の API（`AuthService`）。セッションは Spring Session JDBC（30分）。CSRF は `csrf.spa()` ＋ `CsrfCookieFilter`（GET でも `XSRF-TOKEN` の Cookie を返す）
   - 上限は `application.yml` の `app.limits` → `LimitsProperties`。並び順の振り直しは `common/position/Positions.renumber`。並び順や数を変える処理は、最初に `findWithLockByUserId` でボードに鍵をかける
-  - テーブルは Flyway（V1・V2）だけが作る。JPA は `ddl-auto: validate`。`labels.color` は CHAR(7) なので `@JdbcTypeCode(SqlTypes.CHAR)` が必要
+  - テーブルは Flyway（V1〜V5）だけが作る。JPA は `ddl-auto: validate`。`labels.color` は CHAR(7) なので `@JdbcTypeCode(SqlTypes.CHAR)` が必要
   - API のテストは `@SpringBootTest` ＋ MockMvc ＋ Testcontainers。テストごとに `UUID` 入りのメールアドレスで登録する。API で作れないデータ（ラベルなど）や position の確認は `JdbcTemplate`
 - **画面**（`frontend/src/`）
   - `api/client.ts` の `apiFetch` を必ず通す（CSRF ヘッダー、`ApiError`、401 でログイン画面へ）
@@ -186,6 +193,6 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・GitHub Actions の `backend`・`frontend` の成功が必須・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#52（イシューと PR は番号を共有している）。#51（複数ボード）の PR が #52
+- これまでのイシューと PR：#1〜#54（イシューと PR は番号を共有している）。#53（登録の回数制限）の PR が #54
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

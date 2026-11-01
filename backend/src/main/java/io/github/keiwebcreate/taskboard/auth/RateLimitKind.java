@@ -9,6 +9,9 @@ public enum RateLimitKind {
 	LOGIN_FAILURE,
 
 	/** ゲストの作成（A-03） */
-	GUEST_CREATION
+	GUEST_CREATION,
+
+	/** ユーザー登録（A-01）。登録できたときと、登録済み（409）で断ったとき */
+	REGISTRATION
 
 }

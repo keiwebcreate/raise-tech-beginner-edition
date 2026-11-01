@@ -11,8 +11,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
@@ -31,6 +34,8 @@ import jakarta.servlet.http.Cookie;
  */
 @SpringBootTest
 @AutoConfigureMockMvc
+// ログに出た文字を、テストの中で読めるようにする（CapturedOutput）
+@ExtendWith(OutputCaptureExtension.class)
 @Import(TestcontainersConfiguration.class)
 class AuthControllerTest {
 
@@ -133,6 +138,27 @@ class AuthControllerTest {
 				.content(json(newEmail(), PASSWORD)))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("LOGIN_FAILED"));
+	}
+
+	@Test
+	void 登録とログインの成功と失敗をログに残し_メールアドレスは出さない(CapturedOutput output) throws Exception {
+		String email = newEmail();
+		signup(email);
+		mockMvc.perform(post("/api/auth/login").with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json(email, PASSWORD)))
+				.andExpect(status().isOk());
+		mockMvc.perform(post("/api/auth/login").with(csrf())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content(json(email, "wrong-password")))
+				.andExpect(status().isUnauthorized());
+
+		// 要件 5章のログ。ユーザーは ID で、失敗は（まだ誰かわからないので）IP アドレスで残す
+		assertThat(output.getOut())
+				.contains("ユーザー登録しました（ユーザーID ")
+				.contains("ログインしました（ユーザーID ")
+				.contains("ログインに失敗しました（IPアドレス ")
+				.doesNotContain(email);
 	}
 
 	@Test

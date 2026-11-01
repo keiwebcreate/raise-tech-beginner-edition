@@ -1,6 +1,8 @@
 package io.github.keiwebcreate.taskboard.auth;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.Comparator;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -16,10 +18,12 @@ import jakarta.validation.constraints.Positive;
  *
  * @param loginFailure  ログインの失敗
  * @param guestCreation ゲストの作成
+ * @param registration  ユーザー登録
  */
 @Validated
 @ConfigurationProperties("app.rate-limit")
-public record RateLimitProperties(@NotNull @Valid Rule loginFailure, @NotNull @Valid Rule guestCreation) {
+public record RateLimitProperties(@NotNull @Valid Rule loginFailure, @NotNull @Valid Rule guestCreation,
+		@NotNull @Valid Rule registration) {
 
 	/**
 	 * 「window の間に maxCount 回まで」。
@@ -34,13 +38,16 @@ public record RateLimitProperties(@NotNull @Valid Rule loginFailure, @NotNull @V
 		return switch (kind) {
 			case LOGIN_FAILURE -> loginFailure;
 			case GUEST_CREATION -> guestCreation;
+			case REGISTRATION -> registration;
 		};
 	}
 
 	// いちばん長い数える時間。これより古い記録は、どの回数制限でも数えないので消してよい
 	public Duration longestWindow() {
-		return loginFailure.window().compareTo(guestCreation.window()) >= 0 ? loginFailure.window()
-				: guestCreation.window();
+		return Arrays.stream(RateLimitKind.values())
+				.map(kind -> ruleOf(kind).window())
+				.max(Comparator.naturalOrder())
+				.orElseThrow();
 	}
 
 }
