@@ -1,0 +1,10 @@
+/* ☰ のメニューの見出し（メールアドレス・「ゲストとして利用中」）。見た目の土台は shared/ui/Menu.module.css
+   下のボタンの文字とそろえて左寄せにし、長いメールアドレスは「…」で切る */
+.who {
+  text-align: left;
+  padding-left: 10px;
+  padding-right: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

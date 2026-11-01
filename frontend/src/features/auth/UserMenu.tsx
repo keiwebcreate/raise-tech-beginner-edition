@@ -50,6 +50,7 @@ export function UserMenu({ email, loggingOut, onLogout, onWithdraw }: Props) {
           <button
             type="button"
             className={menuStyles.danger}
+            aria-haspopup="dialog"
             onClick={() => {
               setOpen(false)
               onWithdraw()

@@ -12,6 +12,7 @@ import * as boardApi from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
 import styles from './BoardHeader.module.css'
 import { CardSearch } from './CardSearch.tsx'
+import { MobileMenu } from './MobileMenu.tsx'
 
 type Props = {
   boardName?: string // 読み込み中・失敗したときは undefined（ボード名を出さない）
@@ -25,6 +26,7 @@ type Props = {
 // 画面の上のヘッダー（画面設計書 W-03）
 // - 登録したユーザー：メールアドレスと「▾」のメニュー（ログアウト・退会する）
 // - ゲスト：「ゲスト」の札と「ログアウト」ボタン、ヘッダーの下に注意書きの帯（要件 U-07）。退会はない
+// - スマートフォンの幅：「ラベル管理」とアカウントの操作は ☰（MobileMenu）にまとめ、2段にする（イシュー #47）
 export function BoardHeader({
   boardName,
   isRenaming = false,
@@ -82,28 +84,47 @@ export function BoardHeader({
           </>
         )}
         {user && (
-          <div className={styles.right}>
-            {labels && <CardSearch labels={labels} />}
-            {onOpenLabels && (
-              <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={onOpenLabels}>
-                ラベル管理
-              </button>
+          // 右側。スマートフォン幅では箱をなくし（display: contents）、中身をヘッダーに直接並べる
+          // （☰ は1段目の右端、検索は2段目。BoardHeader.module.css）
+          <div className={styles.end}>
+            {labels && (
+              <div className={styles.search}>
+                <CardSearch labels={labels} />
+              </div>
             )}
-            {user.isGuest ? (
-              <>
-                <span className={styles.guestBadge}>ゲスト</span>
-                <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
-                  ログアウト
+            {/* パソコンの幅だけ */}
+            <div className={styles.desktopActions}>
+              {onOpenLabels && (
+                <button type="button" className="btn btn-ghost" aria-haspopup="dialog" onClick={onOpenLabels}>
+                  ラベル管理
                 </button>
-              </>
-            ) : (
-              <UserMenu
-                email={user.email}
+              )}
+              {user.isGuest ? (
+                <>
+                  <span className={styles.guestBadge}>ゲスト</span>
+                  <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
+                    ログアウト
+                  </button>
+                </>
+              ) : (
+                <UserMenu
+                  email={user.email}
+                  loggingOut={loggingOut}
+                  onLogout={handleLogout}
+                  onWithdraw={() => setWithdrawOpen(true)}
+                />
+              )}
+            </div>
+            {/* スマートフォンの幅だけ（☰） */}
+            <div className={styles.mobileMenu}>
+              <MobileMenu
+                user={user}
                 loggingOut={loggingOut}
                 onLogout={handleLogout}
                 onWithdraw={() => setWithdrawOpen(true)}
+                onOpenLabels={onOpenLabels}
               />
-            )}
+            </div>
           </div>
         )}
       </header>
