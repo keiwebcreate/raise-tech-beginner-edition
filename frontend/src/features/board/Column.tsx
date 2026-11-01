@@ -1,7 +1,7 @@
 import { Draggable, Droppable } from '@hello-pangea/dnd'
 import { useState } from 'react'
 import { ApiError, fieldErrorsOf } from '../../api/client.ts'
-import type { ColumnWithCardsResponse, LabelResponse } from '../../api/types.ts'
+import type { CardResponse, ColumnWithCardsResponse, LabelResponse } from '../../api/types.ts'
 import { MAX_LENGTH } from '../../shared/lib/constants.ts'
 import { validateText } from '../../shared/lib/validation.ts'
 import { ConfirmDialog } from '../../shared/ui/ConfirmDialog.tsx'
@@ -19,6 +19,9 @@ type Props = {
   column: ColumnWithCardsResponse
   index: number // 左から何番目か（ドラッグで使う）
   dragDisabled: boolean // ドラッグの保存を待っている間は true（リストもカードも動かせない）
+  // 絞り込み中（要件 S-03）：条件に合うカードだけ。絞り込んでいないときは undefined（全部のカードを出す）
+  // 絞り込み中は、カードのドラッグと追加をしない（隠れたカードがあると、画面の何番目と本当の並び順がずれるため）
+  visibleCards?: CardResponse[]
   labels: LabelResponse[] // ボードのラベル全部（カードに渡す）
   isAddingCard: boolean // このリストの「＋ カードを追加」の入力欄が開いているか
   onOpenAddCard: () => void
@@ -35,6 +38,7 @@ export function Column({
   column,
   index,
   dragDisabled,
+  visibleCards,
   labels,
   isAddingCard,
   onOpenAddCard,
@@ -47,6 +51,8 @@ export function Column({
   const { dispatch } = useBoard()
   const { showApiError } = useToast()
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const filtering = visibleCards !== undefined
+  const cards = visibleCards ?? column.cards
 
   // A-10 リストの削除（確認ダイアログで「削除する」を押したあと）
   async function deleteColumn() {
@@ -59,6 +65,7 @@ export function Column({
   }
 
   // 何が消えるかを具体的に書く。カードの枚数は手元のデータから数える（API設計書 A-10）
+  // 絞り込みで隠れているカードも消えるので、全部の枚数を数える
   const count = column.cards.length
   const deleteMessage =
     count > 0
@@ -110,7 +117,19 @@ export function Column({
                 displayProps={drag.dragHandleProps ?? undefined}
               />
             </h2>
-            <span className={styles.count}>{column.cards.length}</span>
+            {filtering ? (
+              // 見える「2 / 5」は読み上げず、読み上げには「5枚中2枚」と文で伝える（sr-only は画面に見えない文字）
+              <span className={styles.count}>
+                <span aria-hidden="true">
+                  {cards.length} / {column.cards.length}
+                </span>
+                <span className="sr-only">
+                  {column.cards.length}枚中{cards.length}枚
+                </span>
+              </span>
+            ) : (
+              <span className={styles.count}>{column.cards.length}</span>
+            )}
             <ColumnMenu onDelete={() => setConfirmingDelete(true)} />
           </div>
           <Droppable droppableId={cardsDroppableId(column.id)} type={DRAG_TYPE.card}>
@@ -120,13 +139,13 @@ export function Column({
                 {...drop.droppableProps}
                 className={`${styles.cards} ${dropState.isDraggingOver ? styles.over : ''}`}
               >
-                {column.cards.map((card, cardIndex) => (
+                {cards.map((card, cardIndex) => (
                   // カードの中のボタン（詳細を開く）とリンクをつかんでも動かせるようにする。クリックだけなら、それぞれの動きをする
                   <Draggable
                     key={card.id}
                     draggableId={cardDraggableId(card.id)}
                     index={cardIndex}
-                    isDragDisabled={dragDisabled}
+                    isDragDisabled={dragDisabled || filtering}
                     disableInteractiveElementBlocking
                   >
                     {(cardDrag, cardDragState) => (
@@ -146,7 +165,9 @@ export function Column({
               </div>
             )}
           </Droppable>
-          <AddCardForm column={column} isOpen={isAddingCard} onOpen={onOpenAddCard} onClose={onCloseAddCard} />
+          {!filtering && (
+            <AddCardForm column={column} isOpen={isAddingCard} onOpen={onOpenAddCard} onClose={onCloseAddCard} />
+          )}
           {confirmingDelete && (
             <ConfirmDialog
               title="リストを削除しますか？"
