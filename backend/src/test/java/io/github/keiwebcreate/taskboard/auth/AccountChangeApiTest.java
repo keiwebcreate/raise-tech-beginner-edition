@@ -101,10 +101,10 @@ class AccountChangeApiTest {
 				.andExpect(status().isOk())
 				.andReturn().getResponse().getCookie("SESSION");
 
-		mockMvc.perform(get("/api/board").cookie(second))
+		mockMvc.perform(get("/api/boards").cookie(second))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
-		mockMvc.perform(get("/api/board").cookie(renewed)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(renewed)).andExpect(status().isOk());
 		// Spring Session が覚えている持ち主の名前も、新しいアドレスになる（あとで退会などで探せるように）
 		assertThat(count("SELECT count(*) FROM spring_session WHERE principal_name = ?", oldEmail)).isZero();
 		assertThat(count("SELECT count(*) FROM spring_session WHERE principal_name = ?", newEmail)).isOne();
@@ -126,7 +126,7 @@ class AccountChangeApiTest {
 						""".formatted(PASSWORD)))
 				.andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(second)).andExpect(status().isUnauthorized());
+		mockMvc.perform(get("/api/boards").cookie(second)).andExpect(status().isUnauthorized());
 	}
 
 	@Test
@@ -231,7 +231,7 @@ class AccountChangeApiTest {
 		Cookie renewed = result.getResponse().getCookie("SESSION");
 		assertThat(renewed).isNotNull();
 		assertThat(renewed.getValue()).isNotEqualTo(session.getValue());
-		mockMvc.perform(get("/api/board").cookie(renewed)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(renewed)).andExpect(status().isOk());
 
 		login(email, NEW_PASSWORD).andExpect(status().isOk());
 		login(email, PASSWORD).andExpect(status().isUnauthorized());
@@ -248,12 +248,12 @@ class AccountChangeApiTest {
 				.andExpect(status().isNoContent())
 				.andReturn().getResponse().getCookie("SESSION");
 
-		mockMvc.perform(get("/api/board").cookie(second))
+		mockMvc.perform(get("/api/boards").cookie(second))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
-		mockMvc.perform(get("/api/board").cookie(renewed)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(renewed)).andExpect(status().isOk());
 		// ほかの人のセッションは残る
-		mockMvc.perform(get("/api/board").cookie(other)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(other)).andExpect(status().isOk());
 		assertThat(count("SELECT count(*) FROM spring_session WHERE principal_name = ?", email)).isOne();
 	}
 
@@ -269,7 +269,7 @@ class AccountChangeApiTest {
 
 		login(email, PASSWORD).andExpect(status().isOk());
 		// ログインしたまま
-		mockMvc.perform(get("/api/board").cookie(session)).andExpect(status().isOk());
+		mockMvc.perform(get("/api/boards").cookie(session)).andExpect(status().isOk());
 	}
 
 	@Test

@@ -4,8 +4,8 @@ import { apiFetch } from '../../api/client.ts'
 import type { ColumnResponse } from '../../api/types.ts'
 
 // A-08 リストの追加（ボードの右端に足される）
-export function addColumn(name: string): Promise<ColumnResponse> {
-  return apiFetch<ColumnResponse>('/api/columns', 'POST', { name })
+export function addColumn(boardId: number, name: string): Promise<ColumnResponse> {
+  return apiFetch<ColumnResponse>(`/api/boards/${boardId}/columns`, 'POST', { name })
 }
 
 // A-09 リスト名の変更

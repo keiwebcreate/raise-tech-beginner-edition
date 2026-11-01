@@ -22,6 +22,8 @@ import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import com.jayway.jsonpath.JsonPath;
+
 import io.github.keiwebcreate.taskboard.TestcontainersConfiguration;
 import jakarta.servlet.http.Cookie;
 
@@ -61,7 +63,7 @@ class CsrfCookieTest {
 		Cookie session = guest.getResponse().getCookie("SESSION");
 		// ログインすると古いトークンは消え、新しいトークンは次のリクエストで渡される（API設計書 2.3）。
 		// 画面はログインのあとにボードを GET するので、そのときに受け取る
-		Cookie loggedInToken = lastXsrfCookie(mockMvc.perform(get("/api/board").cookie(session)).andReturn());
+		Cookie loggedInToken = lastXsrfCookie(mockMvc.perform(get("/api/boards").cookie(session)).andReturn());
 
 		MvcResult logout = mockMvc.perform(post("/api/auth/logout").cookie(session, loggedInToken)
 				.header(HEADER, loggedInToken.getValue()))
@@ -79,7 +81,9 @@ class CsrfCookieTest {
 	@Test
 	void パスワードを変えたあと_画面を再読み込みせずに次の変更を送れる() throws Exception {
 		Cookie session = signupWithCookieToken("csrf-" + UUID.randomUUID() + "@example.com");
-		Cookie token = lastXsrfCookie(mockMvc.perform(get("/api/board").cookie(session)).andReturn());
+		MvcResult boards = mockMvc.perform(get("/api/boards").cookie(session)).andReturn();
+		Cookie token = lastXsrfCookie(boards);
+		long boardId = JsonPath.<Number>read(boards.getResponse().getContentAsString(), "$[0].id").longValue();
 
 		MvcResult change = mockMvc.perform(put("/api/auth/password").cookie(session, token)
 				.header(HEADER, token.getValue())
@@ -96,7 +100,7 @@ class CsrfCookieTest {
 		assertThat(newToken.getValue()).isNotEqualTo(token.getValue());
 
 		// 画面はボードのまま、次にボード名の変更（PATCH）を送る
-		mockMvc.perform(patch("/api/board").cookie(renewed, newToken)
+		mockMvc.perform(patch("/api/boards/{id}", boardId).cookie(renewed, newToken)
 				.header(HEADER, newToken.getValue())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
@@ -108,7 +112,9 @@ class CsrfCookieTest {
 	@Test
 	void メールアドレスを変えたあと_画面を再読み込みせずに次の変更を送れる() throws Exception {
 		Cookie session = signupWithCookieToken("csrf-" + UUID.randomUUID() + "@example.com");
-		Cookie token = lastXsrfCookie(mockMvc.perform(get("/api/board").cookie(session)).andReturn());
+		MvcResult boards = mockMvc.perform(get("/api/boards").cookie(session)).andReturn();
+		Cookie token = lastXsrfCookie(boards);
+		long boardId = JsonPath.<Number>read(boards.getResponse().getContentAsString(), "$[0].id").longValue();
 
 		MvcResult change = mockMvc.perform(put("/api/auth/email").cookie(session, token)
 				.header(HEADER, token.getValue())
@@ -122,7 +128,7 @@ class CsrfCookieTest {
 		Cookie newToken = lastXsrfCookie(change);
 		assertThat(newToken.getMaxAge()).isNotZero();
 
-		mockMvc.perform(patch("/api/board").cookie(renewed, newToken)
+		mockMvc.perform(patch("/api/boards/{id}", boardId).cookie(renewed, newToken)
 				.header(HEADER, newToken.getValue())
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""

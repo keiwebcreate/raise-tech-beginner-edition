@@ -34,13 +34,16 @@ public class ColumnService {
 	}
 
 	/**
-	 * A-08 リストの追加。ログイン中のユーザーのボードの右端に足す（要件 L-02）。
+	 * A-08 リストの追加。ボードの右端に足す（要件 L-02）。
 	 *
+	 * @throws NotFoundException      他人のボード・存在しないボードのとき
 	 * @throws LimitExceededException リストが上限（20個）に達しているとき
 	 */
 	@Transactional
-	public ColumnResponse add(Long userId, ColumnRequest request) {
-		Board board = lockBoard(userId);
+	public ColumnResponse add(Long userId, Long boardId, ColumnRequest request) {
+		// 自分のボードに鍵をかけて取る（BoardRepository の説明）。ほかのデータを読む前に、最初に呼ぶ
+		Board board = boardRepository.findWithLockByIdAndUserId(boardId, userId)
+				.orElseThrow(NotFoundException::new);
 
 		long count = boardColumnRepository.countByBoardId(board.getId());
 		if (count >= limits.columns()) {
@@ -73,7 +76,7 @@ public class ColumnService {
 	 */
 	@Transactional
 	public void delete(Long userId, Long columnId) {
-		lockBoard(userId);
+		lockBoardOf(userId, columnId);
 		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
 				.orElseThrow(NotFoundException::new);
 		Long boardId = column.getBoard().getId();
@@ -92,7 +95,7 @@ public class ColumnService {
 	 */
 	@Transactional
 	public void move(Long userId, Long columnId, int position) {
-		lockBoard(userId);
+		lockBoardOf(userId, columnId);
 		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
 				.orElseThrow(NotFoundException::new);
 		List<BoardColumn> columns = new ArrayList<>(
@@ -107,9 +110,10 @@ public class ColumnService {
 		Positions.renumber(columns);
 	}
 
-	// 自分のボードに鍵をかける（BoardRepository.findWithLockByUserId）。ほかのデータを読む前に、最初に呼ぶ
-	private Board lockBoard(Long userId) {
-		return boardRepository.findWithLockByUserId(userId)
+	// リストのボードに鍵をかける（BoardRepository の説明）。ほかのデータを読む前に、最初に呼ぶ
+	// 他人のリスト・存在しないリストなら、ボードも見つからないので 404
+	private void lockBoardOf(Long userId, Long columnId) {
+		boardRepository.findWithLockByColumnIdAndUserId(columnId, userId)
 				.orElseThrow(NotFoundException::new);
 	}
 

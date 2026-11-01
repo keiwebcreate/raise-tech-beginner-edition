@@ -17,7 +17,7 @@ type Props = {
 
 // ボードの右端の「＋ リストを追加」と、その入力欄（A-08。要件 L-02）
 export function AddColumnForm({ columnCount, isOpen, onOpen, onClose }: Props) {
-  const { dispatch } = useBoard()
+  const { board, dispatch } = useBoard()
   const { showToast, showApiError } = useToast()
   const ref = useRef<HTMLDivElement>(null)
   const isFull = columnCount >= LIMITS.columns
@@ -37,8 +37,9 @@ export function AddColumnForm({ columnCount, isOpen, onOpen, onClose }: Props) {
       showToast(MESSAGES.columnLimit)
       return ''
     }
+    if (!board) return ''
     try {
-      const column = await columnApi.addColumn(value.trim())
+      const column = await columnApi.addColumn(board.id, value.trim())
       dispatch({ type: 'columnAdded', column })
       // 足したリストの右にこの入力欄が来るので、見えるところまで横にスクロールする
       requestAnimationFrame(() => ref.current?.scrollIntoView({ inline: 'end', block: 'nearest' }))

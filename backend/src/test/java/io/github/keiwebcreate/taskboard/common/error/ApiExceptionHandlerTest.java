@@ -1,5 +1,6 @@
 package io.github.keiwebcreate.taskboard.common.error;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardId;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -61,7 +62,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void JSONが壊れていたら400() throws Exception {
-		mockMvc.perform(post("/api/columns").with(csrf()).cookie(session)
+		mockMvc.perform(post("/api/boards/{id}/columns", firstBoardId(mockMvc, session)).with(csrf()).cookie(session)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{ \"name\": "))
 				.andExpect(status().isBadRequest())
@@ -70,7 +71,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void 入力チェックの失敗は項目ごとのメッセージを返す() throws Exception {
-		mockMvc.perform(post("/api/columns").with(csrf()).cookie(session)
+		mockMvc.perform(post("/api/boards/{id}/columns", firstBoardId(mockMvc, session)).with(csrf()).cookie(session)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{ \"name\": \" \" }"))
 				.andExpect(status().isBadRequest())
@@ -88,7 +89,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void メソッドが違えば405で_使えるメソッドをAllowヘッダーで返す() throws Exception {
-		mockMvc.perform(post("/api/board").with(csrf()).cookie(session))
+		mockMvc.perform(post("/api/boards/1").with(csrf()).cookie(session))
 				.andExpect(status().isMethodNotAllowed())
 				.andExpect(jsonPath("$.code").value("METHOD_NOT_ALLOWED"))
 				.andExpect(header().exists("Allow"));
@@ -96,7 +97,7 @@ class ApiExceptionHandlerTest {
 
 	@Test
 	void JSON以外を送ったら415() throws Exception {
-		mockMvc.perform(post("/api/columns").with(csrf()).cookie(session)
+		mockMvc.perform(post("/api/boards/{id}/columns", firstBoardId(mockMvc, session)).with(csrf()).cookie(session)
 				.contentType(MediaType.TEXT_PLAIN)
 				.content("保留"))
 				.andExpect(status().isUnsupportedMediaType())

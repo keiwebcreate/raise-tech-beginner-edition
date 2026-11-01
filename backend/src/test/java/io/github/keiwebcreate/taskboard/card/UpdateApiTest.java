@@ -1,5 +1,6 @@
 package io.github.keiwebcreate.taskboard.card;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -65,7 +66,7 @@ class UpdateApiTest {
 				.andExpect(jsonPath("$.labelIds.length()").value(2));
 
 		// DB に保存されていて、ボードを読み直しても同じ（ラベルの ID は小さい順）
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[0].cards[0].title").value("低脂肪の牛乳を買う"))
 				.andExpect(jsonPath("$.columns[0].cards[0].labelIds[0]").value(work))
 				.andExpect(jsonPath("$.columns[0].cards[0].labelIds[1]").value(shopping));
@@ -133,7 +134,7 @@ class UpdateApiTest {
 				.andExpect(status().isNotFound())
 				.andExpect(jsonPath("$.code").value("NOT_FOUND"));
 
-		mockMvc.perform(get("/api/board").cookie(taro))
+		mockMvc.perform(get(firstBoardPath(mockMvc, taro)).cookie(taro))
 				.andExpect(jsonPath("$.columns[0].cards[0].title").value("たろうのカード"));
 	}
 
@@ -147,7 +148,7 @@ class UpdateApiTest {
 		saveCard(taro, taroCardId, cardJson("[%d]".formatted(hanakoLabel)))
 				.andExpect(status().isNotFound());
 
-		mockMvc.perform(get("/api/board").cookie(taro))
+		mockMvc.perform(get(firstBoardPath(mockMvc, taro)).cookie(taro))
 				.andExpect(jsonPath("$.columns[0].cards[0].title").value("たろうのカード"))
 				.andExpect(jsonPath("$.columns[0].cards[0].labelIds.length()").value(0));
 	}
@@ -164,7 +165,7 @@ class UpdateApiTest {
 				.andExpect(jsonPath("$.id").value(columnId))
 				.andExpect(jsonPath("$.name").value("やること"));
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.columns[0].name").value("やること"));
 	}
 
@@ -193,7 +194,7 @@ class UpdateApiTest {
 				.andExpect(jsonPath("$.id").isNumber())
 				.andExpect(jsonPath("$.name").value("仕事用ボード"));
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(jsonPath("$.name").value("仕事用ボード"));
 	}
 
@@ -226,7 +227,7 @@ class UpdateApiTest {
 	}
 
 	private long firstColumnId(Cookie session) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.columns[0].id").longValue();
 	}
@@ -274,7 +275,7 @@ class UpdateApiTest {
 	}
 
 	private ResultActions renameBoard(Cookie session, String name) throws Exception {
-		return mockMvc.perform(patch("/api/board").with(csrf()).cookie(session)
+		return mockMvc.perform(patch(firstBoardPath(mockMvc, session)).with(csrf()).cookie(session)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("""
 						{ "name": "%s" }

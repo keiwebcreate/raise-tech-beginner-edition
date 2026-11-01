@@ -1,5 +1,7 @@
 package io.github.keiwebcreate.taskboard.board;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardId;
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -82,17 +84,42 @@ class BoardLockTest {
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{ \"title\": \"B\" }"), 201);
 		assertWaitsForLock(session, delete("/api/cards/{id}", cardId).with(csrf()).cookie(session), 204);
-		assertWaitsForLock(session, post("/api/columns").with(csrf()).cookie(session)
+		assertWaitsForLock(session, post("/api/boards/{id}/columns", boardId(session)).with(csrf()).cookie(session)
 				.contentType(MediaType.APPLICATION_JSON)
 				.content("{ \"name\": \"保留\" }"), 201);
 		assertWaitsForLock(session, delete("/api/columns/{id}", columnId).with(csrf()).cookie(session), 204);
 	}
 
+	@Test
+	void ボードの削除は_ボードの鍵が放されるまで待つ() throws Exception {
+		Cookie session = signup();
+
+		assertWaitsForLock(session, delete("/api/boards/{id}", boardId(session)).with(csrf()).cookie(session), 204);
+	}
+
+	@Test
+	void ボードの作成は_ユーザーの行の鍵が放されるまで待つ() throws Exception {
+		Cookie session = signup();
+		long userId = userId(session);
+
+		// ボードの数はユーザーの行の鍵で守る（BoardService.create）
+		assertWaitsForLock("SELECT id FROM users WHERE id = ? FOR UPDATE", userId,
+				post("/api/boards").with(csrf()).cookie(session)
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{ \"name\": \"仕事\" }"),
+				201);
+	}
+
 	// テストの側でボードの鍵を持っている間に request を送り、待たされることと、放したあとに expectedStatus で終わることを確かめる
 	private void assertWaitsForLock(Cookie session, RequestBuilder request, int expectedStatus) throws Exception {
-		long boardId = boardId(session);
+		assertWaitsForLock("SELECT id FROM boards WHERE id = ? FOR UPDATE", boardId(session), request, expectedStatus);
+	}
+
+	// lockSql（id = ? の行に FOR UPDATE で鍵をかける SQL）で鍵を持っている間に request を送る
+	private void assertWaitsForLock(String lockSql, long id, RequestBuilder request, int expectedStatus)
+			throws Exception {
 		CompletableFuture<Integer> response = new TransactionTemplate(transactionManager).execute(tx -> {
-			jdbcTemplate.queryForList("SELECT id FROM boards WHERE id = ? FOR UPDATE", Long.class, boardId);
+			jdbcTemplate.queryForList(lockSql, Long.class, id);
 			// API は別のスレッド（別のトランザクション）から送る
 			CompletableFuture<Integer> sent = CompletableFuture.supplyAsync(() -> {
 				try {
@@ -128,14 +155,18 @@ class BoardLockTest {
 	}
 
 	private long boardId(Cookie session) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		return firstBoardId(mockMvc, session);
+	}
+
+	private long userId(Cookie session) throws Exception {
+		String json = mockMvc.perform(get("/api/auth/me").cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.id").longValue();
 	}
 
 	// 左から index 番目（0から）のリストの ID
 	private long columnId(Cookie session, int index) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.columns[" + index + "].id").longValue();
 	}

@@ -3,6 +3,7 @@
 
 // データ量の上限（要件 3.7）
 export const LIMITS = {
+  boards: 10,
   columns: 20,
   cardsPerColumn: 100,
   labels: 30,
@@ -49,6 +50,7 @@ export const MESSAGES = {
   rateLimited: 'しばらくしてから再度お試しください',
   sessionExpired: 'ログインの有効期限が切れました。もう一度ログインしてください',
   labelDuplicated: '同じ名前のラベルがあります',
+  boardLimit: `ボードは${LIMITS.boards}個までです`,
   columnLimit: `リストは${LIMITS.columns}個までです`,
   cardLimit: `このリストのカードは${LIMITS.cardsPerColumn}枚までです`,
   labelLimit: `ラベルは${LIMITS.labels}個までです`,
@@ -58,6 +60,7 @@ export const MESSAGES = {
   withdrawn: '退会しました。ご利用ありがとうございました',
   emailChanged: 'メールアドレスを変更しました',
   passwordChanged: 'パスワードを変更しました',
+  boardDeleted: 'ボードを削除しました',
   validation: '入力内容に誤りがあります',
   invalidPosition: '移動先の位置が正しくありません',
   unauthenticated: 'ログインしてください',

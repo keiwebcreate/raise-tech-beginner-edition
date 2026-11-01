@@ -20,6 +20,7 @@ spring:
 app:
   # データ量の上限（要件 3.7）。LimitsProperties で読む
   limits:
+    boards: 10
     columns: 20
     cards-per-column: 100
     labels: 30

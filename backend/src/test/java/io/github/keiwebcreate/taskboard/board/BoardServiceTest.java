@@ -8,6 +8,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.jdbc.Sql;
@@ -17,6 +18,7 @@ import io.github.keiwebcreate.taskboard.board.dto.BoardResponse;
 import io.github.keiwebcreate.taskboard.board.dto.ColumnWithCardsResponse;
 import io.github.keiwebcreate.taskboard.card.Level;
 import io.github.keiwebcreate.taskboard.card.dto.CardResponse;
+import io.github.keiwebcreate.taskboard.common.config.LimitsProperties;
 import io.github.keiwebcreate.taskboard.common.error.NotFoundException;
 import io.github.keiwebcreate.taskboard.label.dto.LabelResponse;
 import io.github.keiwebcreate.taskboard.user.UserRepository;
@@ -24,10 +26,12 @@ import io.github.keiwebcreate.taskboard.user.UserRepository;
 /**
  * BoardService のボード取得（A-06）のテスト。
  * - @DataJpaTest に BoardService を足して起動する（Web の部品は起動しない）
+ * - @EnableConfigurationProperties：BoardService が使う上限の設定（app.limits）を読み込む
  * - @Sql：テストの前に board-test-data.sql でテストデータを DB に入れる。テストが終わると元に戻る
  */
 @DataJpaTest
 @Import({ TestcontainersConfiguration.class, BoardService.class })
+@EnableConfigurationProperties(LimitsProperties.class)
 @Sql("/board/board-test-data.sql")
 class BoardServiceTest {
 
@@ -37,9 +41,12 @@ class BoardServiceTest {
 	@Autowired
 	private UserRepository userRepository;
 
+	@Autowired
+	private BoardRepository boardRepository;
+
 	@Test
 	void ボードとリストとカードとラベルをまとめて取得できる() {
-		BoardResponse board = boardService.getBoard(userIdOf("taro@example.com"));
+		BoardResponse board = getBoardOf("taro@example.com");
 
 		assertThat(board.name()).isEqualTo("たろうのボード");
 
@@ -60,7 +67,7 @@ class BoardServiceTest {
 
 	@Test
 	void カードの項目と付いているラベルのIDが入る() {
-		BoardResponse board = boardService.getBoard(userIdOf("taro@example.com"));
+		BoardResponse board = getBoardOf("taro@example.com");
 		Long workLabelId = board.labels().get(0).id(); // 仕事
 		Long shoppingLabelId = board.labels().get(1).id(); // 買い物
 
@@ -86,11 +93,11 @@ class BoardServiceTest {
 
 	@Test
 	void 他人のデータは混ざらない() {
-		BoardResponse taro = boardService.getBoard(userIdOf("taro@example.com"));
+		BoardResponse taro = getBoardOf("taro@example.com");
 		assertThat(taro.labels()).extracting(LabelResponse::name).doesNotContain("趣味");
 		assertThat(taro.columns()).extracting(ColumnWithCardsResponse::name).doesNotContain("はなこのリスト");
 
-		BoardResponse hanako = boardService.getBoard(userIdOf("hanako@example.com"));
+		BoardResponse hanako = getBoardOf("hanako@example.com");
 		assertThat(hanako.name()).isEqualTo("はなこのボード");
 		assertThat(hanako.labels()).extracting(LabelResponse::name).containsExactly("趣味");
 		assertThat(hanako.columns()).extracting(ColumnWithCardsResponse::name).containsExactly("はなこのリスト");
@@ -98,14 +105,30 @@ class BoardServiceTest {
 	}
 
 	@Test
-	void ボードがないユーザーではNotFoundExceptionになる() {
-		Long jiroId = userIdOf("jiro@example.com");
+	void 他人のボードのIDではNotFoundExceptionになる() {
+		Long taroBoardId = boardIdOf("taro@example.com");
+		Long hanakoId = userIdOf("hanako@example.com");
 
-		assertThatThrownBy(() -> boardService.getBoard(jiroId)).isInstanceOf(NotFoundException.class);
+		assertThatThrownBy(() -> boardService.getBoard(hanakoId, taroBoardId)).isInstanceOf(NotFoundException.class);
+	}
+
+	@Test
+	void ボードがないユーザーの一覧は空() {
+		assertThat(boardService.list(userIdOf("jiro@example.com"))).isEmpty();
 	}
 
 	private Long userIdOf(String email) {
 		return userRepository.findByEmail(email).orElseThrow().getId();
+	}
+
+	// その人のボード（テストデータでは1人1つ）の ID
+	private Long boardIdOf(String email) {
+		return boardRepository.findByUserIdOrderById(userIdOf(email)).getFirst().getId();
+	}
+
+	// その人のボードを取得する
+	private BoardResponse getBoardOf(String email) {
+		return boardService.getBoard(userIdOf(email), boardIdOf(email));
 	}
 
 }

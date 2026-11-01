@@ -4,7 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 /**
- * A-07 ボード名の変更で受け取る JSON。例：{ "name": "仕事用ボード" }
+ * ボードの作成（A-23）とボード名の変更（A-07）で受け取る JSON。例：{ "name": "仕事用ボード" }
  * 前後の空白は Service で取り除く。
  */
 public record BoardNameRequest(

@@ -1,5 +1,6 @@
 package io.github.keiwebcreate.taskboard.auth;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.matchesPattern;
@@ -67,7 +68,7 @@ class GuestApiTest {
 		Cookie session = guest();
 		LocalDate today = LocalDate.now(GuestSampleData.JAPAN);
 
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("マイボード"))
 				.andExpect(jsonPath("$.labels[*].name").value(contains("サンプル", "仕事", "プライベート")))
@@ -181,11 +182,12 @@ class GuestApiTest {
 	void 消されたゲストのセッションでは_meが401になりセッションも消える() throws Exception {
 		Cookie session = guest();
 		long userId = userId(session);
+		long boardId = boardId(session);
 		setCreatedHoursAgo(userId, 25);
 		guestCleanupJob.deleteExpiredGuests();
 
 		// ボードなどは見つからないので 404
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get("/api/boards/{id}", boardId).cookie(session))
 				.andExpect(status().isNotFound());
 		// /me は 401 にして、セッションの Cookie を消す（画面はログイン画面へ移る）
 		mockMvc.perform(get("/api/auth/me").cookie(session))
@@ -231,7 +233,7 @@ class GuestApiTest {
 	}
 
 	private long boardId(Cookie session) throws Exception {
-		String json = mockMvc.perform(get("/api/board").cookie(session))
+		String json = mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andReturn().getResponse().getContentAsString();
 		return JsonPath.<Number>read(json, "$.id").longValue();
 	}

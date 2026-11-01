@@ -8,6 +8,7 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import io.github.keiwebcreate.taskboard.board.Board;
 import io.github.keiwebcreate.taskboard.board.BoardRepository;
 import io.github.keiwebcreate.taskboard.card.dto.CardCreateRequest;
 import io.github.keiwebcreate.taskboard.card.dto.CardPositionRequest;
@@ -52,7 +53,9 @@ public class CardService {
 	 */
 	@Transactional
 	public CardResponse add(Long userId, Long columnId, CardCreateRequest request) {
-		lockBoard(userId);
+		// リストのボードに鍵をかける（BoardRepository の説明）。他人のリストなら、ここで 404 になる
+		boardRepository.findWithLockByColumnIdAndUserId(columnId, userId)
+				.orElseThrow(NotFoundException::new);
 		// 持ち主の条件付きで探す。他人のリストなら見つからないので 404 になる
 		BoardColumn column = boardColumnRepository.findByIdAndBoardUserId(columnId, userId)
 				.orElseThrow(NotFoundException::new);
@@ -102,7 +105,7 @@ public class CardService {
 	 */
 	@Transactional
 	public void delete(Long userId, Long cardId) {
-		lockBoard(userId);
+		lockBoardOf(userId, cardId);
 		Card card = cardRepository.findByIdAndColumnBoardUserId(cardId, userId)
 				.orElseThrow(NotFoundException::new);
 		Long columnId = card.getColumn().getId();
@@ -118,17 +121,18 @@ public class CardService {
 	 * position は、移動したあとの移動先のリストで上から何番目か（0から）。
 	 * 例：リスト「A, B」へ、別のリストのカード X を 1 で移す → A, X, B
 	 *
-	 * @throws NotFoundException        他人・存在しないカード、または他人・存在しない移動先のリストのとき
+	 * @throws NotFoundException        他人・存在しないカード、または移動先のリストが同じボードにないとき
 	 * @throws InvalidPositionException position が範囲の外のとき（同じリスト内は 0〜枚数−1、別のリストへは 0〜枚数）
 	 * @throws LimitExceededException   別のリストへ移すとき、移動先がすでに上限（100枚）のとき
 	 */
 	@Transactional
 	public void move(Long userId, Long cardId, CardPositionRequest request) {
-		lockBoard(userId);
+		Board board = lockBoardOf(userId, cardId);
 		Card card = cardRepository.findByIdAndColumnBoardUserId(cardId, userId)
 				.orElseThrow(NotFoundException::new);
-		// 移動先のリストも、持ち主の条件付きで探す。他人のリストへは移せない
-		BoardColumn target = boardColumnRepository.findByIdAndBoardUserId(request.columnId(), userId)
+		// 移動先のリストは、同じボードの中で探す。他人のリストへも、自分の別のボードのリストへも移せない
+		// （別のボードには鍵をかけていないので、そちらの並び順を変えさせない）
+		BoardColumn target = boardColumnRepository.findByIdAndBoardId(request.columnId(), board.getId())
 				.orElseThrow(NotFoundException::new);
 		Long sourceId = card.getColumn().getId();
 		boolean sameColumn = sourceId.equals(target.getId());
@@ -159,9 +163,10 @@ public class CardService {
 		Positions.renumber(targetCards);
 	}
 
-	// 自分のボードに鍵をかける（BoardRepository.findWithLockByUserId）。ほかのデータを読む前に、最初に呼ぶ
-	private void lockBoard(Long userId) {
-		boardRepository.findWithLockByUserId(userId)
+	// カードのボードに鍵をかける（BoardRepository の説明）。ほかのデータを読む前に、最初に呼ぶ
+	// 他人のカード・存在しないカードなら、ボードも見つからないので 404
+	private Board lockBoardOf(Long userId, Long cardId) {
+		return boardRepository.findWithLockByCardIdAndUserId(cardId, userId)
 				.orElseThrow(NotFoundException::new);
 	}
 

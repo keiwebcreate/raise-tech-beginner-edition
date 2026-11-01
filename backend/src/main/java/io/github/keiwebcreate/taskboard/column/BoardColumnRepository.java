@@ -17,6 +17,9 @@ public interface BoardColumnRepository extends JpaRepository<BoardColumn, Long> 
 	// 他人のリストの ID を指定されても見つからない
 	Optional<BoardColumn> findByIdAndBoardUserId(Long columnId, Long userId);
 
+	// ボードの中のリスト1件。カードを別のリストへ動かすとき、移動先が同じボードかを確かめる（別のボードなら見つからない）
+	Optional<BoardColumn> findByIdAndBoardId(Long columnId, Long boardId);
+
 	// ボードのリストの数（上限の確認と、右端に追加するときの位置に使う）
 	long countByBoardId(Long boardId);
 

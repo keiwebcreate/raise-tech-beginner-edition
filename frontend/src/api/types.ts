@@ -60,13 +60,13 @@ export type CardRequest = {
   labelIds: number[]
 }
 
-// A-07 ボード名の変更で返る
-export type BoardNameResponse = {
+// ボードの ID と名前だけ。A-22 ボードの一覧の1件、A-23 ボードの作成・A-07 ボード名の変更で返る
+export type BoardSummaryResponse = {
   id: number
   name: string
 }
 
-// A-06 ボードの取得（GET /api/board）
+// A-06 ボードの取得（GET /api/boards/{boardId}）
 export type BoardResponse = {
   id: number
   name: string

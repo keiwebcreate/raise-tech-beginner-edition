@@ -15,6 +15,21 @@
   font-weight: 700;
   font-size: 16px;
 }
+/* 「← ボード一覧」（ボード画面だけ） */
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  white-space: nowrap;
+}
+.back:hover {
+  background: var(--list-bg);
+}
 .sep {
   width: 1px;
   height: 20px;
@@ -44,6 +59,10 @@
 }
 .boardNameEdit {
   width: 280px;
+}
+/* ボード名の横の「…」。ボード名との間を詰める（.header の gap を打ち消す） */
+.boardMenu {
+  margin-left: -12px;
 }
 .boardNameEdit input {
   font-size: 16px;
@@ -92,6 +111,21 @@
   .sep {
     display: none;
   }
+  /* 「←」だけを見せ、「ボード一覧」は読み上げ用に残す（global.css の .sr-only と同じ隠し方） */
+  .backText {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  /* ボードの「…」は ☰ に入れる */
+  .boardMenu {
+    display: none;
+  }
   /* 1段目：TaskBoard・ボード名・☰。ボード名は残りの幅いっぱいまで使い、長ければ「…」で切る */
   .heading {
     flex: 1;
@@ -109,8 +143,10 @@
   .desktopActions {
     display: none;
   }
+  /* ☰ は1段目の右端に寄せる（ボード名のない一覧の画面でも右端に来るように） */
   .mobileMenu {
     display: block;
+    margin-left: auto;
   }
   /* 2段目：検索欄と「絞り込み」を横いっぱいに */
   .search {

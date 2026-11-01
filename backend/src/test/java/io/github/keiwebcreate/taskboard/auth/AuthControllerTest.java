@@ -1,5 +1,6 @@
 package io.github.keiwebcreate.taskboard.auth;
 
+import static io.github.keiwebcreate.taskboard.TestBoards.firstBoardPath;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,7 +50,7 @@ class AuthControllerTest {
 				.andExpect(jsonPath("$.isGuest").value(false));
 
 		// 登録したときに、ボードと3つのリストができている（要件 U-02）
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get(firstBoardPath(mockMvc, session)).cookie(session))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.name").value("マイボード"))
 				.andExpect(jsonPath("$.columns.length()").value(3))
@@ -108,7 +109,7 @@ class AuthControllerTest {
 				.andExpect(jsonPath("$.email").value(email))
 				.andReturn();
 
-		mockMvc.perform(get("/api/board").cookie(sessionCookie(result)))
+		mockMvc.perform(get("/api/boards").cookie(sessionCookie(result)))
 				.andExpect(status().isOk());
 	}
 
@@ -136,7 +137,7 @@ class AuthControllerTest {
 
 	@Test
 	void ログインしていないとボードを取得できない() throws Exception {
-		mockMvc.perform(get("/api/board"))
+		mockMvc.perform(get("/api/boards"))
 				.andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"))
 				.andExpect(jsonPath("$.detail").value("ログインしてください"));
@@ -161,7 +162,7 @@ class AuthControllerTest {
 		mockMvc.perform(post("/api/auth/logout").with(csrf()).cookie(session))
 				.andExpect(status().isNoContent());
 
-		mockMvc.perform(get("/api/board").cookie(session))
+		mockMvc.perform(get("/api/boards").cookie(session))
 				.andExpect(status().isUnauthorized());
 	}
 
