@@ -13,17 +13,22 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
+import org.springframework.security.web.context.SecurityContextHolderFilter;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.web.servlet.HandlerExceptionResolver;
 
+import io.github.keiwebcreate.taskboard.common.logging.AccessLogFilter;
+
 /**
  * Spring Security の設定（API設計書 2.2・2.3、詳細設計書 3.8.3・3.8.4）。
  * - 登録・ログイン・ログアウト以外の API はログインが必要
  * - CSRF：Cookie XSRF-TOKEN でトークンを渡し、ヘッダー X-XSRF-TOKEN と照合する（SPA 向けの設定）
  * - 401・403 は ApiExceptionHandler に回して、ほかのエラーと同じ Problem Details にする
+ * - すべてのリクエストのアクセスのログを出す（AccessLogFilter。要件 NO-03）
+ * - API の返事に CSP を付ける（要件 NS-10。画面の HTML の CSP は frontend の vite.config.ts）
  */
 @Configuration
 public class SecurityConfig {
@@ -46,6 +51,12 @@ public class SecurityConfig {
 						// AuthService でログイン後にトークンを作り直すので、同じものを使う
 						.csrfTokenRepository(csrfTokenRepository))
 				.addFilterAfter(new CsrfCookieFilter(), CsrfFilter.class)
+				// ログイン状態を読み込んだすぐ後ろ。401・403 で断ったリクエストも、ログイン中のユーザー ID も残せる
+				.addFilterAfter(new AccessLogFilter(), SecurityContextHolderFilter.class)
+				// API の返事は JSON だけなので、何も読み込ませず、ほかのサイトに埋め込ませない（要件 NS-10）。
+				// 埋め込みの禁止（X-Frame-Options: DENY）などは、Spring Security が初めから付けている
+				.headers(headers -> headers.contentSecurityPolicy(csp -> csp
+						.policyDirectives("default-src 'none'; frame-ancestors 'none'")))
 				// ログイン状態はセッションに保存する。AuthService でも同じものを使う
 				.securityContext(context -> context.securityContextRepository(securityContextRepository))
 				// ログイン・ログアウトの API は自分で作るので、Spring Security が用意する画面や URL は使わない

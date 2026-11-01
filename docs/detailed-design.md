@@ -90,6 +90,7 @@ io.github.keiwebcreate.taskboard
 │   └─ dto/                      LabelRequest, LabelResponse
 └─ common/
     ├─ security/                 SecurityConfig、401・403 を Problem Details にする部品
+    ├─ logging/                  AccessLogFilter（API のアクセスのログ。3.11）
     ├─ error/                    独自の例外、ApiExceptionHandler（@RestControllerAdvice）
     ├─ position/                 PositionRequest（並び替えの共通DTO）、並び順の振り直し
     └─ config/                   LimitsProperties（上限の設定値）など
@@ -468,6 +469,26 @@ sequenceDiagram
 - APIを実際に呼ぶ形のテスト（MockMvc）を中心にする。確かめること：所有者の確認（他人のIDで 404）、並び順の振り直し、上限、入力チェック、ログイン・ログアウト・ゲストの削除、CSRF
 - 並び順の振り直しなど、ロジックだけの部品は、DBを使わない単体テストも書く
 
+### 3.11 アクセスのログと API のセキュリティのヘッダー（要件 NO-03・NS-10）
+
+2026-11-01 に追加（イシュー #57。要件定義書の受け入れ基準を書いて見つけた漏れ）。
+
+**アクセスのログ**（`common/logging/AccessLogFilter`）
+
+- リクエストが終わったときに、1行を INFO で出す：`GET /api/boards/3 200 12ms（ユーザーID 5）`。日時はログの先頭に付く。ログインしていなければ「未ログイン」
+- URL はパスだけ（`getRequestURI()`）。クエリ文字列は出さない（検索の言葉など、カードの中身を残さないため。要件 NO-04）
+- 途中で例外が出たときは、ステータスがまだ決まっていないので 500 と出す
+- Spring Security の部品の中の、ログイン状態を読み込む部品（`SecurityContextHolderFilter`）のすぐ後ろに置く（`SecurityConfig` の `addFilterAfter`）。外に置くと、終わったときにはログイン状態が消えていてユーザー ID が読めない。中に置くので、401・403 で断ったリクエストも残る。登録・ログインの API では、ログインしたあとのユーザー ID が出る
+- `@Component` にしない。付けると、Spring Boot がアプリ全体のフィルターとしても登録し、1つのリクエストで2回出る
+- ふつうのアプリのログと同じく標準出力に出すので、AWS ではそのまま CloudWatch Logs に送れる（要件 NO-05）
+
+**API のセキュリティのヘッダー**
+
+- `Content-Security-Policy: default-src 'none'; frame-ancestors 'none'`（`SecurityConfig` の `headers`）。API の返事は JSON だけなので、何も読み込ませず、ほかのサイトに埋め込ませない
+- Spring Security が初めから付けるもの：`X-Frame-Options: DENY`、`X-Content-Type-Options: nosniff`、`Cache-Control: no-cache, no-store`。HSTS（HTTPS の強制）は HTTPS で来たときだけ付く
+- 画面の HTML の CSP は 4.9
+- テストは `AccessLogFilterTest`（ログの形・ユーザー ID・クエリ文字列とメールアドレスを出さないこと・ヘッダー）
+
 ## 4. 画面（React）
 
 ### 4.1 フォルダ構成
@@ -603,6 +624,18 @@ Vitest で、ロジックのある部分だけを自動テストする。
 - **カードの追加欄**：絞り込みが始まったら、開いていた「＋ カードを追加」の入力欄を閉じる（閉じないと、条件をクリアしたときに開いたまま戻ってくる）
 - 品質チェック（イシュー #45）で、上の3つ（読み上げ・ボードにないラベル・カードの追加欄）を直した
 
+### 4.9 CSP（要件 NS-10）
+
+2026-11-01 に追加（イシュー #57）。CSP（Content Security Policy）は、画面が読み込んでよいもの（スクリプト・通信の行き先など）をブラウザに伝える決まり。XSS で悪いスクリプトを入れられても、動かないようにする。
+
+- 本番用に作る HTML（`npm run build`）の `<head>` の先頭に、`<meta http-equiv="Content-Security-Policy">` で入れる（`vite.config.ts` の `contentSecurityPolicy`。`apply: 'build'`）。配信のしかた（AWS の構成）に関係なく効く
+- 開発中の Vite には入れない。Vite は画面を書き換えるためのスクリプトを HTML に埋め込むので、入れると動かなくなる
+- 中身：`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'`
+  - スクリプト・API の呼び出し（`connect-src`）は自分のサイトだけ。画面と API は同じドメインにする（7章）
+  - 見た目（`style-src`）だけは `'unsafe-inline'` で書き込みも許す。ドラッグ＆ドロップのライブラリ（@hello-pangea/dnd）が `<style>` を足すため。ライブラリは `nonce`（その場かぎりの合言葉）にも対応しているが、`<meta>` の値は全員に同じものが配られて合言葉にならないので使わない
+- `frame-ancestors`（ほかのサイトへの埋め込みの禁止）は `<meta>` では効かない。AWS で画面を配信する側（CloudFront など）のヘッダーで付ける（7章）
+- 確かめ方：`npm run build` のあと `npm run preview`（本番用の画面を手元で動かす。ポートは開発中と同じ 5173。`/api` の転送も同じ）で開き、開発者ツールのコンソールに CSP の違反が出ないこと。2026-11-01 に、登録・ボードを開く・カードの追加・カード詳細・キーボードでのカードの移動を自動で操作して、違反が0件なことを確かめた
+
 ## 5. 使うライブラリ
 
 | 区分 | ライブラリ | 用途 |
@@ -695,6 +728,15 @@ Vitest で、ロジックのある部分だけを自動テストする。
 - `backend/gradlew` には Git の実行権限の印を付けている（`git update-index --chmod=+x`。Windows では付かないため）
 - `.github/workflows/` のファイルを変える push には、GitHub の `workflow` の権限が要る。この PC の Git は Git Credential Manager のログイン（権限なし）を使うので、そのときだけ `gh` のログインで送る：`git -c credential.helper= -c "credential.https://github.com.helper=!gh auth git-credential" push`
 
+### 5.4 ライブラリの脆弱性の通知（Dependabot。要件 NS-13）
+
+2026-11-01 に、リポジトリの設定（Settings → Code security）で次の2つを有効にした（イシュー #57）。
+
+- Dependabot alerts：使っているライブラリ（Gradle・npm・GitHub Actions）に脆弱性が見つかると、GitHub が通知する
+- Dependabot security updates：直した版へ上げる PR を自動で作る。PR は GitHub Actions で確かめてから、ふつうの PR と同じく私がマージするかを決める
+
+脆弱性がなくても新しい版へ上げる PR を毎週作る機能（`dependabot.yml` の version updates）は使わない（PR が多くなり、確かめる手間がかかるため）。
+
 ## 6. 書き方のルール
 
 AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめる（この設計書の要点と、コマンドの一覧）。
@@ -702,4 +744,4 @@ AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめ�
 ## 7. まだ決めていないこと
 
 - ~~回数制限（要件 U-10）の数え方の実装~~ → DB に記録する（3.8.8。2026-11-01 決定）
-- AWS の構成（本番での画面とAPIの配信のしかた、ドメイン）。あわせて、回数制限のための `server.forward-headers-strategy` の設定と、中継役のアドレスの確認（3.8.8）
+- AWS の構成（本番での画面とAPIの配信のしかた、ドメイン）。あわせて、回数制限のための `server.forward-headers-strategy` の設定と、中継役のアドレスの確認（3.8.8）、画面の HTML への `frame-ancestors 'none'`・HSTS のヘッダー（4.9）
