@@ -5,6 +5,8 @@ import { validateText } from '../../shared/lib/validation.ts'
 import { InlineEdit } from '../../shared/ui/InlineEdit.tsx'
 import { useToast } from '../../shared/ui/ToastContext.ts'
 import { useAuth } from '../auth/AuthContext.ts'
+import { UserMenu } from '../auth/UserMenu.tsx'
+import { WithdrawModal } from '../auth/WithdrawModal.tsx'
 import * as boardApi from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
 import styles from './BoardHeader.module.css'
@@ -17,13 +19,15 @@ type Props = {
   onOpenLabels?: () => void // 「ラベル管理」（W-05）を開く。読み込み中・失敗したときは undefined（ボタンを出さない）
 }
 
-// 画面の上のヘッダー。ゲストのときは「ゲスト」の札と、ヘッダーの下に注意書きの帯を出す（画面設計書 W-03、要件 U-07）
-// メニュー（退会）は、退会の機能を作るときに足す（ゲストには出さない）
+// 画面の上のヘッダー（画面設計書 W-03）
+// - 登録したユーザー：メールアドレスと「▾」のメニュー（ログアウト・退会する）
+// - ゲスト：「ゲスト」の札と「ログアウト」ボタン、ヘッダーの下に注意書きの帯（要件 U-07）。退会はない
 export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEndRename, onOpenLabels }: Props) {
   const { user, logout } = useAuth()
   const { dispatch } = useBoard()
   const { showApiError } = useToast()
   const [loggingOut, setLoggingOut] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false) // 退会の確認（W-08）
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -75,16 +79,24 @@ export function BoardHeader({ boardName, isRenaming = false, onStartRename, onEn
               </button>
             )}
             {user.isGuest ? (
-              <span className={styles.guestBadge}>ゲスト</span>
+              <>
+                <span className={styles.guestBadge}>ゲスト</span>
+                <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
+                  ログアウト
+                </button>
+              </>
             ) : (
-              <span className={styles.user}>{user.email}</span>
+              <UserMenu
+                email={user.email}
+                loggingOut={loggingOut}
+                onLogout={handleLogout}
+                onWithdraw={() => setWithdrawOpen(true)}
+              />
             )}
-            <button type="button" className="btn btn-ghost" onClick={handleLogout} disabled={loggingOut}>
-              ログアウト
-            </button>
           </div>
         )}
       </header>
+      {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} />}
       {user?.isGuest && (
         <div className={styles.guestBar} role="note">
           ゲストモード：データはログアウトするか24時間たつと削除されます

@@ -3,8 +3,8 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #42（回数制限）がマージ済みかを `gh pr view 42` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
-2. 下の「次にやること」から、次に作るものを私と決める（講義のアプリ側は、品質チェックの回で終わっている）
+1. PR #44（退会）がマージ済みかを `gh pr view 44` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 下の「次にやること」を私と決める（アプリの機能は要件のものがそろった。残りは AWS への公開）
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
@@ -43,24 +43,31 @@
 | ゲストログイン・ログアウトでの削除・24時間後の削除 | A-03・A-04・A-05 | W-01 の「ゲストとして試す」、W-03 の「ゲスト」の札と注意書きの帯 |
 | GitHub Actions（自動テスト） | 要件 5章 | `.github/workflows/ci.yml`。PR と main への反映で `backend`・`frontend` が走り、成功しないとマージできない（`detailed-design.md` 5.3） |
 | ログイン失敗・ゲスト作成の回数制限 | U-10、A-02・A-03 の 429 | W-01 に「しばらくしてから再度お試しください」（画面のコードは変えていない。API の `detail` をそのまま出す） |
+| 退会 | U-11、A-19 | ヘッダーのメールアドレス（▾）のメニュー（`UserMenu`）と W-08（`WithdrawModal`）。ゲストにはメニューを出さない |
 
-- テスト：サーバー 114件（`./gradlew test`）、画面 45件（`npm test`）。すべて成功
+- テスト：サーバー 124件（`./gradlew test`）、画面 45件（`npm test`）。すべて成功
 - コードのチェック（#27）：サーバーは Checkstyle・SpotBugs（`./gradlew check`）、画面は oxlint の規則を足し、Prettier を入れた（`npm run lint`・`npm run format:check`）。道具と規則は `detailed-design.md` 5.2
-- 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は最初に SQL で入れたもの
+- 開発用の DB に確認用のユーザー **`demo@example.com` ／ `password123`** がいる。ラベル（仕事・買い物・あとで）は SQL で入れたもの。2026-11-01 に退会の確認で消えたので、登録の API で作り直した（カードは空）。**退会を試すときは、新しく登録したユーザーで**
 
 **まだないもの**
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| 退会 | U-11、W-08、A-19 | ヘッダーのメニュー（▾）もこのとき |
 | AWS へのデプロイ | G-04 | 構成が未決。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
 | 見直し（急がない） | | 要件：改訂履歴・前提条件と制約・非機能要件の ID・受け入れ基準。テーブル：論理名と物理名・CRUD 表 |
 
 ## 次にやること
-講義のアプリ側は、品質チェックの回（初級編16）で終わっている。残りの機能から、私と相談して決める。候補：
-- **退会**（U-11、W-08、A-19）。ヘッダーのメニュー（▾）も。ゲストには出さない
-- AWS へのデプロイ（G-04）
+講義のアプリ側は、品質チェックの回（初級編16）で終わっている。要件の機能はそろったので、残りは：
+- **AWS へのデプロイ**（G-04）。構成（EC2・RDS・画面の配信・ドメイン）を決めるところから。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）
+- （相談）ユーザー登録（A-01）の回数制限。要件にはないが、ゲストと同じく大量に作られる心配がある。AWS の前に要件に足すかを決める
 - 作ったら、スキル `quality-check`（差分だけ）で確かめてから PR を作る
+
+**退会（#43）で決めたこと**（詳細は `detailed-design.md` 3.8.7）
+- 退会のパスワード違いは、ログインの失敗と一緒に数える（`LOGIN_FAILURE`）。空のパスワードは数えない
+- 退会したら、その人のセッションを全部消す（Spring Session の `findByPrincipalName`。持ち主の名前はメールアドレス）。ほかの端末では、次の操作でログイン画面へ移る
+- 見つけて直した前からの不具合：操作中のセッション切れで、ログイン画面に「ログインの有効期限が切れました」が出ていなかった。`navigate` と `setUser(null)` を `startTransition` で囲んで、一緒に反映させた（`detailed-design.md` 4.2）
+- `FormField` は `ComponentProps<'input'>` にして、`ref` を受け取れるようにした（エラーのあとにパスワード欄へカーソルを置くため）
+- 品質チェックで直したこと：退会のセッション削除は、ユーザーの削除を確定したあと（`TransactionTemplate`。Spring Session の削除は別のトランザクションで動くため）。押すと開く部品（リストの「…」・ヘッダーのメニュー・ラベルの一覧）から `role="menu"` をやめ、`aria-expanded`・`aria-controls` で開け閉めを伝える形にした（矢印キーで動かないのに「メニュー」と読み上げられていたため）。ラベルの一覧は `<fieldset>` と `<legend>`、付いているかは `aria-pressed`。メニューの見た目は `shared/ui/Menu.module.css` にまとめた
 
 **回数制限（#41）で決めたこと**（詳細は `detailed-design.md` 3.8.8、テーブルは `database-design.md` 3.9）
 - 回数は DB の `rate_limit_events`（Flyway V3）に1回1行で記録し、直近15分（ゲストは1時間）の行を数える。古い行は `RateLimitCleanupJob` が毎時消す
@@ -137,6 +144,6 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・GitHub Actions の `backend`・`frontend` の成功が必須・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#42（イシューと PR は番号を共有している）。#41（回数制限）の PR が #42
+- これまでのイシューと PR：#1〜#44（イシューと PR は番号を共有している）。#43（退会）の PR が #44
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

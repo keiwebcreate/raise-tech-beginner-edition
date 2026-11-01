@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { startTransition, useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { setUnauthenticatedHandler } from '../../api/client.ts'
 import type { UserResponse } from '../../api/types.ts'
@@ -30,8 +30,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUnauthenticatedHandler(() => {
       if (!userRef.current) return // もともとログインしていない（アプリを開いたときの確認など）
       const state: LoginPageState = { notice: MESSAGES.sessionExpired }
-      navigate('/login', { replace: true, state })
-      setUser(null)
+      // 画面の移動と一緒に反映させる（理由は下の withdrawn と同じ。2026-11-01 イシュー #43 で直した）
+      startTransition(() => {
+        navigate('/login', { replace: true, state })
+        setUser(null)
+      })
     })
     return () => setUnauthenticatedHandler(null)
   }, [navigate])
@@ -51,5 +54,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }, [navigate])
 
-  return <AuthContext value={{ user, loggedIn, logout }}>{children}</AuthContext>
+  // 退会した（A-19 が成功した）。サーバーでセッションは消えているので、画面をログアウトした状態にする（要件 U-11）
+  const withdrawn = useCallback(() => {
+    const state: LoginPageState = { notice: MESSAGES.withdrawn }
+    // React Router は画面の移動を「急がない更新」（startTransition）で行う。setUser(null) も同じにして、一緒に反映させる。
+    // 別々だと先に「ログインしていない」が反映され、RequireLogin がお知らせなしで /login へ移してしまう
+    startTransition(() => {
+      navigate('/login', { replace: true, state })
+      setUser(null)
+    })
+  }, [navigate])
+
+  return <AuthContext value={{ user, loggedIn, logout, withdrawn }}>{children}</AuthContext>
 }

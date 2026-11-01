@@ -1,0 +1,21 @@
+/* ヘッダーのメールアドレスのボタン。開いたメニューの見た目は shared/ui/Menu.module.css */
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.email {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* スマートフォン（要件 5.1） */
+@media (max-width: 640px) {
+  .email {
+    max-width: 160px;
+  }
+}

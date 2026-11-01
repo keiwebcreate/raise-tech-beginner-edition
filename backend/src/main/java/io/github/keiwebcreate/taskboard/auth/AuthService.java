@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.InsufficientAuthenticationException;
@@ -21,17 +23,23 @@ import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import io.github.keiwebcreate.taskboard.auth.dto.LoginRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.SignupRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.UserResponse;
+import io.github.keiwebcreate.taskboard.auth.dto.WithdrawRequest;
 import io.github.keiwebcreate.taskboard.board.Board;
 import io.github.keiwebcreate.taskboard.board.BoardRepository;
 import io.github.keiwebcreate.taskboard.column.BoardColumn;
 import io.github.keiwebcreate.taskboard.column.BoardColumnRepository;
 import io.github.keiwebcreate.taskboard.common.error.EmailDuplicatedException;
+import io.github.keiwebcreate.taskboard.common.error.FieldValidationException;
+import io.github.keiwebcreate.taskboard.common.error.GuestNotAllowedException;
 import io.github.keiwebcreate.taskboard.common.error.LoginFailedException;
 import io.github.keiwebcreate.taskboard.common.error.RateLimitedException;
 import io.github.keiwebcreate.taskboard.user.User;
@@ -46,6 +54,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @Service
 public class AuthService {
 
+	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
 	// 登録したときに作るリスト（要件 U-02、テーブル設計書 9.1）
 	private static final String INITIAL_BOARD_NAME = "マイボード";
 	private static final List<String> INITIAL_COLUMN_NAMES = List.of("未着手", "作業中", "完了");
@@ -59,13 +69,17 @@ public class AuthService {
 	private final CsrfTokenRepository csrfTokenRepository;
 	private final GuestSampleData guestSampleData;
 	private final RateLimiter rateLimiter;
+	private final FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+	private final TransactionTemplate transactionTemplate;
 	private final SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 			.getContextHolderStrategy();
 
 	public AuthService(UserRepository userRepository, BoardRepository boardRepository,
 			BoardColumnRepository boardColumnRepository, PasswordEncoder passwordEncoder,
 			AuthenticationManager authenticationManager, SecurityContextRepository securityContextRepository,
-			CsrfTokenRepository csrfTokenRepository, GuestSampleData guestSampleData, RateLimiter rateLimiter) {
+			CsrfTokenRepository csrfTokenRepository, GuestSampleData guestSampleData, RateLimiter rateLimiter,
+			FindByIndexNameSessionRepository<? extends Session> sessionRepository,
+			TransactionTemplate transactionTemplate) {
 		this.userRepository = userRepository;
 		this.boardRepository = boardRepository;
 		this.boardColumnRepository = boardColumnRepository;
@@ -75,6 +89,8 @@ public class AuthService {
 		this.csrfTokenRepository = csrfTokenRepository;
 		this.guestSampleData = guestSampleData;
 		this.rateLimiter = rateLimiter;
+		this.sessionRepository = sessionRepository;
+		this.transactionTemplate = transactionTemplate;
 	}
 
 	/**
@@ -176,6 +192,63 @@ public class AuthService {
 			userRepository.deleteGuestById(loginUser.getId());
 		}
 		endSession(authentication, httpRequest, httpResponse);
+	}
+
+	/**
+	 * A-19 退会（要件 U-11、詳細設計書 3.8.7）。パスワードで本人か確かめてから、ユーザーを削除する
+	 * （ボード・リスト・カード・ラベルは DB の ON DELETE CASCADE で一緒に消える）。
+	 * その人のセッションは、ほかのブラウザ・端末のものも全部消す（消えたアカウントのログイン状態を残さない）。
+	 * パスワード違いは、ログインの失敗と一緒に数える（要件 U-10）。ここで何度でも試せないようにするため。
+	 *
+	 * トランザクションは @Transactional ではなく、TransactionTemplate で「回数制限・照合・削除」の部分だけにかける。
+	 * セッションを消す処理は、Spring Session が別のトランザクション（REQUIRES_NEW）で動かすので、
+	 * 削除を確定して DB の接続を返してから呼ぶ。中で呼ぶと、削除が取り消されてもセッションだけ消えてしまい、
+	 * 1つの退会が接続を2本使うので、同時に退会が重なると接続が足りなくなる（品質チェック #43）。
+	 *
+	 * @throws GuestNotAllowedException ゲストのとき（ゲストはログアウトでデータが消えるので、退会はない）
+	 * @throws RateLimitedException     同じ IP アドレスから、15分に10回を超えて失敗したとき
+	 * @throws FieldValidationException パスワードが空・違うとき
+	 */
+	public void withdraw(LoginUser loginUser, WithdrawRequest request, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		if (loginUser.isGuest()) {
+			throw new GuestNotAllowedException();
+		}
+		String ipAddress = httpRequest.getRemoteAddr();
+		String password = request.password() == null ? "" : request.password();
+
+		// パスワード違いでも、失敗の記録は確定させたい。なので中では例外を投げず、消したかどうか（true / false）を返す
+		Boolean deleted = transactionTemplate
+				.execute(status -> deleteIfPasswordMatches(loginUser.getId(), password, ipAddress));
+		if (!Boolean.TRUE.equals(deleted)) {
+			throw new FieldValidationException("password", "パスワードが正しくありません");
+		}
+
+		// ここからは削除が確定したあと。Spring Session は、ログイン状態の持ち主の名前
+		// （LoginUser.getUsername() のメールアドレス）でセッションを探せる
+		sessionRepository.findByPrincipalName(loginUser.getEmail()).keySet().forEach(sessionRepository::deleteById);
+		endSession(securityContextHolderStrategy.getContext().getAuthentication(), httpRequest, httpResponse);
+		// 退会を残す（要件 5章のログ）。ユーザーは ID で記録し、メールアドレスは出さない
+		log.info("退会しました（ユーザーID {}）", loginUser.getId());
+	}
+
+	// 退会のトランザクションの中身。回数制限を確かめ、パスワードが合えばユーザーを削除して true、違えば記録して false
+	private boolean deleteIfPasswordMatches(Long userId, String password, String ipAddress) {
+		rateLimiter.check(RateLimitKind.LOGIN_FAILURE, ipAddress);
+
+		// ログイン中の本人の行。ID はセッションに入っている自分のものなので、持ち主の確認は要らない。
+		// 見つからない（すでに消えている）ときは、/me と同じく「ログインしていない」（401）にする
+		User user = userRepository.findById(userId)
+				.orElseThrow(() -> new InsufficientAuthenticationException("ユーザーが見つかりません"));
+		if (password.isEmpty() || !passwordEncoder.matches(password, user.getPasswordHash())) {
+			// 空のときは、パスワードを試したことにならないので数えない
+			if (!password.isEmpty()) {
+				rateLimiter.record(RateLimitKind.LOGIN_FAILURE, ipAddress);
+			}
+			return false;
+		}
+		userRepository.delete(user);
+		return true;
 	}
 
 	/**

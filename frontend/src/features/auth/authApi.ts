@@ -27,3 +27,8 @@ export function logout(): Promise<void> {
 export function getMe(): Promise<UserResponse> {
   return apiFetch<UserResponse>('/api/auth/me')
 }
+
+// A-19 退会（アカウントとすべてのデータを削除する。パスワードが違えば 400 の ApiError）
+export function withdraw(password: string): Promise<void> {
+  return apiFetch<void>('/api/auth/withdraw', 'POST', { password })
+}
