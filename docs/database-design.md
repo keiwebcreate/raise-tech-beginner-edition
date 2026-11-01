@@ -1,6 +1,6 @@
 # テーブル設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-01（1人が複数のボードを持てるようにした。イシュー #51）
+版：1.8（2026-11-01）。変更の履歴は 13章
 
 要件は `requirements.md` を参照。
 
@@ -9,14 +9,14 @@
 | 項目 | 決定 | 理由 |
 |---|---|---|
 | DB | PostgreSQL 18 | 講座の指定 |
-| ボード | `boards` テーブルを独立させる。1ユーザーが複数のボードを持てる（2026-11-01。イシュー #51） | 最初は1ユーザー1ボードだったが、テーブルを分けておいたので、一意制約を外すだけで複数ボードにできた（`V4__allow_multiple_boards.sql`） |
+| ボード | `boards` テーブルを独立させる。1ユーザーが複数のボードを持てる | 最初は1ユーザー1ボードだったが、テーブルを分けておいたので、一意制約を外すだけで複数ボードにできた（`V4__allow_multiple_boards.sql`） |
 | リストのテーブル名 | `board_columns`（Javaクラスは `BoardColumn`） | `columns` は SQL で「テーブルの列」の意味でも使われ、紛らわしいため |
 | 主キー | `BIGINT GENERATED ALWAYS AS IDENTITY`（自動採番） | 一般的で扱いやすい。IDを推測されても、所有者チェック（要件 U-05）で守る |
 | 並び順 | `position` 列に 0 から始まる連番 | 仕組みがわかりやすい。移動したら同じリスト内を振り直す（4章） |
 | 削除 | 外部キーに `ON DELETE CASCADE` を付け、DBに任せる | 消し忘れが起きない。ゲストデータも users の1行を消すだけで済む |
 | 重要度・緊急度 | 列 `importance`・`urgency`。どちらも文字列 `HIGH` / `MEDIUM` / `LOW`（Javaは共通の enum） | DBを見ても意味がわかる |
 | ラベルの色 | 色コード（`#e5484d` 形式） | DBを見て色がわかる。選択肢の一覧は Java と React の両方に持ち、サーバーでも一覧にない色を受け付けない |
-| ラベルの持ち主 | ユーザー単位（`labels.user_id`）。ボード単位にはしない | 所有者の確認が `labels.user_id` を見るだけで済む。同じラベルを全ボードで共通に使える（複数ボードでもこのままにした。イシュー #51）。ボードごとに分けたくなったら、`board_id` 列を追加する |
+| ラベルの持ち主 | ユーザー単位（`labels.user_id`）。ボード単位にはしない | 所有者の確認が `labels.user_id` を見るだけで済む。同じラベルを全ボードで共通に使える（複数ボードにしたときも、このままにした）。ボードごとに分けたくなったら、`board_id` 列を追加する |
 | ラベル名 | ユーザーごとに重複不可 | カード詳細で同じ名前が並ばないようにする |
 | CHECK制約 | 基本的なものだけ付ける（3.7） | Java のチェックをすり抜けた値を、DBが最後の砦として止める |
 | ゲスト | ゲストログインのたびに一時ユーザーを作る | 通常ユーザーと同じ仕組みで動かせる（5章） |
@@ -45,7 +45,7 @@ erDiagram
     }
     boards {
         BIGINT id PK
-        BIGINT user_id FK,UK
+        BIGINT user_id FK
         VARCHAR name
     }
     board_columns {
@@ -80,70 +80,87 @@ erDiagram
 
 ## 3. テーブル定義
 
-全テーブル共通で、次の列を持つ（`card_labels`・`rate_limit_events` は `created_at` のみ）。
+**テーブルの一覧**
 
-| 列 | 型 | 内容 |
-|---|---|---|
-| created_at | TIMESTAMPTZ | 作成日時。DBが自動で入れる |
-| updated_at | TIMESTAMPTZ | 更新日時。DBのトリガーが自動で更新する（3.8） |
+| 論理名 | 物理名 | 中身 | 作る SQL |
+|---|---|---|---|
+| ユーザー | users | 登録したユーザーとゲスト（3.1） | V1 |
+| ボード | boards | ユーザーのボード。1人10個まで（3.2） | V1（V4 で複数に） |
+| リスト | board_columns | ボードの中の列（3.3） | V1 |
+| カード | cards | タスク1件（3.4） | V1 |
+| ラベル | labels | ユーザーのラベル。全ボードで共通（3.5） | V1 |
+| カードのラベル | card_labels | カードとラベルの中間テーブル（3.6） | V1 |
+| 回数制限の記録 | rate_limit_events | ログインの失敗・ゲストの作成・ユーザー登録の記録（3.9） | V3（V5 で種類を追加） |
+| セッション | spring_session | ログイン状態（セッション）。Spring Session JDBC が読み書きする | V2 |
+| セッションの属性 | spring_session_attributes | セッションに入れた値（ログイン中のユーザーなど）。Spring Session JDBC が読み書きする | V2 |
+
+- 作る SQL は Flyway のファイル（`backend/src/main/resources/db/migration/V1__create_tables.sql` など。`detailed-design.md` 3.9）
+- セッションの2つは Spring Session の決まった形なので、列の定義はこの設計書に書かない（`V2__create_session_tables.sql` を見る）
+
+全テーブル共通で、次の列を持つ（`card_labels`・`rate_limit_events` は `created_at` のみ。セッションの2つは持たない）。
+
+| 論理名 | 物理名 | 型 | 内容 |
+|---|---|---|---|
+| 作成日時 | created_at | TIMESTAMPTZ | 作成日時。DBが自動で入れる |
+| 更新日時 | updated_at | TIMESTAMPTZ | 更新日時。DBのトリガーが自動で更新する（3.8） |
 
 ### 3.1 users（ユーザー）
 
-| 列 | 型 | NULL | 初期値 | 内容 |
-|---|---|---|---|---|
-| id | BIGINT | 不可 | 自動採番 | 主キー |
-| email | VARCHAR(255) | 不可 | | 一意。254文字まで。小文字にそろえて保存する。ゲストは `guest-ランダム文字列@guest.local` |
-| password_hash | VARCHAR(255) | 不可 | | BCryptでハッシュ化したパスワード。ゲストはランダムな値のハッシュ |
-| is_guest | BOOLEAN | 不可 | false | ゲストユーザーかどうか |
+| 論理名 | 物理名 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|---|
+| ユーザーID | id | BIGINT | 不可 | 自動採番 | 主キー |
+| メールアドレス | email | VARCHAR(255) | 不可 | | 一意。254文字まで。小文字にそろえて保存する。ゲストは `guest-ランダム文字列@guest.local` |
+| パスワードのハッシュ | password_hash | VARCHAR(255) | 不可 | | BCryptでハッシュ化したパスワード。ゲストはランダムな値のハッシュ |
+| ゲストか | is_guest | BOOLEAN | 不可 | false | ゲストユーザーかどうか |
 
 インデックス：`(is_guest, created_at)`（古いゲストを探して削除するため）
 
 ### 3.2 boards（ボード）
 
-| 列 | 型 | NULL | 初期値 | 内容 |
-|---|---|---|---|---|
-| id | BIGINT | 不可 | 自動採番 | 主キー |
-| user_id | BIGINT | 不可 | | `users.id` への外部キー。1人が複数のボードを持てる（要件 B-02） |
-| name | VARCHAR(50) | 不可 | マイボード | ボード名。1〜50文字。画面から変更できる（要件 B-01） |
+| 論理名 | 物理名 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|---|
+| ボードID | id | BIGINT | 不可 | 自動採番 | 主キー |
+| ユーザーID | user_id | BIGINT | 不可 | | `users.id` への外部キー。1人が複数のボードを持てる（要件 B-02） |
+| ボード名 | name | VARCHAR(50) | 不可 | マイボード | ボード名。1〜50文字。画面から変更できる（要件 B-01） |
 
 インデックス：`(user_id)`（自分のボードの一覧を探すため）
 
-2026-11-01 に、一意制約 `uk_boards_user`（1人1ボード）を外した（`V4__allow_multiple_boards.sql`。イシュー #51）。一意制約と一緒に `user_id` のインデックスもなくなるので、ふつうのインデックスを作り直した。一覧の並び（作った順）は `id` の順で並べる（`id` は作った順に増えるため）
+最初は1人1ボードの一意制約 `uk_boards_user` があったが、複数ボードにしたときに外した（`V4__allow_multiple_boards.sql`）。一意制約と一緒に `user_id` のインデックスもなくなるので、ふつうのインデックスを作り直した。一覧の並び（作った順）は `id` の順で並べる（`id` は作った順に増えるため）
 
 ### 3.3 board_columns（リスト）
 
-| 列 | 型 | NULL | 初期値 | 内容 |
-|---|---|---|---|---|
-| id | BIGINT | 不可 | 自動採番 | 主キー |
-| board_id | BIGINT | 不可 | | `boards.id` への外部キー |
-| name | VARCHAR(50) | 不可 | | リスト名。1〜50文字 |
-| position | INTEGER | 不可 | | ボード内の並び順。0から始まる連番 |
+| 論理名 | 物理名 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|---|
+| リストID | id | BIGINT | 不可 | 自動採番 | 主キー |
+| ボードID | board_id | BIGINT | 不可 | | `boards.id` への外部キー |
+| リスト名 | name | VARCHAR(50) | 不可 | | リスト名。1〜50文字 |
+| 並び順 | position | INTEGER | 不可 | | ボード内の並び順。0から始まる連番 |
 
 インデックス：`(board_id, position)`
 
 ### 3.4 cards（カード）
 
-| 列 | 型 | NULL | 初期値 | 内容 |
-|---|---|---|---|---|
-| id | BIGINT | 不可 | 自動採番 | 主キー |
-| column_id | BIGINT | 不可 | | `board_columns.id` への外部キー |
-| title | VARCHAR(100) | 不可 | | タイトル。1〜100文字 |
-| description | VARCHAR(2000) | 可 | NULL | 説明文。2000文字まで |
-| importance | VARCHAR(10) | 不可 | MEDIUM | 重要度。`HIGH` / `MEDIUM` / `LOW` |
-| urgency | VARCHAR(10) | 不可 | MEDIUM | 緊急度。`HIGH` / `MEDIUM` / `LOW` |
-| due_date | DATE | 可 | NULL | 期限（時刻なし） |
-| position | INTEGER | 不可 | | リスト内の並び順。0から始まる連番 |
+| 論理名 | 物理名 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|---|
+| カードID | id | BIGINT | 不可 | 自動採番 | 主キー |
+| リストID | column_id | BIGINT | 不可 | | `board_columns.id` への外部キー |
+| タイトル | title | VARCHAR(100) | 不可 | | タイトル。1〜100文字 |
+| 説明文 | description | VARCHAR(2000) | 可 | NULL | 説明文。2000文字まで |
+| 重要度 | importance | VARCHAR(10) | 不可 | MEDIUM | 重要度。`HIGH` / `MEDIUM` / `LOW` |
+| 緊急度 | urgency | VARCHAR(10) | 不可 | MEDIUM | 緊急度。`HIGH` / `MEDIUM` / `LOW` |
+| 期限 | due_date | DATE | 可 | NULL | 期限（時刻なし） |
+| 並び順 | position | INTEGER | 不可 | | リスト内の並び順。0から始まる連番 |
 
 インデックス：`(column_id, position)`
 
 ### 3.5 labels（ラベル）
 
-| 列 | 型 | NULL | 初期値 | 内容 |
-|---|---|---|---|---|
-| id | BIGINT | 不可 | 自動採番 | 主キー |
-| user_id | BIGINT | 不可 | | `users.id` への外部キー |
-| name | VARCHAR(20) | 不可 | | ラベル名。1〜20文字 |
-| color | CHAR(7) | 不可 | | 色コード（例：`#e5484d`）。`screen-design.md` 6章の8色のみ |
+| 論理名 | 物理名 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|---|
+| ラベルID | id | BIGINT | 不可 | 自動採番 | 主キー |
+| ユーザーID | user_id | BIGINT | 不可 | | `users.id` への外部キー |
+| ラベル名 | name | VARCHAR(20) | 不可 | | ラベル名。1〜20文字 |
+| 色 | color | CHAR(7) | 不可 | | 色コード（例：`#e5484d`）。`screen-design.md` 6章の8色のみ |
 
 一意制約：`(user_id, name)`
 
@@ -151,10 +168,10 @@ PostgreSQL は文字列を厳密に比べるので、「パン」と「ハン」
 
 ### 3.6 card_labels（カードとラベルの中間テーブル）
 
-| 列 | 型 | NULL | 内容 |
-|---|---|---|---|
-| card_id | BIGINT | 不可 | `cards.id` への外部キー |
-| label_id | BIGINT | 不可 | `labels.id` への外部キー |
+| 論理名 | 物理名 | 型 | NULL | 内容 |
+|---|---|---|---|---|
+| カードID | card_id | BIGINT | 不可 | `cards.id` への外部キー |
+| ラベルID | label_id | BIGINT | 不可 | `labels.id` への外部キー |
 
 主キー：`(card_id, label_id)`（同じカードに同じラベルを二重に付けられない）
 インデックス：`(label_id)`（ラベルからカードを探すため）
@@ -169,7 +186,7 @@ PostgreSQL は文字列を厳密に比べるので、「パン」と「ハン」
 | board_columns | `name` が空でない。`position` が0以上 |
 | cards | `title` が空でない。`position` が0以上。`importance`・`urgency` が `HIGH`・`MEDIUM`・`LOW` のどれか |
 | labels | `name` が空でない。`color` が `#` と小文字の英数字6桁（例：`#e5484d`） |
-| rate_limit_events | `kind` が `LOGIN_FAILURE`・`GUEST_CREATION`・`REGISTRATION` のどれか（`REGISTRATION` は V5 で追加） |
+| rate_limit_events | `kind` が `LOGIN_FAILURE`・`GUEST_CREATION`・`REGISTRATION` のどれか |
 
 - 文字数の上限は列の型（`VARCHAR(50)` など）で決まるので、CHECK制約には書かない
 - 色は「色コードの形」だけを確かめ、「8色のどれか」は Java で確かめる。8色をDBで決めると、色を変えるたびにテーブルの変更が必要になるため
@@ -181,20 +198,20 @@ PostgreSQL は文字列を厳密に比べるので、「パン」と「ハン」
 PostgreSQL には「行を更新したら、自動で更新日時を入れる」列の設定がない。そこで、次の2つを作る。
 
 1. 関数 `set_updated_at()`：更新される行の `updated_at` を今の時刻にする（1回だけ作る）
-2. トリガー：`card_labels` 以外の各テーブルに「行を更新する直前に `set_updated_at()` を呼ぶ」仕掛けを付ける
+2. トリガー：`updated_at` を持つ5つのテーブル（`users`・`boards`・`board_columns`・`cards`・`labels`）に「行を更新する直前に `set_updated_at()` を呼ぶ」仕掛けを付ける
 
-SQLは10章。Java（JPA）からは `created_at`・`updated_at` に書き込まない。
+`card_labels`・`rate_limit_events` は行を更新しない（足すか消すだけ）ので、`updated_at` もトリガーもない。SQLは10章。Java（JPA）からは `created_at`・`updated_at` に書き込まない。
 
 ### 3.9 rate_limit_events（回数制限の記録）
 
-2026-11-01 に追加（`V3__create_rate_limit_events.sql`）。ログインの失敗・ゲストの作成・ユーザー登録のたびに1行を入れ、「直近の決まった時間に、同じ IP アドレスから何行あるか」を数える（要件 U-10、`detailed-design.md` 3.8.8）。
+`V3__create_rate_limit_events.sql` で作る（`REGISTRATION` は `V5__add_registration_rate_limit.sql` で足した）。ログインの失敗・ゲストの作成・ユーザー登録のたびに1行を入れ、「直近の決まった時間に、同じ IP アドレスから何行あるか」を数える（要件 U-10、`detailed-design.md` 3.8.8）。
 
-| 列 | 型 | NULL | 初期値 | 内容 |
-|---|---|---|---|---|
-| id | BIGINT | 不可 | 自動採番 | 主キー |
-| kind | VARCHAR(20) | 不可 | | 種類。`LOGIN_FAILURE`（ログインの失敗）/ `GUEST_CREATION`（ゲストの作成）/ `REGISTRATION`（ユーザー登録。2026-11-01 に `V5__add_registration_rate_limit.sql` で追加） |
-| ip_address | VARCHAR(45) | 不可 | | 接続元の IP アドレス。45文字は IPv6 の最長の書き方に合わせた |
-| created_at | TIMESTAMPTZ | 不可 | now() | 記録した日時。ほかのテーブルと違い、Java が入れる（数えるときの「今」と同じ時計にそろえるため） |
+| 論理名 | 物理名 | 型 | NULL | 初期値 | 内容 |
+|---|---|---|---|---|---|
+| 記録ID | id | BIGINT | 不可 | 自動採番 | 主キー |
+| 種類 | kind | VARCHAR(20) | 不可 | | 種類。`LOGIN_FAILURE`（ログインの失敗）/ `GUEST_CREATION`（ゲストの作成）/ `REGISTRATION`（ユーザー登録） |
+| IPアドレス | ip_address | VARCHAR(45) | 不可 | | 接続元の IP アドレス。45文字は IPv6 の最長の書き方に合わせた |
+| 記録日時 | created_at | TIMESTAMPTZ | 不可 | now() | 記録した日時。ほかのテーブルと違い、Java が入れる（数えるときの「今」と同じ時計にそろえるため） |
 
 インデックス：`(kind, ip_address, created_at)`（数えるため）、`(created_at)`（古い行を消すため）
 
@@ -378,3 +395,62 @@ CREATE TRIGGER trg_labels_updated_at        BEFORE UPDATE ON labels        FOR E
 ## 11. まだ決めていないこと
 
 - ~~ゲストのサンプルデータの中身~~ → モックアップと同じ（2026-10-25 決定）
+
+## 12. CRUD 表
+
+どの処理が、どのテーブルを作る（C）・読む（R）・変える（U）・消す（D）かの一覧。コード（Service・Repository）と合わせてある。
+
+- 「D*」は、DB の `ON DELETE CASCADE`（5章）で一緒に消えるもの。アプリは親の行を消すだけ
+- 鍵をかけて読む（`SELECT … FOR UPDATE`。上限の確認や並び順の振り直しを、同時の操作から守る）も R にしている
+- セッションの2つ（`spring_session`・`spring_session_attributes`）は、まとめて「セッション」の列にした。ログインが必要な API は、どれもセッションを読み（R）、最後に使った時刻を変える（U）。下の表には、それ以外の操作だけを書く
+
+| 処理 | users | boards | board_columns | cards | labels | card_labels | rate_limit_events | セッション |
+|---|---|---|---|---|---|---|---|---|
+| A-01 ユーザー登録 | CR | C | C | | | | CR | C |
+| A-02 ログイン | R | | | | | | CR | CU |
+| A-03 ゲストログイン | C | C | C | C | C | C | CR | C |
+| A-04 ログアウト（ゲストのときは削除） | D | D* | D* | D* | D* | D* | | D |
+| A-05 ログイン中のユーザー | R | | | | | | | D（ユーザーが消えていたとき） |
+| A-19 退会 | RD | D* | D* | D* | D* | D* | CR | D（ほかの端末のものも） |
+| A-20 メールアドレスの変更 | RU | | | | | | CR | CUD（ほかの端末のものを消す） |
+| A-21 パスワードの変更 | RU | | | | | | CR | CUD（ほかの端末のものを消す） |
+| A-22 ボードの一覧 | | R | | | | | | |
+| A-23 ボードの作成 | R | CR | C | | | | | |
+| A-06 ボードの取得 | | R | R | R | R | R | | |
+| A-07 ボード名の変更 | | RU | | | | | | |
+| A-24 ボードの削除 | | RD | D* | D* | | D* | | |
+| A-08 リストの追加 | | R | CR | | | | | |
+| A-09 リスト名の変更 | | R | RU | | | | | |
+| A-10 リストの削除 | | R | RUD | D* | | D* | | |
+| A-11 リストの並び替え | | R | RU | | | | | |
+| A-12 カードの追加 | | R | R | CR | | | | |
+| A-13 カードの保存 | | R | R | RU | R | CRD | | |
+| A-14 カードの削除 | | R | R | RUD | | D* | | |
+| A-15 カードの並び替え・移動 | | R | R | RU | | | | |
+| A-16 ラベルの追加 | | | | | CR | | | |
+| A-17 ラベルの変更 | | | | | RU | | | |
+| A-18 ラベルの削除 | | | | | RD | D* | | |
+| ゲストの定期削除（`GuestCleanupJob`。毎時） | D | D* | D* | D* | D* | D* | | |
+| 古い回数制限の記録の削除（`RateLimitCleanupJob`。毎時） | | | | | | | D | |
+
+- A-01・A-03 の rate_limit_events：数えて（R）から記録する（C）。A-02・A-19〜A-21 は、パスワードが違ったときだけ C
+- A-04 の users の D は、ゲストのときだけ。ふつうのユーザーはセッションを消すだけ
+- U（並び順）：A-10・A-14 は残ったものの並び順を振り直し、A-11・A-15 は動かしたものと周りの並び順を変える（4章）
+- A-12〜A-15 の boards・board_columns の R は、持ち主の確認と、ボードへの鍵（`detailed-design.md` 3.8）
+- A-13 の card_labels：付けたラベルの行を足し（C）、外したラベルの行を消す（D）。JPA が今の行と比べて足し引きする
+
+## 13. 改訂履歴
+
+テーブルの形や決めごとが変わったものだけを書く。それぞれの中身は、Git の履歴と、イシュー・PR で見られる。
+
+| 版 | 日付 | 内容 | Flyway | イシュー |
+|---|---|---|---|---|
+| 1.0 | 2026-10-25 | 初版。6つのテーブル（users・boards・board_columns・cards・labels・card_labels）、ER図、並び順・削除の連鎖・所有者の確認の決めごと | | |
+| 1.1 | 2026-10-25 | CHECK 制約と、文字コード・ラベルの持ち主の理由を追記 | | |
+| 1.2 | 2026-10-25 | 優先度（priority）を重要度（importance）に改め、緊急度（urgency）の列を追加 | | |
+| 1.3 | 2026-10-25 | DB を MySQL から PostgreSQL 18 に変更（日時は TIMESTAMPTZ、更新日時はトリガー） | | |
+| 1.4 | 2026-10-25 | テーブルを Flyway で作る。セッションのテーブルを追加 | V1・V2 | |
+| 1.5 | 2026-11-01 | 回数制限の記録 rate_limit_events を追加（3.9） | V3 | #41 |
+| 1.6 | 2026-11-01 | 1人が複数のボードを持てるように、`boards.user_id` の一意制約を外す（3.2） | V4 | #51 |
+| 1.7 | 2026-11-01 | 回数制限の種類に `REGISTRATION`（ユーザー登録）を追加 | V5 | #53 |
+| 1.8 | 2026-11-01 | テーブルの一覧、論理名と物理名、CRUD 表（12章）、改訂履歴（13章）を追加。ER図の `boards.user_id` に残っていた一意の印と、3.8 のトリガーの対象の書き方を直す | | #59 |
