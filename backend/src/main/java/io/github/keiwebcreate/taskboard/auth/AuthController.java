@@ -4,12 +4,15 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.github.keiwebcreate.taskboard.auth.dto.EmailChangeRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.LoginRequest;
+import io.github.keiwebcreate.taskboard.auth.dto.PasswordChangeRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.SignupRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.UserResponse;
 import io.github.keiwebcreate.taskboard.auth.dto.WithdrawRequest;
@@ -65,6 +68,23 @@ public class AuthController {
 	public void withdraw(@AuthenticationPrincipal LoginUser loginUser, @RequestBody WithdrawRequest request,
 			HttpServletRequest httpRequest, HttpServletResponse httpResponse) {
 		authService.withdraw(loginUser, request, httpRequest, httpResponse);
+	}
+
+	// A-20 メールアドレスの変更
+	@PutMapping("/email")
+	public UserResponse changeEmail(@AuthenticationPrincipal LoginUser loginUser,
+			@Valid @RequestBody EmailChangeRequest request, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		return authService.changeEmail(loginUser, request, httpRequest, httpResponse);
+	}
+
+	// A-21 パスワードの変更
+	@PutMapping("/password")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	public void changePassword(@AuthenticationPrincipal LoginUser loginUser,
+			@Valid @RequestBody PasswordChangeRequest request, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		authService.changePassword(loginUser, request, httpRequest, httpResponse);
 	}
 
 	// A-05 ログイン中のユーザー

@@ -135,6 +135,8 @@ API設計書 5章のJSONと1対1で対応させる。項目名はキャメルケ
 | A-03 ゲスト | なし | `UserResponse` |
 | A-05 自分 | なし | `UserResponse` |
 | A-19 退会 | `WithdrawRequest(password)` | なし（204） |
+| A-20 メールアドレスの変更 | `EmailChangeRequest(email, currentPassword)` | `UserResponse` |
+| A-21 パスワードの変更 | `PasswordChangeRequest(currentPassword, newPassword)` | なし（204） |
 | A-06 ボード | なし | `BoardResponse(id, name, labels, columns)`。中に `LabelResponse`、`ColumnWithCardsResponse(id, name, cards)`、`CardResponse` |
 | A-07 ボード名 | `BoardNameRequest(name)` | `BoardNameResponse(id, name)` |
 | A-08・A-09 リスト | `ColumnRequest(name)` | `ColumnResponse(id, name)` |
@@ -204,7 +206,7 @@ Service は次の独自の例外を投げる。`common/error/ApiExceptionHandler
 | `LabelNameDuplicatedException` | 409 | LABEL_NAME_DUPLICATED | 同じ名前のラベル |
 | `InvalidPositionException` | 400 | INVALID_POSITION | 並び替えの位置が範囲外 |
 | `FieldValidationException(field, message)` | 400 | VALIDATION_ERROR | Bean Validation では表せない入力のエラー（例：退会のパスワード違い、8色以外の色、空白だけの名前） |
-| `GuestNotAllowedException` | 403 | GUEST_NOT_ALLOWED | ゲストの退会 |
+| `GuestNotAllowedException` | 403 | GUEST_NOT_ALLOWED | ゲストの退会・メールアドレスの変更・パスワードの変更（メッセージは操作ごとに渡す） |
 | `LoginFailedException` | 401 | LOGIN_FAILED | ログイン失敗 |
 | `RateLimitedException(retryAfterSeconds)` | 429 | RATE_LIMITED | 回数制限（3.8.8）。ヘッダー `Retry-After` に秒数を入れる |
 
@@ -341,13 +343,40 @@ sequenceDiagram
   - パスワード違いでも失敗の記録は確定させたいので、中では例外を投げずに「消したか」（true / false）を返し、外で 400 にする
 - テストは `WithdrawApiTest`
 
+#### 3.8.9 メールアドレスの変更（A-20）とパスワードの変更（A-21）
+
+2026-11-01 に追加（要件 U-12・U-13。イシュー #49）。作りは退会（3.8.7）と同じ。
+
+1. ゲストなら 403 GUEST_NOT_ALLOWED
+2. `TransactionTemplate` の中で：回数制限を確かめ（`LOGIN_FAILURE`）、今のパスワードを照合する（`findIfPasswordMatches`。退会と共通）。空・違えば失敗を記録して（空は数えない）、トランザクションを確定してから 400
+3. 同じトランザクションの中で書き換える
+   - A-20：新しいアドレスがほかの人に登録済みなら 409（今と同じアドレスは自分なので通す）。`User.changeEmail` で書き換え、`saveAndFlush` でその場で DB に書く。ほぼ同時の登録・変更とぶつかって一意制約で断られたら、外で 409 にする（登録と同じ）
+   - A-21：`PasswordEncoder.encode` でハッシュにして `User.changePasswordHash`
+4. 確定したあとで、ほかのセッションを消す（`endOtherSessions`）。`findByPrincipalName` で、**変える前の**メールアドレスで探し、今のセッション以外を消す
+5. 今のセッションに、ログイン状態を入れ直す（`startSession`）。セッション ID を新しくし、CSRF トークンを作り直す。A-20 は新しいメールアドレスの `LoginUser` を入れるので、Spring Session の持ち主の名前（`PRINCIPAL_NAME`）も新しいアドレスになる（あとで退会・変更をしたときに、このセッションを探せる）
+6. 新しい CSRF トークンを、この返事の Cookie ですぐ渡す（`issueCsrfToken`）
+7. ログに残す（ユーザー ID だけ）
+
+2026-11-01 に決めたこと（イシュー #49）：
+
+| 項目 | 決定 | 理由 |
+|---|---|---|
+| 画面 | ▾ メニュー（スマートフォンは ☰）から、別々のモーダル（W-09・W-10）を開く | 退会（W-08）と同じ作りで、入力欄が少なく迷わない |
+| 本人確認 | 今のパスワード。確認メールは送らない（メールを送る仕組みがない） | 開いたままのパソコンや盗まれたセッションで、アカウントを乗っ取られないように |
+| ほかの端末（パスワード） | ログアウトさせる。今の画面は残す | 「パスワードが知られたかも」と思って変える人が多い。GitHub・Google と同じ動き |
+| ほかの端末（メールアドレス） | ログアウトさせる。今の画面は残す | Spring Session は持ち主をメールアドレスで覚えている。ほかの端末を残すと古いアドレスのままになり、あとで退会やパスワードの変更をしても、その端末を見つけて消せない |
+| 新しい CSRF トークン | 変更の返事ですぐ渡す | ふつうは次のリクエストで渡す（3.8.4）。ログインのあとは画面がボードを GET するので間に合うが、変更のあとは画面がそのまま残り、次がカードの保存などの PUT・POST になりうる。渡さないと 403 になる（テストで、渡さないと失敗することを確かめた） |
+| 今と同じアドレス・パスワード | エラーにしない | 変わらないだけで害がない |
+
+- テストは `AccountChangeApiTest`。CSRF トークンをすぐ受け取れることは `CsrfCookieTest`（MockMvc の `with(csrf())` を使うと Cookie が返らないため。3.10）
+
 #### 3.8.8 回数制限（要件 U-10）
 
 2026-11-01 に追加（イシュー #41）。同じ IP アドレスからの、ログインの失敗とゲストの作成の回数を数える。
 
 | 種類（`RateLimitKind`） | 数えるもの | 上限 |
 |---|---|---|
-| `LOGIN_FAILURE` | A-02 のログインの失敗 | 15分に10回 |
+| `LOGIN_FAILURE` | A-02 のログインの失敗、A-19・A-20・A-21 のパスワード違い | 15分に10回 |
 | `GUEST_CREATION` | A-03 のゲストの作成 | 1時間に10回 |
 
 **決めたこと**
@@ -412,7 +441,7 @@ frontend/src/
 │   ├─ client.ts            fetch を包んだ関数（CSRF・エラーの変換。4.3）
 │   └─ types.ts             APIのJSONの型（API設計書 5章）
 ├─ features/
-│   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、UserMenu（ヘッダーのメニュー）、WithdrawModal（W-08）、authApi
+│   ├─ auth/                AuthContext、LoginPage（W-01）、SignupPage（W-02）、UserMenu（ヘッダーのメニュー）、WithdrawModal（W-08）、EmailChangeModal（W-09）、PasswordChangeModal（W-10）、AccountModal.module.css（W-08〜W-10 の共通の見た目）、authApi
 │   ├─ board/               BoardPage（W-03）、BoardHeader、Column、AddColumnForm、BoardContext、boardReducer、boardApi、columnApi、CardSearch・FilterBar・cardFilter・useCardFilter（検索・絞り込み。4.8）、MobileMenu（スマートフォン幅の ☰）
 │   ├─ card/                CardItem、AddCardForm、CardModal（W-04）、cardApi
 │   └─ label/               LabelModal（W-05）、LabelChip、LabelPicker、labelApi
@@ -451,7 +480,7 @@ frontend/src/
 4. 失敗したら Problem Details を読み、`ApiError`（`status`・`code`・`detail`・`errors`）を投げる。レスポンスがない（つながらない）ときは INTERNAL_ERROR と同じ扱いにする
 5. 401 UNAUTHENTICATED のときは、ログイン中だったなら「ログインの有効期限が切れました…」を付けて `/login` へ移す（API設計書 4.3）
 
-機能ごとの `xxxApi.ts` は、API設計書の A-01〜A-19 と1対1の関数を持つ（モックアップの `api.js` と同じ名前にする）。
+機能ごとの `xxxApi.ts` は、API設計書の A-01〜A-21 と1対1の関数を持つ（モックアップの `api.js` と同じ名前にする）。
 
 ### 4.4 ボードの状態（BoardContext・boardReducer）
 
@@ -490,11 +519,13 @@ frontend/src/
 | 日本語入力 | Enter で送信する入力欄では、`event.nativeEvent.isComposing` が true のときは送信しない（`screen-design.md` 5章） |
 | 入力チェック | 送信したときに `shared/lib/validation.ts` で行い、エラーを入力欄の下に出す。サーバーの `errors` も同じ場所に出す |
 | 文言 | メッセージは `shared/lib/constants.ts` にまとめる（`screen-design.md` 7章） |
-| 送る値 | 名前・タイトルは、画面で確かめたのと同じ「前後の空白を除いた値」を送る（サーバーは受け取った値で文字数を数えるため） |
+| 送る値 | 名前・タイトル・メールアドレスは、画面で確かめたのと同じ「前後の空白を除いた値」を送る（サーバーは受け取った値で文字数を数え、メールアドレスは空白入りを形式の誤りにするため。登録画面のメールアドレスは #49 の品質チェックで直した） |
 | モーダル | `shared/ui/Modal` は HTML の `<dialog>` を `showModal()` で開く。ブラウザが、いちばん上に出す・後ろの画面を操作できなくする・背景を暗くする。`<dialog>` だけだと、最後の部品の次で Tab がブラウザのアドレスバーなどに移るので、最後の次は最初へ、最初の前は最後へ戻す（フォーカストラップ）。開いたときにカーソルを置く部品には `data-autofocus` を付ける（`autoFocus` は使わない） |
 | 押せるもの | クリックで動くものは `<button>` にする（Enter・Space で動き、読み上げでもボタンになる）。中にリンクがあって全体をボタンにできないとき（カード、カード詳細の説明）は、見えないボタンを全体に広げ、リンクはその上に重ねる |
 | 見えない文字 | 見た目は数字や記号だけで、読み上げには文で伝えたいとき（「絞り込み 3」→「（3件選択中）」）は、見える部分を `aria-hidden` にし、`global.css` の `sr-only` の文字を添える。`<span>` に `aria-label` を付けない |
 | スマートフォンの幅 | 幅 640px 以下で並びを変える（`@media (max-width: 640px)`）。ヘッダーは、パソコン用の部品（`desktopActions`）とスマートフォン用の ☰（`MobileMenu`）を両方置き、CSS で片方を `display: none` にする（画面の幅を JavaScript で見張らなくて済み、隠したほうは読み上げにも出ない）。右側の箱は `display: contents` で箱をなくし、`order` と `flex-basis: 100%` で検索欄を2段目に回す（イシュー #47） |
+| 通知 | `useToast` の `showToast(メッセージ, 種類)`。種類を省くと赤い「!」のエラー、`'success'` で緑の「✓」（メールアドレス・パスワードの変更。2026-11-01 追加）。どちらも `role="alert"`（あとから足した要素の `role="status"` は読まれないことがあるため） |
+| アカウントのモーダル | W-08〜W-10 はどれか1つだけ開く（`BoardHeader` の `accountModal`）。ほかの端末のログアウトとセッションの作り直しはサーバーが行うので、画面は A-20 の返事で `AuthContext` のユーザーを入れ替えるだけ（`userUpdated`） |
 | Esc | モーダルは、カーソルのあるいちばん上のものだけが閉じる。メニューやラベルの一覧は `useEscapeKey` で先に受け取り、モーダルまで届かないようにする |
 
 ### 4.7 テスト（要件 5.5）

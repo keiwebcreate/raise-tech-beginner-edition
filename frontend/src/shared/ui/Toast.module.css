@@ -1,4 +1,4 @@
-/* 画面の右下に出す赤い通知（画面設計書 5章。モックアップの style.css から移した） */
+/* 画面の右下に出す通知（画面設計書 5章。モックアップの style.css から移した）。ふつうは赤、成功は緑（.success） */
 .root {
   position: fixed;
   right: 20px;
@@ -30,6 +30,12 @@
 .icon {
   color: var(--danger);
   font-weight: 700;
+}
+.success {
+  border-left-color: var(--success);
+}
+.success .icon {
+  color: var(--success);
 }
 @keyframes toast-in {
   from {

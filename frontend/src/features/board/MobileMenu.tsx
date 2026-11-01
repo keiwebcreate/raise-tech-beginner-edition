@@ -1,5 +1,6 @@
 import { useCallback, useId, useRef, useState } from 'react'
 import type { UserResponse } from '../../api/types.ts'
+import type { AccountModalKind } from '../auth/UserMenu.tsx'
 import { useEscapeKey } from '../../shared/lib/useEscapeKey.ts'
 import { useOutsideClick } from '../../shared/lib/useOutsideClick.ts'
 import menuStyles from '../../shared/ui/Menu.module.css'
@@ -9,7 +10,7 @@ type Props = {
   user: UserResponse
   loggingOut: boolean // ログアウトの通信中は、もう一度押せないようにする
   onLogout: () => void
-  onWithdraw: () => void // 退会の確認（W-08）を開く
+  onOpenAccountModal: (kind: AccountModalKind) => void // メールアドレス・パスワードの変更、退会のモーダルを開く
   onOpenLabels?: () => void // ラベル管理（W-05）を開く。ボードの読み込み中・失敗したときは undefined（出さない）
 }
 
@@ -17,7 +18,7 @@ type Props = {
 // パソコンの幅の「ラベル管理」「メールアドレス ▾」（ゲストは「ゲスト」の札と「ログアウト」）を、ここにまとめる
 // どちらを見せるかは BoardHeader.module.css の @media で切り替える（隠したほうは読み上げにも出ない）
 // 作りはリストの「…」（ColumnMenu）と同じ。外のクリックか Esc で閉じる
-export function MobileMenu({ user, loggingOut, onLogout, onWithdraw, onOpenLabels }: Props) {
+export function MobileMenu({ user, loggingOut, onLogout, onOpenAccountModal, onOpenLabels }: Props) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
   const menuId = useId()
@@ -55,12 +56,28 @@ export function MobileMenu({ user, loggingOut, onLogout, onWithdraw, onOpenLabel
               ラベル管理
             </button>
           )}
+          {/* ゲストのメールアドレスはダミーで、パスワードは誰も知らないので、変更はない（要件 U-12・U-13） */}
+          {!user.isGuest && (
+            <>
+              <button type="button" aria-haspopup="dialog" onClick={run(() => onOpenAccountModal('email'))}>
+                メールアドレスの変更
+              </button>
+              <button type="button" aria-haspopup="dialog" onClick={run(() => onOpenAccountModal('password'))}>
+                パスワードの変更
+              </button>
+            </>
+          )}
           <button type="button" disabled={loggingOut} onClick={run(onLogout)}>
             ログアウト
           </button>
           {/* ゲストはログアウトでデータが消えるので、退会はない（要件 U-11） */}
           {!user.isGuest && (
-            <button type="button" className={menuStyles.danger} aria-haspopup="dialog" onClick={run(onWithdraw)}>
+            <button
+              type="button"
+              className={menuStyles.danger}
+              aria-haspopup="dialog"
+              onClick={run(() => onOpenAccountModal('withdraw'))}
+            >
               退会する
             </button>
           )}

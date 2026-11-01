@@ -6,7 +6,9 @@ import { validateText } from '../../shared/lib/validation.ts'
 import { InlineEdit } from '../../shared/ui/InlineEdit.tsx'
 import { useToast } from '../../shared/ui/ToastContext.ts'
 import { useAuth } from '../auth/AuthContext.ts'
-import { UserMenu } from '../auth/UserMenu.tsx'
+import { EmailChangeModal } from '../auth/EmailChangeModal.tsx'
+import { PasswordChangeModal } from '../auth/PasswordChangeModal.tsx'
+import { UserMenu, type AccountModalKind } from '../auth/UserMenu.tsx'
 import { WithdrawModal } from '../auth/WithdrawModal.tsx'
 import * as boardApi from './boardApi.ts'
 import { useBoard } from './BoardContext.ts'
@@ -24,7 +26,7 @@ type Props = {
 }
 
 // 画面の上のヘッダー（画面設計書 W-03）
-// - 登録したユーザー：メールアドレスと「▾」のメニュー（ログアウト・退会する）
+// - 登録したユーザー：メールアドレスと「▾」のメニュー（メールアドレスの変更・パスワードの変更・ログアウト・退会する）
 // - ゲスト：「ゲスト」の札と「ログアウト」ボタン、ヘッダーの下に注意書きの帯（要件 U-07）。退会はない
 // - スマートフォンの幅：「ラベル管理」とアカウントの操作は ☰（MobileMenu）にまとめ、2段にする（イシュー #47）
 export function BoardHeader({
@@ -39,7 +41,9 @@ export function BoardHeader({
   const { dispatch } = useBoard()
   const { showApiError } = useToast()
   const [loggingOut, setLoggingOut] = useState(false)
-  const [withdrawOpen, setWithdrawOpen] = useState(false) // 退会の確認（W-08）
+  // 開いているアカウントのモーダル（W-08〜W-10）。一度に開くのは1つだけ
+  const [accountModal, setAccountModal] = useState<AccountModalKind | null>(null)
+  const closeAccountModal = () => setAccountModal(null)
 
   async function handleLogout() {
     setLoggingOut(true)
@@ -111,7 +115,7 @@ export function BoardHeader({
                   email={user.email}
                   loggingOut={loggingOut}
                   onLogout={handleLogout}
-                  onWithdraw={() => setWithdrawOpen(true)}
+                  onOpenAccountModal={setAccountModal}
                 />
               )}
             </div>
@@ -121,14 +125,16 @@ export function BoardHeader({
                 user={user}
                 loggingOut={loggingOut}
                 onLogout={handleLogout}
-                onWithdraw={() => setWithdrawOpen(true)}
+                onOpenAccountModal={setAccountModal}
                 onOpenLabels={onOpenLabels}
               />
             </div>
           </div>
         )}
       </header>
-      {withdrawOpen && <WithdrawModal onClose={() => setWithdrawOpen(false)} />}
+      {accountModal === 'email' && <EmailChangeModal onClose={closeAccountModal} />}
+      {accountModal === 'password' && <PasswordChangeModal onClose={closeAccountModal} />}
+      {accountModal === 'withdraw' && <WithdrawModal onClose={closeAccountModal} />}
       {user?.isGuest && (
         <div className={styles.guestBar} role="note">
           ゲストモード：データはログアウトするか24時間たつと削除されます

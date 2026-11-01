@@ -38,8 +38,9 @@ export function SignupPage() {
 
     setBusy(true)
     try {
-      // パスワード（確認）は送らない
-      loggedIn(await authApi.signup({ email, password }))
+      // パスワード（確認）は送らない。メールアドレスは、確かめたのと同じ「前後の空白を除いた値」を送る
+      // （サーバーは空白入りを形式の誤りにする。品質チェック #49 で見つけて直した）
+      loggedIn(await authApi.signup({ email: email.trim(), password }))
     } catch (error) {
       setBusy(false)
       if (error instanceof ApiError && error.code === 'EMAIL_DUPLICATED') {

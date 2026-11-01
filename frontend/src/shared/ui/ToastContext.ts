@@ -3,9 +3,12 @@
 
 import { createContext, useContext } from 'react'
 
+// error：赤い「!」（ふつうはこちら）／ success：緑の「✓」（メールアドレス・パスワードの変更など、うまくいったことを知らせる）
+export type ToastKind = 'error' | 'success'
+
 type ToastContextValue = {
-  // メッセージを5秒間出す
-  showToast: (message: string) => void
+  // メッセージを5秒間出す。kind を省くと error
+  showToast: (message: string, kind?: ToastKind) => void
   // API のエラーを通知で出す。401（ログイン画面へ移る）のときは出さない
   showApiError: (error: unknown) => void
 }
