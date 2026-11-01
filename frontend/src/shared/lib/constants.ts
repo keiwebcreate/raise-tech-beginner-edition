@@ -56,8 +56,9 @@ export const MESSAGES = {
   notFound: '対象のデータが見つかりません。画面を再読み込みしてください',
   wrongPassword: 'パスワードが正しくありません',
   withdrawn: '退会しました。ご利用ありがとうございました',
+  emailChanged: 'メールアドレスを変更しました',
+  passwordChanged: 'パスワードを変更しました',
   validation: '入力内容に誤りがあります',
   invalidPosition: '移動先の位置が正しくありません',
-  guestNotAllowed: 'ゲストは退会できません',
   unauthenticated: 'ログインしてください',
 }

@@ -22,6 +22,7 @@ import org.springframework.security.web.authentication.session.ChangeSessionIdAu
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
 import org.springframework.security.web.csrf.CsrfLogoutHandler;
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
@@ -29,7 +30,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import io.github.keiwebcreate.taskboard.auth.dto.EmailChangeRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.LoginRequest;
+import io.github.keiwebcreate.taskboard.auth.dto.PasswordChangeRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.SignupRequest;
 import io.github.keiwebcreate.taskboard.auth.dto.UserResponse;
 import io.github.keiwebcreate.taskboard.auth.dto.WithdrawRequest;
@@ -162,7 +165,7 @@ public class AuthService {
 		rateLimiter.check(RateLimitKind.LOGIN_FAILURE, ipAddress);
 
 		String email = normalizeEmail(request.email());
-		String password = request.password() == null ? "" : request.password();
+		String password = nullToEmpty(request.password());
 		Authentication authentication;
 		try {
 			// LoginUserDetailsService でユーザーを探し、BCrypt でパスワードを照合する
@@ -212,10 +215,10 @@ public class AuthService {
 	public void withdraw(LoginUser loginUser, WithdrawRequest request, HttpServletRequest httpRequest,
 			HttpServletResponse httpResponse) {
 		if (loginUser.isGuest()) {
-			throw new GuestNotAllowedException();
+			throw new GuestNotAllowedException("ゲストは退会できません");
 		}
 		String ipAddress = httpRequest.getRemoteAddr();
-		String password = request.password() == null ? "" : request.password();
+		String password = nullToEmpty(request.password());
 
 		// パスワード違いでも、失敗の記録は確定させたい。なので中では例外を投げず、消したかどうか（true / false）を返す
 		Boolean deleted = transactionTemplate
@@ -232,8 +235,110 @@ public class AuthService {
 		log.info("退会しました（ユーザーID {}）", loginUser.getId());
 	}
 
-	// 退会のトランザクションの中身。回数制限を確かめ、パスワードが合えばユーザーを削除して true、違えば記録して false
+	// 退会のトランザクションの中身。パスワードが合えばユーザーを削除して true、違えば false
 	private boolean deleteIfPasswordMatches(Long userId, String password, String ipAddress) {
+		User user = findIfPasswordMatches(userId, password, ipAddress);
+		if (user == null) {
+			return false;
+		}
+		userRepository.delete(user);
+		return true;
+	}
+
+	/**
+	 * A-20 メールアドレスの変更（詳細設計書 3.8.9）。今のパスワードで本人か確かめてから変える。
+	 * ほかのブラウザ・端末のセッションは消し、今のセッションは新しいメールアドレスでログインしたままにする。
+	 * トランザクションの分け方とパスワード違いの数え方は、退会（withdraw）と同じ。
+	 *
+	 * @throws GuestNotAllowedException ゲストのとき（ゲストのメールアドレスはダミー）
+	 * @throws RateLimitedException     同じ IP アドレスから、15分に10回を超えて失敗したとき
+	 * @throws FieldValidationException 今のパスワードが空・違うとき
+	 * @throws EmailDuplicatedException 新しいメールアドレスが、ほかの人に登録済みのとき
+	 */
+	public UserResponse changeEmail(LoginUser loginUser, EmailChangeRequest request, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		if (loginUser.isGuest()) {
+			throw new GuestNotAllowedException("ゲストはメールアドレスを変更できません");
+		}
+		String ipAddress = httpRequest.getRemoteAddr();
+		String password = nullToEmpty(request.currentPassword());
+		String newEmail = normalizeEmail(request.email());
+
+		User user;
+		try {
+			user = transactionTemplate.execute(status -> {
+				User found = findIfPasswordMatches(loginUser.getId(), password, ipAddress);
+				if (found == null) {
+					return null;
+				}
+				// 重複の確認は、パスワードが合ってから（合う前に答えると、登録済みのアドレスを調べられてしまう）。
+				// 今と同じアドレスは、自分なので重複にしない
+				if (!found.getEmail().equals(newEmail) && userRepository.existsByEmail(newEmail)) {
+					throw new EmailDuplicatedException();
+				}
+				found.changeEmail(newEmail);
+				// ここで DB に書き込む。ほぼ同時の登録・変更とぶつかったら、下の catch で 409 にする
+				return userRepository.saveAndFlush(found);
+			});
+		} catch (DataIntegrityViolationException e) {
+			// 上の確認と書き込みの間に、同じメールアドレスで登録された（登録の signup と同じ）
+			throw new EmailDuplicatedException();
+		}
+		if (user == null) {
+			throw new FieldValidationException("currentPassword", "パスワードが正しくありません");
+		}
+
+		// ここからは変更が確定したあと。ほかの端末のセッションは、変える前のメールアドレスで探す
+		endOtherSessions(loginUser.getEmail(), httpRequest);
+		UserResponse response = startSession(user, httpRequest, httpResponse);
+		issueCsrfToken(httpRequest);
+		log.info("メールアドレスを変更しました（ユーザーID {}）", user.getId());
+		return response;
+	}
+
+	/**
+	 * A-21 パスワードの変更（詳細設計書 3.8.9）。今のパスワードで本人か確かめてから変える。
+	 * ほかのブラウザ・端末のセッションは消し（パスワードが知られたかもしれないと思って変える人が多いため）、
+	 * 今のセッションはログインしたまま、セッション ID だけ新しくする。
+	 *
+	 * @throws GuestNotAllowedException ゲストのとき（ゲストのパスワードは誰も知らない）
+	 * @throws RateLimitedException     同じ IP アドレスから、15分に10回を超えて失敗したとき
+	 * @throws FieldValidationException 今のパスワードが空・違うとき
+	 */
+	public void changePassword(LoginUser loginUser, PasswordChangeRequest request, HttpServletRequest httpRequest,
+			HttpServletResponse httpResponse) {
+		if (loginUser.isGuest()) {
+			throw new GuestNotAllowedException("ゲストはパスワードを変更できません");
+		}
+		String ipAddress = httpRequest.getRemoteAddr();
+		String password = nullToEmpty(request.currentPassword());
+
+		Boolean changed = transactionTemplate.execute(status -> {
+			User found = findIfPasswordMatches(loginUser.getId(), password, ipAddress);
+			if (found == null) {
+				return false;
+			}
+			found.changePasswordHash(passwordEncoder.encode(request.newPassword()));
+			return true;
+		});
+		if (!Boolean.TRUE.equals(changed)) {
+			throw new FieldValidationException("currentPassword", "パスワードが正しくありません");
+		}
+
+		endOtherSessions(loginUser.getEmail(), httpRequest);
+		startSession(UsernamePasswordAuthenticationToken.authenticated(loginUser, null, loginUser.getAuthorities()),
+				httpRequest, httpResponse);
+		issueCsrfToken(httpRequest);
+		log.info("パスワードを変更しました（ユーザーID {}）", loginUser.getId());
+	}
+
+	/**
+	 * 今のパスワードの照合（退会・メールアドレスの変更・パスワードの変更で使う）。トランザクションの中で呼ぶ。
+	 * 先に回数制限を確かめ（ログインの失敗と同じ LOGIN_FAILURE。制限中は 429）、合えばユーザーを返す。
+	 * 違えば失敗を1回記録して null を返す（空のときは、パスワードを試したことにならないので数えない）。
+	 * 例外ではなく null を返すのは、失敗の記録を取り消さずに確定させるため。
+	 */
+	private User findIfPasswordMatches(Long userId, String password, String ipAddress) {
 		rateLimiter.check(RateLimitKind.LOGIN_FAILURE, ipAddress);
 
 		// ログイン中の本人の行。ID はセッションに入っている自分のものなので、持ち主の確認は要らない。
@@ -241,14 +346,21 @@ public class AuthService {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new InsufficientAuthenticationException("ユーザーが見つかりません"));
 		if (password.isEmpty() || !passwordEncoder.matches(password, user.getPasswordHash())) {
-			// 空のときは、パスワードを試したことにならないので数えない
 			if (!password.isEmpty()) {
 				rateLimiter.record(RateLimitKind.LOGIN_FAILURE, ipAddress);
 			}
-			return false;
+			return null;
 		}
-		userRepository.delete(user);
-		return true;
+		return user;
+	}
+
+	// 今のセッション以外の、その人のセッションを全部消す（メールアドレス・パスワードの変更のあと）。
+	// 持ち主の名前は、変える前のメールアドレス（LoginUser.getUsername()）
+	private void endOtherSessions(String principalName, HttpServletRequest httpRequest) {
+		String currentSessionId = httpRequest.getSession().getId();
+		sessionRepository.findByPrincipalName(principalName).keySet().stream()
+				.filter(id -> !id.equals(currentSessionId))
+				.forEach(sessionRepository::deleteById);
 	}
 
 	/**
@@ -301,6 +413,22 @@ public class AuthService {
 		context.setAuthentication(authentication);
 		securityContextHolderStrategy.setContext(context);
 		securityContextRepository.saveContext(context, httpRequest, httpResponse);
+	}
+
+	/**
+	 * startSession で作り直した CSRF トークンを、この返事の Cookie ですぐ渡す（メールアドレス・パスワードの変更のあと）。
+	 * ふつうは次のリクエストで渡す（CsrfCookieFilter）。ログインのあとは画面がボードを GET するので、それで間に合う。
+	 * 変更のあとは画面がそのまま残り、次がカードの保存などの PUT・POST になりうるので、ここで渡さないと 403 になる。
+	 * トークンの値を読むと、作られて Cookie に書き込まれる（CsrfCookieFilter と同じ）。
+	 */
+	private static void issueCsrfToken(HttpServletRequest httpRequest) {
+		if (httpRequest.getAttribute(CsrfToken.class.getName()) instanceof CsrfToken csrfToken) {
+			csrfToken.getToken();
+		}
+	}
+
+	private static String nullToEmpty(String value) {
+		return value == null ? "" : value;
 	}
 
 	// 前後の空白を取り除き、小文字にそろえる（要件 3章：Taro@example.com と taro@example.com は同じ人）

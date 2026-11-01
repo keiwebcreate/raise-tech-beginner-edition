@@ -65,4 +65,14 @@ public class User {
 		return createdAt;
 	}
 
+	// メールアドレスの変更（A-20）。小文字にそろえる・重複の確認は AuthService で行う
+	public void changeEmail(String email) {
+		this.email = email;
+	}
+
+	// パスワードの変更（A-21）。ハッシュにしてから渡す（そのままのパスワードは保存しない）
+	public void changePasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
 }

@@ -44,6 +44,10 @@ describe('validatePassword', () => {
     expect(validatePassword('')).toBe('パスワードを入力してください')
   })
 
+  it('項目名を渡すと、空のときのメッセージに使う（パスワードの変更 W-10）', () => {
+    expect(validatePassword('', '新しいパスワード')).toBe('新しいパスワードを入力してください')
+  })
+
   it('短すぎ・長すぎ・全角・空白入りはエラー', () => {
     const message = 'パスワードは8〜64文字の半角英数字・記号で入力してください'
     expect(validatePassword('pass123')).toBe(message) // 7文字
@@ -58,5 +62,11 @@ describe('validatePasswordConfirm', () => {
     expect(validatePasswordConfirm('password123', 'password123')).toBeNull()
     expect(validatePasswordConfirm('password123', 'password124')).toBe('パスワードが一致しません')
     expect(validatePasswordConfirm('password123', '')).toBe('パスワード（確認）を入力してください')
+  })
+
+  it('項目名を渡すと、空のときのメッセージに使う（パスワードの変更 W-10）', () => {
+    expect(validatePasswordConfirm('password123', '', '新しいパスワード（確認）')).toBe(
+      '新しいパスワード（確認）を入力してください',
+    )
   })
 })

@@ -9,6 +9,8 @@ type AuthContextValue = {
   user: UserResponse | null | undefined
   // ログイン・登録が成功したときに呼ぶ
   loggedIn: (user: UserResponse) => void
+  // ログインしたまま、ユーザー情報が変わったときに呼ぶ（メールアドレスの変更 A-20）。画面は移らない
+  userUpdated: (user: UserResponse) => void
   // ログアウトして、ログイン画面へ移る
   logout: () => Promise<void>
   // 退会が成功したときに呼ぶ。ログイン画面へ移り、「退会しました」を出す

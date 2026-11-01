@@ -2,17 +2,21 @@ package io.github.keiwebcreate.taskboard.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.Arrays;
+import java.util.UUID;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.annotation.DirtiesContext.ClassMode;
 import org.springframework.test.web.servlet.MockMvc;
@@ -70,6 +74,75 @@ class CsrfCookieTest {
 		// ログイン画面は API を呼ばないので、ログアウトの返事でもらったトークンだけで送る。これがないと 403 になっていた
 		mockMvc.perform(post("/api/auth/guest").cookie(newToken).header(HEADER, newToken.getValue()))
 				.andExpect(status().isCreated());
+	}
+
+	@Test
+	void パスワードを変えたあと_画面を再読み込みせずに次の変更を送れる() throws Exception {
+		Cookie session = signupWithCookieToken("csrf-" + UUID.randomUUID() + "@example.com");
+		Cookie token = lastXsrfCookie(mockMvc.perform(get("/api/board").cookie(session)).andReturn());
+
+		MvcResult change = mockMvc.perform(put("/api/auth/password").cookie(session, token)
+				.header(HEADER, token.getValue())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "currentPassword": "password123", "newPassword": "newpass456" }
+						"""))
+				.andExpect(status().isNoContent())
+				.andReturn();
+		// 変更の返事で、新しいセッションと新しいトークンをすぐ受け取る（ログインのときと違い、次の GET を待たない）
+		Cookie renewed = change.getResponse().getCookie("SESSION");
+		Cookie newToken = lastXsrfCookie(change);
+		assertThat(newToken.getMaxAge()).isNotZero();
+		assertThat(newToken.getValue()).isNotEqualTo(token.getValue());
+
+		// 画面はボードのまま、次にボード名の変更（PATCH）を送る
+		mockMvc.perform(patch("/api/board").cookie(renewed, newToken)
+				.header(HEADER, newToken.getValue())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "name": "新しい名前" }
+						"""))
+				.andExpect(status().isOk());
+	}
+
+	@Test
+	void メールアドレスを変えたあと_画面を再読み込みせずに次の変更を送れる() throws Exception {
+		Cookie session = signupWithCookieToken("csrf-" + UUID.randomUUID() + "@example.com");
+		Cookie token = lastXsrfCookie(mockMvc.perform(get("/api/board").cookie(session)).andReturn());
+
+		MvcResult change = mockMvc.perform(put("/api/auth/email").cookie(session, token)
+				.header(HEADER, token.getValue())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "email": "csrf-%s@example.com", "currentPassword": "password123" }
+						""".formatted(UUID.randomUUID())))
+				.andExpect(status().isOk())
+				.andReturn();
+		Cookie renewed = change.getResponse().getCookie("SESSION");
+		Cookie newToken = lastXsrfCookie(change);
+		assertThat(newToken.getMaxAge()).isNotZero();
+
+		mockMvc.perform(patch("/api/board").cookie(renewed, newToken)
+				.header(HEADER, newToken.getValue())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "name": "新しい名前" }
+						"""))
+				.andExpect(status().isOk());
+	}
+
+	// 画面と同じく、GET で受け取ったトークンで登録する。返すのはセッションの Cookie
+	private Cookie signupWithCookieToken(String email) throws Exception {
+		Cookie token = lastXsrfCookie(mockMvc.perform(get("/api/auth/me")).andReturn());
+		Cookie session = mockMvc.perform(post("/api/auth/signup").cookie(token).header(HEADER, token.getValue())
+				.contentType(MediaType.APPLICATION_JSON)
+				.content("""
+						{ "email": "%s", "password": "password123" }
+						""".formatted(email)))
+				.andExpect(status().isCreated())
+				.andReturn().getResponse().getCookie("SESSION");
+		assertThat(session).isNotNull();
+		return session;
 	}
 
 	// レスポンスの XSRF-TOKEN の Cookie のうち、最後のもの（ブラウザが最後に受け取る値）

@@ -10,6 +10,7 @@
   --primary: #3e63dd;
   --primary-hover: #3358d4;
   --danger: #e5484d;
+  --success: #30a46c; /* 成功の通知（メールアドレス・パスワードの変更） */
   --red: #e5484d;
   --yellow: #ffc53d;
 

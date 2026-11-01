@@ -28,6 +28,16 @@ export function getMe(): Promise<UserResponse> {
   return apiFetch<UserResponse>('/api/auth/me')
 }
 
+// A-20 メールアドレスの変更（変えたあとのユーザー情報が返る。今のパスワードが違えば 400 の ApiError）
+export function changeEmail(email: string, currentPassword: string): Promise<UserResponse> {
+  return apiFetch<UserResponse>('/api/auth/email', 'PUT', { email, currentPassword })
+}
+
+// A-21 パスワードの変更（今のパスワードが違えば 400 の ApiError）
+export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return apiFetch<void>('/api/auth/password', 'PUT', { currentPassword, newPassword })
+}
+
 // A-19 退会（アカウントとすべてのデータを削除する。パスワードが違えば 400 の ApiError）
 export function withdraw(password: string): Promise<void> {
   return apiFetch<void>('/api/auth/withdraw', 'POST', { password })

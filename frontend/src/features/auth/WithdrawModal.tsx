@@ -5,7 +5,7 @@ import { useToast } from '../../shared/ui/ToastContext.ts'
 import { useAuth } from './AuthContext.ts'
 import * as authApi from './authApi.ts'
 import { FormField } from './FormField.tsx'
-import styles from './WithdrawModal.module.css'
+import styles from './AccountModal.module.css'
 
 // W-08 退会の確認（画面設計書 W-08、要件 U-11）
 // パスワードで本人か確かめてから、アカウントとすべてのデータを削除する

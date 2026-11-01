@@ -22,15 +22,20 @@ export function validateEmail(value: string): string | null {
 }
 
 // 8〜64文字、半角の英数字と記号のみ（空白は含めない）
-export function validatePassword(value: string): string | null {
-  if (value === '') return MESSAGES.required('パスワード')
+// fieldName は空のときのメッセージに使う（パスワードの変更 W-10 では「新しいパスワード」）
+export function validatePassword(value: string, fieldName = 'パスワード'): string | null {
+  if (value === '') return MESSAGES.required(fieldName)
   if (!/^[\x21-\x7e]{8,64}$/.test(value)) return MESSAGES.passwordRule
   return null
 }
 
-// パスワード（確認）。画面側だけでチェックする（API設計書 A-01）
-export function validatePasswordConfirm(password: string, confirm: string): string | null {
-  if (confirm === '') return MESSAGES.required('パスワード（確認）')
+// パスワード（確認）。画面側だけでチェックする（API設計書 A-01・A-21）
+export function validatePasswordConfirm(
+  password: string,
+  confirm: string,
+  fieldName = 'パスワード（確認）',
+): string | null {
+  if (confirm === '') return MESSAGES.required(fieldName)
   if (confirm !== password) return MESSAGES.passwordMismatch
   return null
 }
