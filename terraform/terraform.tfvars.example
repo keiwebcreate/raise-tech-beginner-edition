@@ -1,0 +1,8 @@
+# 見本です。このファイルをコピーして terraform.tfvars を作り、自分の値に書き換えてください。
+# terraform.tfvars は Git に入りません（.gitignore）。
+
+# 自分のパソコンの IP アドレス。https://checkip.amazonaws.com で調べ、後ろに /32 を付ける
+my_ip_cidr = "203.0.113.10/32"
+
+# SSH の公開鍵（.pub）の場所
+ssh_public_key_path = "~/.ssh/taskboard_ec2.pub"
