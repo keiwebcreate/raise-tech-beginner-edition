@@ -34,12 +34,16 @@ resource "aws_instance" "app" {
     delete_on_termination = true
   }
 
-  # 初めて起動したときに1回だけ動く命令：Java 25 を入れる
+  # 初めて起動したときに1回だけ動く命令
+  # - Java 25：Spring Boot を動かす
+  # - Nginx：画面のファイルを配り、/api を Spring Boot へ転送する（転送の設定は段階3）
+  # 画面はパソコンで npm run build してから送るので、Node.js は入れない
   user_data = <<-EOF
     #!/bin/bash
     set -eu
     dnf -y update
-    dnf -y install java-25-amazon-corretto-headless
+    dnf -y install java-25-amazon-corretto-headless nginx
+    systemctl enable --now nginx
   EOF
 
   # イメージの最新版が出るたびにサーバーを作り直さないよう、作ったあとの AMI の変化は無視する

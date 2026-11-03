@@ -18,6 +18,6 @@ output "ssh_command" {
 }
 
 output "app_url" {
-  description = "段階3でアプリを載せたあとの URL（今はまだ何も動いていない）"
-  value       = "http://${aws_instance.app.public_ip}:8080"
+  description = "ブラウザで開く URL（段階1では Nginx の初期のページ。段階3からアプリが出る）"
+  value       = "http://${aws_instance.app.public_ip}"
 }

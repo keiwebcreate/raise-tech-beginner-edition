@@ -17,7 +17,7 @@ variable "region" {
 }
 
 variable "my_ip_cidr" {
-  description = "SSH（22）とアプリ（8080）を許す、自分のパソコンの IP アドレス（例：203.0.113.10/32）"
+  description = "SSH（22）と HTTP（80）を許す、自分のパソコンの IP アドレス（例：203.0.113.10/32）"
   type        = string
 
   validation {

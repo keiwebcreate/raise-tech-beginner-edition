@@ -5,7 +5,7 @@
 
 resource "aws_security_group" "ec2" {
   name        = "${var.project_name}-ec2-sg"
-  description = "TaskBoard EC2: SSH and app from my IP only"
+  description = "TaskBoard EC2: SSH and HTTP from my IP only"
   vpc_id      = aws_vpc.main.id
 
   tags = { Name = "${var.project_name}-ec2-sg" }
@@ -21,14 +21,15 @@ resource "aws_vpc_security_group_ingress_rule" "ssh_from_my_ip" {
   cidr_ipv4         = var.my_ip_cidr
 }
 
-# 入ってくる通信 2：Spring Boot（画面と API の両方を 8080 で出す）。自分の IP アドレスからだけ。
-# 段階4で、CloudFront からだけに変える。
-resource "aws_vpc_security_group_ingress_rule" "app_from_my_ip" {
+# 入ってくる通信 2：HTTP（80）。Nginx が受け、画面のファイルを返し、/api は Spring Boot（8080）へ転送する。
+# Spring Boot の 8080 は外に開けない（同じ EC2 の中の Nginx からだけ使う）。
+# 自分の IP アドレスからだけ。段階4で、CloudFront からだけに変える。
+resource "aws_vpc_security_group_ingress_rule" "http_from_my_ip" {
   security_group_id = aws_security_group.ec2.id
-  description       = "Spring Boot (screen and API) from my PC"
+  description       = "HTTP (Nginx) from my PC"
   ip_protocol       = "tcp"
-  from_port         = 8080
-  to_port           = 8080
+  from_port         = 80
+  to_port           = 80
   cidr_ipv4         = var.my_ip_cidr
 }
 

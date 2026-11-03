@@ -35,22 +35,31 @@
 
 | 段階 | 作るもの | 確かめること | 状態 |
 |---|---|---|---|
-| 1 | VPC・パブリックサブネット・セキュリティグループ・EC2 | SSH でログインでき、Java 25 が入っている | 作成中（#65） |
+| 1 | VPC・パブリックサブネット・セキュリティグループ・EC2（Java 25・Nginx 入り） | SSH でログインでき、Java 25 が入っている。ブラウザで Nginx の初期のページが出る | 作成中（#65） |
 | 2 | DB（RDS にするか、EC2 の中に入れるかは、この段階で決める） | EC2 から DB につながる | 未着手 |
-| 3 | アプリ（Spring Boot が画面のファイルも配る）を EC2 に載せる | `http://（EC2 の IP アドレス）:8080` でログイン画面が出る | 未着手 |
+| 3 | アプリを EC2 に載せる（画面のファイルは Nginx、API は Spring Boot。Nginx が `/api` を転送する） | `http://（EC2 の IP アドレス）` でログイン画面が出る | 未着手 |
 | 4 | CloudFront を EC2 の前に置き、HTTPS にする | `https://xxxx.cloudfront.net` で使える（受け入れ基準 AC-44〜AC-54） | 未着手 |
 
 ### 2.2 段階1の構成
 
 ```
 自分のパソコン（IP アドレスを1つだけ許す）
-   │  SSH（22）・アプリ（8080）
+   │  SSH（22）・HTTP（80）
    ▼
 AWS 東京リージョン
 └─ VPC（10.0.0.0/16）
     └─ パブリックサブネット（10.0.1.0/24・ap-northeast-1a）
-        └─ EC2（t4g.micro・Amazon Linux 2023・Java 25）
+        └─ EC2（t4g.micro・Amazon Linux 2023・Java 25・Nginx）
 ```
+
+段階3でアプリを載せたあとの、EC2 の中の形：
+
+```
+ブラウザ ─80─▶ Nginx ─┬ /       → 画面のファイル（パソコンで npm run build したもの）
+                      └ /api/…  → Spring Boot（8080。外には開けない）
+```
+
+開発中に Vite（5173）が `/api` を Spring Boot へ転送しているのと同じ形。
 
 ### 2.3 決めたこと
 
@@ -59,11 +68,12 @@ AWS 東京リージョン
 | 1 | 作り方 | AWS CLI と Terraform。画面での手作業はしない | 同じものを作り直せる。Git に履歴が残る。AI がファイルを書いて進められる（講座の進め方） |
 | 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 6章 |
 | 3 | 進め方 | 段階に分ける（2.1） | 問題が起きたとき、どこが原因かがわかりやすい（講座の進め方） |
-| 4 | 画面の配り方 | Spring Boot が画面のファイルも配り、同じサーバー・同じポートで出す（S3 は使わない） | いちばん単純。画面と API が同じ住所になり、CORS の設定がいらない（詳細設計書の方針どおり） |
+| 4 | 画面の配り方 | 同じ EC2 の Nginx（80）が画面のファイルを配り、`/api` を Spring Boot（8080）へ転送する。S3 は使わない。EC2 に Node.js は入れない（画面はパソコンでビルドして送る） | 講座と同じく画面と API を同じサーバーに置く。画面と API が同じ住所になり、CORS の設定がいらない（詳細設計書の方針どおり）。開発中の Vite と同じ形で説明しやすく、サーバーのコードを変えずに済む。Spring Boot を外に開けなくてよい |
 | 5 | HTTPS | 段階4で CloudFront の無料の住所（`*.cloudfront.net`）を使う。ドメインは買わない | ログインがあるので HTTPS は必須（NS-02）。ドメインの購入はクレジットで払えないことがある |
 | 6 | EC2 へのログイン | SSH（鍵ファイル）。ポート 22 は自分の IP アドレスだけに許す | 講座と同じ方法。ファイルの送り込み（`scp`）も簡単 |
-| 7 | EC2 の大きさ | t4g.micro（ARM・メモリ 1GB）。段階2で DB を EC2 に入れるなら t4g.small（2GB）に上げる | 無料プランのクレジットで長くもつ。Java は ARM でもそのまま動く |
-| 8 | state の置き場所 | パソコンの `terraform/terraform.tfstate`（Git には入れない） | 作業するのが1人なので、共有の置き場所（S3 など）はまだいらない |
+| 7 | 段階1〜3の HTTP（80） | 自分の IP アドレスだけに許す。段階4で CloudFront からだけに変える | HTTPS になる前のログイン画面を、他人に使わせない |
+| 8 | EC2 の大きさ | t4g.micro（ARM・メモリ 1GB）。段階2で DB を EC2 に入れるなら t4g.small（2GB）に上げる | 無料プランのクレジットで長くもつ。Java は ARM でもそのまま動く |
+| 9 | state の置き場所 | パソコンの `terraform/terraform.tfstate`（Git には入れない） | 作業するのが1人なので、共有の置き場所（S3 など）はまだいらない |
 
 ## 3. 料金とクレジット
 
@@ -160,8 +170,8 @@ aws sts get-caller-identity
 | `terraform.tfvars.example` | 変数の値の見本。コピーして `terraform.tfvars` を作る |
 | `terraform.tfvars` | 変数の値（自分の IP アドレスなど）。**Git に入れない** |
 | `network.tf` | VPC・インターネットゲートウェイ・パブリックサブネット・ルートテーブル |
-| `security_groups.tf` | EC2 のセキュリティグループ（22 と 8080 を自分の IP アドレスだけに許す） |
-| `ec2.tf` | SSH の公開鍵の登録と EC2。起動時に Java 25 を入れる |
+| `security_groups.tf` | EC2 のセキュリティグループ（22 と 80 を自分の IP アドレスだけに許す） |
+| `ec2.tf` | SSH の公開鍵の登録と EC2。起動時に Java 25 と Nginx を入れる |
 | `outputs.tf` | 作ったあとに表示する値（IP アドレス・SSH のコマンドなど） |
 | `.terraform.lock.hcl` | プロバイダーの版を固定する記録。Git に入れる |
 | `.gitignore` | state・`terraform.tfvars`・鍵などを Git に入れないための設定 |
@@ -211,9 +221,12 @@ ssh -i ~/.ssh/taskboard_ec2 ec2-user@$(terraform output -raw ec2_public_ip)
 EC2 の中で：
 
 ```bash
-java -version    # 25 が出る（起動から数分かかることがある。出なければ少し待つ）
+java -version             # 25 が出る（起動から数分かかることがある。出なければ少し待つ）
+systemctl status nginx    # active (running) と出る（q で戻る）
 exit
 ```
+
+ブラウザで `terraform output -raw app_url` の URL（`http://（IP アドレス）`）を開くと、Nginx の初期のページが出る。
 
 セキュリティグループが自分の IP アドレスだけを許しているか：
 
@@ -221,7 +234,7 @@ exit
 aws ec2 describe-security-group-rules \
   --filters Name=group-id,Values=$(aws ec2 describe-security-groups --filters Name=group-name,Values=taskboard-ec2-sg --query "SecurityGroups[0].GroupId" --output text) \
   --query "SecurityGroupRules[?!IsEgress].[FromPort,CidrIpv4]" --output text
-# 22 と 8080 の行に、自分の IP アドレス/32 だけが出る
+# 22 と 80 の行に、自分の IP アドレス/32 だけが出る（8080 は出ない）
 ```
 
 ### 5.6 削除する
@@ -239,7 +252,7 @@ terraform destroy         # すべて消す（料金がかからなくなる）
 - **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）
 - アクセスキーは期限がないので、長く使わない時期は IAM の画面で「無効」にする。漏れたかもしれないときは、すぐ削除して作り直す
 - ルートユーザーのアクセスキーは作らない。ルートユーザーはコンソールで、MFA を付けて使う
-- 外からの入口は、必要なポートを、必要な相手にだけ開ける（`0.0.0.0/0` で開けない。`variables.tf` の入力チェックで `/32` 以外を断る）
+- 外からの入口は、必要なポートを、必要な相手にだけ開ける（`0.0.0.0/0` で開けない。`variables.tf` の入力チェックで `/32` 以外を断る）。Spring Boot の 8080 は外に開けない
 - Terraform で作ったものを、コンソールで手で直さない（ファイルと実物がずれる）
 - `terraform apply`・`destroy` は、`plan` の結果を確かめてから
 
@@ -250,7 +263,7 @@ terraform destroy         # すべて消す（料金がかからなくなる）
 | `aws` や `terraform` が見つからない | 入れたあとで VS Code（Cursor）を開き直していない |
 | `explicit deny in a service control policy` で断られる | 作ったばかりのアカウントでは、AWS の確認が終わるまで（数時間〜24時間）、IAM ユーザーから EC2・S3 などを使えないことがある（2026-11-03 に発生）。IAM の権限を足しても解決しない（SCP は IAM より上の段の決まり）。24時間たっても変わらなければ、AWS サポート（アカウントと請求。無料）に問い合わせる |
 | SSH がつながらない（`Connection timed out`） | 家の IP アドレスが変わった。5.3 で `my_ip_cidr` を直し、`plan`・`apply` する |
-| `java -version` が見つからない | 起動直後で、Java をまだ入れている途中。数分待つ。`sudo cat /var/log/cloud-init-output.log` で進み具合を見られる |
+| `java -version` が見つからない・ブラウザで開けない | 起動直後で、Java と Nginx をまだ入れている途中。数分待つ。`sudo cat /var/log/cloud-init-output.log` で進み具合を見られる |
 | Git Bash で `aws ssm …` に渡したパスが `C:/Program Files/Git/…` に化ける | Git Bash がパスを Windows の形に直している。前に `MSYS_NO_PATHCONV=1` を付ける |
 
 ## 8. 改訂履歴
