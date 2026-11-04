@@ -184,6 +184,12 @@ aws sts get-caller-identity
 ssh-keygen -t ed25519 -f ~/.ssh/taskboard_ec2 -C "taskboard-ec2"
 ```
 
+PowerShell では `~` がホームのフォルダにならないので、`$HOME` を使う。
+
+```powershell
+ssh-keygen -t ed25519 -f "$HOME\.ssh\taskboard_ec2" -C "taskboard-ec2"
+```
+
 - `~/.ssh/taskboard_ec2`（秘密鍵）は人に渡さない。プロジェクトのフォルダに置かない
 - パスフレーズ（鍵のパスワード）は付けたほうが安全。付けると、使うたびに聞かれる
 
