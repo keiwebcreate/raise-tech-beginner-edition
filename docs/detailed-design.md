@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-04（インフラのチェックの道具 Trivy を追加。イシュー #71）
+最終更新：2026-11-04（CloudFront の後ろでの本当の接続元と HTTPS。イシュー #73）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -445,7 +445,8 @@ sequenceDiagram
 - ロードバランサーなどの中継役を通すと、`getRemoteAddr()` は全員が中継役の IP アドレスになる。本当の接続元は、中継役がヘッダー `X-Forwarded-For` に書いて渡す
 - このヘッダーはブラウザ側でも好きな値を書けるので、自分で読まない。本番の設定で `server.forward-headers-strategy: native` を有効にし、Tomcat に任せる。Tomcat は、信用できる中継役（初期設定では 10.x・192.168.x などの内部のアドレス）から来たときだけ、ヘッダーの値を `getRemoteAddr()` にする。AWS の構成を決めるときに、中継役のアドレスが内部のものかを確かめる（7章）
 - 今の構成（`deployment.md` 7.1）：中継役は同じ EC2 の Nginx（`127.0.0.1`。Tomcat が初期設定で信用する内部のアドレス）。`application-prod.yml` で `native` を有効にした。Nginx は、ブラウザが送ってきた `X-Forwarded-For` を使わず、Nginx が見た接続元（`$remote_addr`）で上書きして渡す（偽装を防ぐ）。2026-11-04 に、ログインの失敗のログに本当の接続元の IP アドレスが出ることを確かめた
-- 段階4で CloudFront を前に置くと、Nginx から見た接続元は CloudFront になる。そのときは、CloudFront のアドレスからだけ `X-Forwarded-For` を信用するよう、Nginx の設定を変える
+- 段階4（2026-11-04。イシュー #73）：CloudFront を前に置いたので、Nginx から見た接続元は CloudFront になる。Nginx の `real_ip` で、CloudFront のアドレスから来たときだけ `X-Forwarded-For` の右から CloudFront のアドレスを飛ばし、本当の接続元を取る（CloudFront は、ブラウザの値の右に自分が見た接続元を必ず足すので、ブラウザの嘘の値は無視される）。その値で `X-Forwarded-For` を上書きして Spring Boot に渡す。同じく CloudFront から来たときだけ `CloudFront-Forwarded-Proto` を信用して `X-Forwarded-Proto: https` を渡すので、Spring Boot は Cookie に `Secure` を付ける（`deployment.md` 8.3）。ログインの失敗のログに本当の接続元が出ることを確かめた
+- IPv6 は CloudFront で切った（1つの回線が非常に多くのアドレスを持てて、回数制限が効かないため。`deployment.md` 8.2）
 - 知っておくこと：IPv6 は1人が多くのアドレスを持てるので、アドレスを変えながら試されると防ぎきれない。必要になったら、IPv6 は上の64ビットだけで数えるようにする
 
 **テスト**（`RateLimitApiTest`）
@@ -708,7 +709,7 @@ Vitest で、ロジックのある部分だけを自動テストする。
 
 `./gradlew check` はテストも一緒に走らせる（`./gradlew build` でも走る）。インフラのチェックは GitHub Actions では走らせない（AWS の認証が要る `plan` があるため）。スキル `quality-check` の手順で、パソコンで走らせる。
 
-**Trivy で外したもの**（`terraform/.trivyignore`。2026-11-04 にユーザーと決めた）：サブネットで外から見える IP を付ける（AWS-0164。ロードバランサーを使わないため）、EC2 から外への通信をすべて許す（AWS-0104。OS の更新と AWS の API のため。絞るには有料の VPC エンドポイントが要る）、VPC フローログなし（AWS-0178）、RDS の IAM 認証なし（AWS-0176）、RDS の削除の保護なし（AWS-0177。すぐ消す前提）、Performance Insights なし（AWS-0133）。構成を変えたら見直す
+**Trivy で外したもの**（`terraform/.trivyignore`。2026-11-04 にユーザーと決めた）：CloudFront の WAF なし（AWS-0011。月 5 USD〜）、CloudFront のアクセスの記録なし（AWS-0010）、サブネットで外から見える IP を付ける（AWS-0164。ロードバランサーを使わないため）、EC2 から外への通信をすべて許す（AWS-0104。OS の更新と AWS の API のため。絞るには有料の VPC エンドポイントが要る）、VPC フローログなし（AWS-0178）、RDS の IAM 認証なし（AWS-0176）、RDS の削除の保護なし（AWS-0177。すぐ消す前提）、Performance Insights なし（AWS-0133）。構成を変えたら見直す
 
 **規則の選び方**
 - Checkstyle：有名な Google や Sun の規則は、タブでの字下げがすべて違反になるので使わない。今のコードの書き方（Spring のひな形と同じタブ、Eclipse・Spring と同じ import の並び）に合わせて、このプロジェクト用に選んだ
@@ -752,4 +753,4 @@ AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめ�
 
 - ~~回数制限（要件 U-10）の数え方の実装~~ → DB に記録する（3.8.8。2026-11-01 決定）
 - ~~AWS の構成（本番での画面とAPIの配信のしかた）~~ → EC2 の Nginx が画面を配り、`/api` を Spring Boot へ転送する（`deployment.md`。2026-11-04）。~~`server.forward-headers-strategy` の設定~~ → 入れた（3.8.8）。~~`frame-ancestors 'none'`~~ → Nginx のヘッダーで付けた（4.9）
-- HTTPS と HSTS のヘッダー、CloudFront を通したときの本当の接続元（3.8.8）。段階4で決める
+- ~~HTTPS と HSTS のヘッダー、CloudFront を通したときの本当の接続元~~ → CloudFront で HTTPS にし、HSTS を付けた。本当の接続元は Nginx の `real_ip`（3.8.8・`deployment.md` 8章。2026-11-04）

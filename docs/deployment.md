@@ -1,6 +1,6 @@
 # デプロイ手順書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-04（品質チェックに Trivy を追加。イシュー #71）
+最終更新：2026-11-04（段階4：CloudFront で HTTPS。イシュー #73）
 
 このアプリを AWS に公開する（要件 G-04）ための手順と、その考え方をまとめた文書。AWS や Terraform を初めて使う人が、この文書だけで同じ環境を作り直し・削除できることを目指す。
 
@@ -40,7 +40,7 @@
 | 1 | VPC・パブリックサブネット・セキュリティグループ・EC2（Java 25・Nginx 入り） | SSH でログインでき、Java 25 が入っている。ブラウザで Nginx の初期のページが出る | 完了（#65。2026-11-04） |
 | 2 | RDS（PostgreSQL）。EC2 からだけつながる | EC2 から `psql` でつながる。パソコンからはつながらない | 完了（#67。2026-11-04） |
 | 3 | アプリを EC2 に載せる（画面のファイルは Nginx、API は Spring Boot。Nginx が `/api` を転送する） | `http://（EC2 の IP アドレス）` でログイン画面が出て、操作できる | 完了（#69。2026-11-04） |
-| 4 | CloudFront を EC2 の前に置き、HTTPS にする（us-east-1 が SCP で拒否されているので、CloudFront を作れるかを最初に確かめる。作れなければ別の方法を相談する） | `https://xxxx.cloudfront.net` で使える（受け入れ基準 AC-44〜AC-54） | 未着手 |
+| 4 | CloudFront を EC2 の前に置き、HTTPS にする | `https://xxxx.cloudfront.net` で使える（受け入れ基準 AC-44〜AC-54） | 完了（#73。2026-11-04） |
 
 ### 2.2 段階1の構成
 
@@ -68,7 +68,7 @@ AWS シドニーリージョン（ap-southeast-2）
 | # | 項目 | 決定 | 理由 |
 |---|---|---|---|
 | 1 | 作り方 | AWS CLI と Terraform。画面での手作業はしない | 同じものを作り直せる。Git に履歴が残る。AI がファイルを書いて進められる（講座の進め方） |
-| 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 8章 |
+| 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 9章 |
 | 3 | 進め方 | 段階に分ける（2.1） | 問題が起きたとき、どこが原因かがわかりやすい（講座の進め方） |
 | 4 | 画面の配り方 | 同じ EC2 の Nginx（80）が画面のファイルを配り、`/api` を Spring Boot（8080）へ転送する。S3 は使わない。EC2 に Node.js は入れない（画面はパソコンでビルドして送る） | 講座と同じく画面と API を同じサーバーに置く。画面と API が同じ住所になり、CORS の設定がいらない（詳細設計書の方針どおり）。開発中の Vite と同じ形で説明しやすく、サーバーのコードを変えずに済む。Spring Boot を外に開けなくてよい |
 | 5 | HTTPS | 段階4で CloudFront の無料の住所（`*.cloudfront.net`）を使う。ドメインは買わない | ログインがあるので HTTPS は必須（NS-02）。ドメインの購入はクレジットで払えないことがある |
@@ -80,6 +80,8 @@ AWS シドニーリージョン（ap-southeast-2）
 | 11 | DB | 講座と同じく RDS（6章）。デプロイを終えて画面を確かめたら、すぐ `terraform destroy` で消す | RDS を足すと月 約 34 USD になり、月 20 USD の上限を超える。ずっと公開しておくのではなく、確かめたら消す前提なので、上限を超える前に消せる（2026-11-04 にユーザーが決めた） |
 | 12 | DB のパスワードの渡し方 | パラメータストア（暗号化）に入れ、EC2 の IAM ロール（そのパラメータを読むだけ）で起動の前に読む。パスワードは Terraform が作り、state に残さない（7.2） | 要件 NS-12「本番では AWS のパラメータ管理機能に入れる」。パラメータストアの標準の機能は無料。だれもパスワードを見ずに済む（2026-11-04 にユーザーが選んだ） |
 | 13 | EC2 への送り込み | ssh-agent に預けた鍵で、スクリプト（`scripts/`）を AI が実行する | パスフレーズを AI に渡さずに、AI が送り込みと確認をできる（2026-11-04 にユーザーが選んだ） |
+| 14 | CloudFront と EC2 の間 | HTTP のまま。EC2 の 80 番は CloudFront からだけ | ドメインを持っていないので、EC2 に証明書を付けられない。ドメインを買うと年 15 USD ほどかかる（2026-11-04 にユーザーが選んだ。8.1） |
+| 15 | IPv6 | CloudFront で切る | IP アドレスごとの回数制限を効かせるため（2026-11-04 にユーザーが選んだ。8.2） |
 
 ## 3. 料金とクレジット
 
@@ -114,7 +116,7 @@ AWS の価格の API（`aws pricing get-products`）で調べた値。
 | 外から見える IP アドレス（IPv4） | 0.005 USD/時 | 約 3.7 USD |
 | EC2 のディスク（gp3） | 0.096 USD/GB・月 | 20GB で 約 1.9 USD |
 | RDS db.t4g.micro（PostgreSQL・1か所） | 0.025 USD/時 | 約 18.3 USD（＋ディスク） |
-| CloudFront | 月 1TB の転送まで無料 | 0 USD |
+| CloudFront | 月 1TB の転送・1,000万リクエストまで無料 | 0 USD |
 
 段階1の構成（t4g.micro ＋ IPv4 ＋ ディスク 20GB）は**ひと月 約 13.3 USD（1日 約 0.44 USD）**。段階2の RDS（db.t4g.micro ＋ gp3 20GB。0.138 USD/GB・月）を足すと**1日 約 1.1 USD（ひと月 約 34 USD）**で、月 20 USD の上限を超えるので、ずっと動かしておかない。使わない時期は `terraform destroy` で消せば料金はかからない（5.6）。RDS のパスワードの預け先（Secrets Manager）は 1つ月 0.40 USD（日割り）。
 
@@ -189,7 +191,7 @@ aws sts get-caller-identity
 | `outputs.tf` | 作ったあとに表示する値（IP アドレス・SSH のコマンドなど） |
 | `.terraform.lock.hcl` | プロバイダーの版を固定する記録。Git に入れる |
 | `.gitignore` | state・`terraform.tfvars`・鍵などを Git に入れないための設定 |
-| `.trivyignore` | Trivy（設定ミスを調べる道具）の指摘のうち、承知のうえで外すもの（理由つき。8.1） |
+| `.trivyignore` | Trivy（設定ミスを調べる道具）の指摘のうち、承知のうえで外すもの（理由つき。9.1） |
 
 ### 5.2 SSH の鍵を作る
 
@@ -303,7 +305,7 @@ AWS シドニーリージョン（ap-southeast-2）
 | `rds.tf` | RDS の区画の組（サブネットグループ）と RDS |
 | `variables.tf` | RDS の版（`db_engine_version`）と大きさ（`db_instance_class`）を足した |
 | `outputs.tf` | RDS の住所、パスワードの預け先（Secrets Manager）の場所、`psql` のコマンドを足した |
-| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（9章） |
+| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（10章） |
 
 ### 6.3 RDS の設定
 
@@ -323,7 +325,7 @@ AWS シドニーリージョン（ap-southeast-2）
 
 5.4 と同じ（`plan` を見てから `apply`）。段階2の `plan` は「9 to add, 0 to change」（プライベートサブネット2つ・道案内の表とその結びつけ2つ・RDS のセキュリティグループとルール・サブネットグループ・RDS）。RDS は作るのに 8分ほどかかる。
 
-**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。9章を参照。
+**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。10章を参照。
 
 ### 6.5 確かめる（パスワードを扱うので、ユーザーが行う）
 
@@ -465,9 +467,68 @@ sudo systemctl restart taskboard         # 起動し直す
 free -m                                  # メモリ
 ```
 
-## 8. 安全のための決まり
+## 8. 段階4：CloudFront で HTTPS
 
-### 8.1 品質チェック
+### 8.1 構成
+
+```
+ブラウザ ─HTTPS─▶ CloudFront（https://xxxx.cloudfront.net）─HTTP─▶ EC2 の Nginx（80）→ 7.1 のとおり
+```
+
+- 公開の URL は `terraform output -raw cloudfront_url`。証明書は CloudFront の無料のもの（`*.cloudfront.net`）。ドメインは買わない
+- **CloudFront と EC2 の間は HTTP のまま**（暗号化していない）。ドメインを持っていないので、EC2 に証明書を付けられないため（2026-11-04 にユーザーと決めた）。EC2 の 80 番には、CloudFront からしか届かない（AWS が用意している CloudFront のアドレスの一覧 `com.amazonaws.global.cloudfront.origin-facing` だけを許す）。SSH（22）は自分の IP アドレスから
+- us-east-1 は SCP で拒否されているが、CloudFront はシドニーの IAM ユーザーから作れた（2026-11-04）
+
+### 8.2 CloudFront の設定（`terraform/cloudfront.tf`）
+
+| 道（パス） | キャッシュ | EC2 へ渡すもの | 理由 |
+|---|---|---|---|
+| `/api/*` | しない | ブラウザのヘッダー・Cookie・クエリすべてと、CloudFront のヘッダー（`CloudFront-Forwarded-Proto` など） | ログイン・CSRF のトークンをそのまま届ける |
+| `/assets/*` | する（`CachingOptimized`） | なし | 名前に中身の印が付いたファイル。中身が変わると名前も変わる |
+| そのほか（`/`・`/boards/1` など） | しない | なし | `index.html` の新しい版をすぐ反映する |
+
+- http で来たら https に移す（301）。すべてのレスポンスに HSTS（`max-age=31536000`。1年）を付ける
+- **IPv6 は切った**（`is_ipv6_enabled = false`）。IPv6 は1つの回線が非常に多くのアドレスを持てるので、アドレスを変えながら試されると、IP アドレスごとの回数制限が効かないため（詳細設計書 3.8.8。2026-11-04 にユーザーと決めた）
+- 配る地域は `PriceClass_200`（日本とオーストラリアを含む）。料金は月 1TB の転送・1,000万リクエストまで無料
+
+### 8.3 Nginx（CloudFront の後ろで動かす）
+
+- **本当の接続元**：CloudFront のアドレス（`/etc/nginx/cloudfront-realip.conf`）から来たときだけ、`X-Forwarded-For` の右から CloudFront のアドレスを飛ばして、本当の接続元を取る（`real_ip_recursive`）。CloudFront は、ブラウザの値の右に、自分が見た接続元を必ず足すので、ブラウザが嘘の値を書いても無視される。その値で `X-Forwarded-For` を上書きして Spring Boot に渡す
+- **元は https だったか**：CloudFront から来たときだけ（`cloudfront-geo.conf`）、CloudFront が付ける `CloudFront-Forwarded-Proto` を信用し、`X-Forwarded-Proto: https`・`X-Forwarded-Port: 443` で Spring Boot に渡す。Spring Boot はこれで「HTTPS で来た」とわかり、Cookie に `Secure` を付ける
+- CloudFront のアドレスの一覧は、`setup-server.sh` が AWS の公開の一覧（`ip-ranges.json` の `CLOUDFRONT_ORIGIN_FACING`。2026-11-04 は49件）から作る。一覧は時々変わるので、ときどき `setup-server.sh` を実行し直す
+
+### 8.4 作る（2回に分けた）
+
+1. CloudFront と、「80 番を CloudFront からも許す」ルールを足す → ブラウザで確かめる（自分の IP の口は残しておく。CloudFront を作れなかったときに画面を開けなくならないように）
+2. 「80 番を自分の IP から許す」ルールを消し、IPv6 を切る。これで EC2 の IP アドレスに直接つないでも、つながらない
+
+CloudFront は、作るのに 3分ほど、変えるのに 1分ほどかかった（設定が世界中の拠点に行き渡るまで）。
+
+### 8.5 確かめる（受け入れ基準。2026-11-04）
+
+| 受け入れ基準 | 方法 | 結果 |
+|---|---|---|
+| AC-44 | `https://（CloudFront の住所）` を開く | ログイン画面が出て、操作できる（ユーザーが確認） |
+| AC-47 | `ssh -t ec2-user@（IP） sudo /opt/taskboard/bin/psql-app.sh -c "select left(password_hash, 4), length(password_hash) from users limit 5"` | `$2a$`・60文字（BCrypt）。`psql-app.sh` は、アプリ用のユーザーで本番の DB を開く確認用のスクリプト（パスワードはパラメータストアから読む） |
+| AC-48 | 開発者ツールの「Application」→ Cookies | `SESSION` に HttpOnly・Secure・SameSite=Lax。http で開くと https に移る（ユーザーが確認） |
+| AC-49 | カードのタイトルに `<script>alert(1)</script>` | 文字のまま表示され、実行されない（ユーザーが確認） |
+| AC-50 | `X-XSRF-TOKEN` なしで POST | 403（`CSRF_INVALID`） |
+| AC-51 | `curl -I` | `Strict-Transport-Security`・`Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`・`X-Content-Type-Options: nosniff`。HTML に CSP の `<meta>` |
+| AC-52 | 存在しない API・形の違う JSON | 401（ログイン前）・400。スタックトレースは出ない |
+| AC-53 | Dependabot | 有効。未対応の通知は0件 |
+| AC-54 | 自分のパソコンから RDS へ | つながらない |
+| （追加） | EC2 の IP アドレスに直接 | つながらない |
+| （追加） | ログインの失敗のログ | CloudFront ではなく、自分の IP アドレスが出る |
+
+### 8.6 承知のうえで残していること
+
+- CloudFront と EC2 の間は暗号化していない（8.1）
+- EC2 の 80 番は「どの CloudFront からでも」届く。ほかの人が自分の CloudFront を作って、このアプリの EC2 を中身として使うことはできてしまう（回数制限の IP アドレスや Cookie の `Secure` は正しく動くので、データを盗まれるわけではない）。防ぐなら、CloudFront から合言葉のヘッダーを付けて送り、Nginx で確かめる（2026-11-04 にユーザーと相談し、短い期間だけ公開する前提で入れないことにした）
+- WAF・CloudFront のアクセスの記録はない（9.1。料金のため）
+
+## 9. 安全のための決まり
+
+### 9.1 品質チェック
 
 Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`（範囲「インフラ」）で確かめる：`terraform fmt -check`・`validate`・`plan`（実物とずれがないか）・Trivy（設定ミス）と、AI の見直し（入口・DB・秘密の値・IAM・料金・改行・Nginx・スクリプト）。Trivy で承知のうえで外したもの（`terraform/.trivyignore`）：
 
@@ -479,8 +540,10 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 | AWS-0176 | RDS の IAM 認証を使っていない | アプリはパスワード（パラメータストア）でつなぐ（7.2） |
 | AWS-0177 | RDS の削除の保護がない | 画面を確かめたらすぐ消す前提（2.3 の 11） |
 | AWS-0133 | RDS の Performance Insights がない | 監視のための機能。今の規模では要らない |
+| AWS-0011 | CloudFront に WAF がない | WAF は月 5 USD〜で、月 20 USD の上限の中では重い。ログインの総当たりは、アプリの回数制限で守っている |
+| AWS-0010 | CloudFront のアクセスの記録がない | 記録を置く S3 が要り、料金と作業が増える。アクセスの記録は Nginx と Spring Boot（`AccessLogFilter`）で取っている |
 
-### 8.2 決まり
+### 9.2 決まり
 
 
 - **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）。DB の管理者のパスワードは Secrets Manager、アプリ用のパスワードはパラメータストアに置く。管理者のパスワードは使うときにユーザーが取り出す。AI はどちらのパスワードも取り出さない
@@ -490,7 +553,7 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 - Terraform で作ったものを、コンソールで手で直さない（ファイルと実物がずれる）
 - `terraform apply`・`destroy` は、`plan` の結果を確かめてから
 
-## 9. 困ったとき
+## 10. 困ったとき
 
 | 症状 | 原因と対処 |
 |---|---|
@@ -505,9 +568,11 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 | `create-app-db-user.sh` で `taskboard.env: line 6: -Xmx384m: command not found` | `taskboard.env` の `JAVA_OPTS` を `"` で囲んでいない（スペースを含む値はシェルで読めない）。`setup-server.sh` を最新にして実行し直す（2026-11-04 に直した） |
 | `deploy-backend.sh` が「3分たっても動き出しません」 | EC2 で `sudo journalctl -u taskboard -n 100` を見る。DB につながらない（`task_app_user` を作っていない・パスワードが合っていない）ことが多い。7.2 の作り直しの手順でパスワードを合わせる |
 | スクリプトで `Permission denied (publickey)` やパスフレーズを聞かれる | ssh-agent に鍵が入っていない（パソコンを起動し直すと消える）。`ssh-add "$HOME\.ssh\taskboard_ec2"` |
+| CloudFront で開くと 502・504 | EC2 が止まっている・Nginx か Spring Boot が動いていない。EC2 を止めて起動し直すと、EC2 の名前（public DNS）が変わるので、`plan`・`apply` して CloudFront の行き先を直す |
+| ログの IP アドレスが CloudFront のものになる | `/etc/nginx/cloudfront-realip.conf` が古い（CloudFront のアドレスの一覧が変わった）。`setup-server.sh` を実行し直す |
 | パソコンでサーバーのテスト（Testcontainers）が `Connection reset` で失敗する | Docker Desktop の、パソコンとコンテナの間の通信の不調。2026-11-04 に WSL が更新されたあとに起きた。Docker Desktop を起動し直しても直らないときは、パソコンを再起動する。GitHub Actions のテストでも確かめられる |
 
-## 10. 改訂履歴
+## 11. 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
@@ -516,3 +581,4 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 | 1.2 | 2026-11-04 | 段階2（RDS）を追加（6章）。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#67） |
 | 1.3 | 2026-11-04 | 段階3（アプリを載せる）を追加（7章）。決めたことに 12・13 を足した。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#69） |
 | 1.4 | 2026-11-04 | 品質チェック（8.1。Trivy と、外した指摘の理由）、`plan` を保存して `apply` する手順を追加。Nginx で `X-Forwarded-Port` も上書きする（#71） |
+| 1.5 | 2026-11-04 | 段階4（CloudFront で HTTPS）を追加（8章）。決めたことに 14・15、Trivy で外すものに2件を足した。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#73） |

@@ -27,3 +27,11 @@ AWS-0177
 # RDS の Performance Insights（性能の記録）がない（rds.tf）
 # 監視のための機能。今の規模では要らない。2026-11-04
 AWS-0133
+
+# CloudFront に WAF（攻撃のパターンを見て止める仕組み）がない（cloudfront.tf）
+# WAF は月 5 USD〜で、月 20 USD の上限の中では重い。ログインの総当たりは、アプリの回数制限で守っている。2026-11-04
+AWS-0011
+
+# CloudFront のアクセスの記録がない（cloudfront.tf）
+# 記録を置く S3 が要り、料金と作業が増える。アクセスの記録は Nginx と Spring Boot（AccessLogFilter）で取っている。2026-11-04
+AWS-0010
