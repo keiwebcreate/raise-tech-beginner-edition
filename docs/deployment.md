@@ -1,6 +1,6 @@
 # デプロイ手順書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-04（段階4：CloudFront で HTTPS。イシュー #73）
+最終更新：2026-11-04（すべて消した。消す・作り直す手順を追加。イシュー #75）
 
 このアプリを AWS に公開する（要件 G-04）ための手順と、その考え方をまとめた文書。AWS や Terraform を初めて使う人が、この文書だけで同じ環境を作り直し・削除できることを目指す。
 
@@ -41,6 +41,8 @@
 | 2 | RDS（PostgreSQL）。EC2 からだけつながる | EC2 から `psql` でつながる。パソコンからはつながらない | 完了（#67。2026-11-04） |
 | 3 | アプリを EC2 に載せる（画面のファイルは Nginx、API は Spring Boot。Nginx が `/api` を転送する） | `http://（EC2 の IP アドレス）` でログイン画面が出て、操作できる | 完了（#69。2026-11-04） |
 | 4 | CloudFront を EC2 の前に置き、HTTPS にする | `https://xxxx.cloudfront.net` で使える（受け入れ基準 AC-44〜AC-54） | 完了（#73。2026-11-04） |
+
+4つの段階を確かめたあと、料金のため**すべて消した**（2026-11-04。9章）。作り直す手順は 9.3。
 
 ### 2.2 段階1の構成
 
@@ -191,7 +193,7 @@ aws sts get-caller-identity
 | `outputs.tf` | 作ったあとに表示する値（IP アドレス・SSH のコマンドなど） |
 | `.terraform.lock.hcl` | プロバイダーの版を固定する記録。Git に入れる |
 | `.gitignore` | state・`terraform.tfvars`・鍵などを Git に入れないための設定 |
-| `.trivyignore` | Trivy（設定ミスを調べる道具）の指摘のうち、承知のうえで外すもの（理由つき。9.1） |
+| `.trivyignore` | Trivy（設定ミスを調べる道具）の指摘のうち、承知のうえで外すもの（理由つき。10.1） |
 
 ### 5.2 SSH の鍵を作る
 
@@ -277,7 +279,7 @@ terraform plan -destroy   # 何が消えるかを確かめる
 terraform destroy         # すべて消す（料金がかからなくなる）
 ```
 
-消したあとも、`terraform apply` でいつでも同じものを作り直せる（IP アドレスは変わる）。
+消したあとも、`terraform apply` でいつでも同じものを作り直せる（IP アドレスは変わる）。段階4まで作ったあとの消し方・作り直し方は 9章。
 
 ## 6. 段階2：RDS（PostgreSQL）
 
@@ -305,7 +307,7 @@ AWS シドニーリージョン（ap-southeast-2）
 | `rds.tf` | RDS の区画の組（サブネットグループ）と RDS |
 | `variables.tf` | RDS の版（`db_engine_version`）と大きさ（`db_instance_class`）を足した |
 | `outputs.tf` | RDS の住所、パスワードの預け先（Secrets Manager）の場所、`psql` のコマンドを足した |
-| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（10章） |
+| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（11章） |
 
 ### 6.3 RDS の設定
 
@@ -325,7 +327,7 @@ AWS シドニーリージョン（ap-southeast-2）
 
 5.4 と同じ（`plan` を見てから `apply`）。段階2の `plan` は「9 to add, 0 to change」（プライベートサブネット2つ・道案内の表とその結びつけ2つ・RDS のセキュリティグループとルール・サブネットグループ・RDS）。RDS は作るのに 8分ほどかかる。
 
-**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。10章を参照。
+**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。11章を参照。
 
 ### 6.5 確かめる（パスワードを扱うので、ユーザーが行う）
 
@@ -524,11 +526,48 @@ CloudFront は、作るのに 3分ほど、変えるのに 1分ほどかかっ�
 
 - CloudFront と EC2 の間は暗号化していない（8.1）
 - EC2 の 80 番は「どの CloudFront からでも」届く。ほかの人が自分の CloudFront を作って、このアプリの EC2 を中身として使うことはできてしまう（ふつうの使い方なら、回数制限の IP アドレスや Cookie の `Secure` は正しく動くので、データを盗まれるわけではない。ただし、その人が CloudFront の上で動くプログラム（Lambda@Edge）で `X-Forwarded-For` を書き換えたときに、CloudFront が本当の接続元を足し直すかは確かめていない。足し直さないなら、その人は回数制限の IP アドレスを偽れる。2026-11-04 の `security-review` で「未確認・確信度は低い」とされた）。防ぐなら、CloudFront から合言葉のヘッダーを付けて送り、Nginx で確かめる（2026-11-04 にユーザーと相談し、短い期間だけ公開する前提で入れないことにした）
-- WAF・CloudFront のアクセスの記録はない（9.1。料金のため）
+- WAF・CloudFront のアクセスの記録はない（10.1。料金のため）
 
-## 9. 安全のための決まり
+## 9. 消す・作り直す
 
-### 9.1 品質チェック
+### 9.1 今の状態
+
+**2026-11-04 に、すべて消した**（#75）。4つの段階を作って受け入れ基準を確かめたあと、料金（RDS があると月 20 USD の上限を超える）のため `terraform destroy` で 26個を消した。CloudFront の住所（`https://d2kxqyf7t4g5vm.cloudfront.net`）は、もう開けない。
+
+消したあとに AWS CLI で、EC2・ディスク・RDS（スナップショットも）・CloudFront・VPC・固定 IP・パラメータストア・Secrets Manager がどれも 0件であることを確かめた。
+
+### 9.2 消す
+
+```bash
+cd terraform
+terraform plan -destroy -out=destroy.tfplan   # 何が消えるかを確かめる（まだ消さない）
+terraform apply destroy.tfplan                # 確かめたとおりに消す
+```
+
+- 消えるのは Terraform で作った 26個（CloudFront・EC2・RDS・パラメータストア・IAM ロール・VPC など）。作るもの・変えるものが 0 であることを確かめる
+- **RDS のデータとバックアップも消える**（最後のスナップショットを取らない設定。6.6）。RDS の管理用のパスワード（Secrets Manager）は、RDS が作ったものなので一緒に消える
+- かかった時間は約20分（CloudFront を止めてから消すのと、インターネットゲートウェイが EC2 の消えるのを待つため）
+- 終わったら `destroy.tfplan` を消す
+- 残るもの：パソコンの SSH の鍵（`~/.ssh/taskboard_ec2`）、`terraform.tfvars`、コード。どれも料金はかからない
+
+### 9.3 作り直す
+
+この手順書の段階1〜4を、順に行えばよい。まとめると次のとおり（30分ほど。CloudFront と RDS の作成に時間がかかる）。
+
+1. 家の IP アドレスが変わっていないかを確かめ、変わっていれば `terraform.tfvars` の `my_ip_cidr` を直す（5.3）
+2. `terraform plan -out=rebuild.tfplan` → 「26 to add」を確かめて `terraform apply rebuild.tfplan`（1回で全部作れる。段階ごとに分けなくてよい）
+3. 鍵を ssh-agent に入れて、7.4 の 1〜4（`setup-server.sh` → `create-app-db-user.sh` → `deploy-backend.sh` → `deploy-frontend.sh`）
+4. `terraform output -raw app_url` で住所を見て、ブラウザで開く
+
+変わること：
+
+- **住所が変わる**（CloudFront の住所も、EC2 の IP アドレスも）
+- **DB は空から始まる**（Flyway が表を作り直す）。ユーザーは登録し直す。ゲストログインなら、すぐ試せる
+- DB のパスワードは新しく作られる（パラメータストア・Secrets Manager）。`create-app-db-user.sh` で使う管理用のパスワードは 6.5 の方法で取り出す
+
+## 10. 安全のための決まり
+
+### 10.1 品質チェック
 
 Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`（範囲「インフラ」）で確かめる：`terraform fmt -check`・`validate`・`plan`（実物とずれがないか）・Trivy（設定ミス）と、AI の見直し（入口・DB・秘密の値・IAM・料金・改行・Nginx・スクリプト）。Trivy で承知のうえで外したもの（`terraform/.trivyignore`）：
 
@@ -543,7 +582,7 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 | AWS-0011 | CloudFront に WAF がない | WAF は月 5 USD〜で、月 20 USD の上限の中では重い。ログインの総当たりは、アプリの回数制限で守っている |
 | AWS-0010 | CloudFront のアクセスの記録がない | 記録を置く S3 が要り、料金と作業が増える。アクセスの記録は Nginx と Spring Boot（`AccessLogFilter`）で取っている |
 
-### 9.2 決まり
+### 10.2 決まり
 
 
 - **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）。DB の管理者のパスワードは Secrets Manager、アプリ用のパスワードはパラメータストアに置く。管理者のパスワードは使うときにユーザーが取り出す。AI はどちらのパスワードも取り出さない
@@ -553,7 +592,7 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 - Terraform で作ったものを、コンソールで手で直さない（ファイルと実物がずれる）
 - `terraform apply`・`destroy` は、`plan` の結果を確かめてから
 
-## 10. 困ったとき
+## 11. 困ったとき
 
 | 症状 | 原因と対処 |
 |---|---|
@@ -572,7 +611,7 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 | ログの IP アドレスが CloudFront のものになる | `/etc/nginx/cloudfront-realip.conf` が古い（CloudFront のアドレスの一覧が変わった）。`setup-server.sh` を実行し直す |
 | パソコンでサーバーのテスト（Testcontainers）が `Connection reset` で失敗する | Docker Desktop の、パソコンとコンテナの間の通信の不調。2026-11-04 に WSL が更新されたあとに起きた。Docker Desktop を起動し直しても直らないときは、パソコンを再起動する。GitHub Actions のテストでも確かめられる |
 
-## 11. 改訂履歴
+## 12. 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
@@ -582,3 +621,4 @@ Terraform・`deploy/`・`scripts/` を変えたら、スキル `quality-check`�
 | 1.3 | 2026-11-04 | 段階3（アプリを載せる）を追加（7章）。決めたことに 12・13 を足した。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#69） |
 | 1.4 | 2026-11-04 | 品質チェック（8.1。Trivy と、外した指摘の理由）、`plan` を保存して `apply` する手順を追加。Nginx で `X-Forwarded-Port` も上書きする（#71） |
 | 1.5 | 2026-11-04 | 段階4（CloudFront で HTTPS）を追加（8章）。決めたことに 14・15、Trivy で外すものに2件を足した。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#73） |
+| 1.6 | 2026-11-04 | `terraform destroy` ですべて消した。消す・作り直す手順を追加（9章）。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#75） |

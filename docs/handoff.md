@@ -3,13 +3,13 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #74（AWS 段階4：CloudFront で HTTPS）がマージ済みかを `gh pr view 74` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
-2. 下の「次にやること」を進める（AWS の4つの段階はすべて終わった。次は `terraform destroy` で消すかどうかから）
-3. Claude が EC2 に SSH するには、私が ssh-agent に鍵を入れておく必要がある（パソコンを起動し直すと消える。`ssh-add "$HOME\.ssh\taskboard_ec2"`）
+1. PR（#75：AWS を消したことを資料に書く）がマージ済みかを `gh pr list --state all --limit 3` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 下の「次にやること」から、次に作るものを私と決める
+3. AWS を作り直したときは、Claude が EC2 に SSH するには、私が ssh-agent に鍵を入れておく必要がある（パソコンを起動し直すと消える。`ssh-add "$HOME\.ssh\taskboard_ec2"`）
 
 **サーバーの状態**：前のチャットの終わり（2026-11-01）に、DB・Spring Boot・Vite をすべて止めた（ほかのチャットで起動したときにポートがぶつかってエラーになるため）。ポート 5432・8080・5173 は空いている。DB はコンテナを止めただけなので、データ（`demo@example.com` など）は残っている。動作確認のときは、スキル `dev-servers` の手順で DB → Spring Boot → Vite の順に起動する。チャットを終えるときも、起動したサーバーは止めておく
 
-**AWS の状態**：シドニーに段階1の EC2（`taskboard-app`）と段階2の RDS（`taskboard-db`）などが**動いている**。段階4で **CloudFront（`terraform output -raw cloudfront_url`）から HTTPS で公開している**（EC2 の IP アドレスに直接はつながらない。SSH は私の IP から）（2026-11-04 に作成。**1日 約 1.1 USD** かかり続ける。RDS があると月 20 USD の上限を超えるので、デプロイを終えて画面を確かめたらすぐ消す）。IP アドレスは `cd terraform; terraform output` で見られる（EC2 を止めて起動し直すと変わる）。消すときは私の OK をもらって `terraform destroy`（`deployment.md` 5.6）
+**AWS の状態**：**何もない**（2026-11-04 に、4つの段階を確かめたあと `terraform destroy` で 26個すべて消した。料金はかかっていない。AWS CLI で残りが0件であることも確かめた）。作り直すときは `deployment.md` 9.3（30分ほど。住所が変わり、DB は空から始まる。RDS があると1日 約 1.1 USD かかり、月 20 USD の上限を超えるので、確かめたらまた消す）。`apply`・`destroy` は私の OK をもらってから
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
@@ -64,10 +64,10 @@
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| AWS へのデプロイ | G-04 | 段階1（ネットワークと EC2。#65）・段階2（RDS。#67）・段階3（アプリ。#69）まで作った。段階4（HTTPS）が残り。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
+| AWS へのデプロイ（常に公開しておくこと） | G-04 | 4つの段階（#65・#67・#69・#73）をすべて作り、受け入れ基準 AC-44〜AC-54 を確かめた。料金のため消してある（#75）。作り直す手順は `deployment.md` 9.3 |
 
 ## 次にやること
-**AWS へのデプロイ（G-04）を、4つの段階に分けて進めている**（`docs/deployment.md` 2.1。講義 初級編19「Terraform で NW・EC2 構築」に合わせた）。**段階1〜4（#65・#67・#69・#73）はすべて完了**。受け入れ基準 AC-44〜AC-54 も確かめた（`deployment.md` 8.5）。次は、決めていたとおり画面を確かめたら `terraform destroy` で消す（RDS があると月 20 USD を超えるため）。以下は各段階のメモ：
+**AWS へのデプロイ（G-04）を、4つの段階に分けて進めている**（`docs/deployment.md` 2.1。講義 初級編19「Terraform で NW・EC2 構築」に合わせた）。**段階1〜4（#65・#67・#69・#73）はすべて完了**。受け入れ基準 AC-44〜AC-54 も確かめた（`deployment.md` 8.5）。決めていたとおり、確かめたあと `terraform destroy` で消した（2026-11-04。#75。`deployment.md` 9章）。以下は各段階のメモ：
 1. ~~段階2：DB~~ → RDS で作った（#67）
 2. ~~段階3：アプリを載せる~~ → 作った（#69）。以下はそのときのメモ：アプリ用の DB ユーザー（`task_app_user`。必要な権限だけ。NS-14）を作る。Nginx の転送の設定（`/` は画面のファイル、`/api` は Spring Boot の 8080）、Spring Boot の起動のしかた（systemd など）、秘密の値（DB のパスワード）の渡し方（NS-12。「AWS のパラメータ管理機能」は SSM Parameter Store）
 3. ~~段階4：CloudFront で HTTPS~~ → 作った（#73）。以下はそのときのメモ：Nginx の `X-Forwarded-For` は今 `$remote_addr`（CloudFront を置くと CloudFront のアドレスになるので、CloudFront のアドレスからだけ信用する設定に変える。詳細設計書 3.8.8）。Cookie の `Secure` が付くことも確かめる。**us-east-1 が SCP で拒否されているので、CloudFront を作れるかを最初に確かめる**。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）。80 番を CloudFront からだけに変える
@@ -85,7 +85,7 @@
 - `deploy/ec2/psql-app.sh` を足した：アプリ用のユーザーで本番の DB を開く確認用（`ssh -t ec2-user@IP sudo /opt/taskboard/bin/psql-app.sh -c "…"`）。AC-47 はこれで確かめた
 - セキュリティグループの説明文は段階1のまま（変えると作り直しになるため）
 
-**品質チェックにインフラを足す（#71）で決めたこと**（講義 初級編19 の最後に合わせた。詳細は `quality-check` の SKILL.md、`deployment.md` 8.1、`detailed-design.md` 5.2）
+**品質チェックにインフラを足す（#71）で決めたこと**（講義 初級編19 の最後に合わせた。詳細は `quality-check` の SKILL.md、`deployment.md` 10.1、`detailed-design.md` 5.2）
 - `quality-check` に範囲「インフラ」（`terraform/`・`deploy/`・`scripts/`・`application-prod.yml`）を足した。自動チェックは `terraform fmt -check`・`validate`・`plan -detailed-exitcode`・**Trivy**（私が winget で入れた。0.76.1）。AI の見直しの観点（入口・DB・秘密の値・IAM・料金・`plan` の思わぬ変更・改行・Nginx・スクリプト・systemd）。「デプロイ前のセキュリティチェック」にもインフラの全体の見直しを入れた
 - Trivy の6件は、理由をつけて `terraform/.trivyignore` で外した（私が A を選んだ）。外したあとは0件
 - 直したもの：Nginx で `X-Forwarded-Port` も上書きする（EC2 に反映済み）。`apply` に使った `*.tfplan` は終わったら消す（Trivy が読んでしまうため）
