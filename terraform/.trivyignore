@@ -1,0 +1,29 @@
+# Trivy（設定ミスを調べる道具）の指摘のうち、今の構成で承知のうえで選んでいるもの。
+# 理由と決めた日を書いて外す。構成を変えたら、ここも見直す（docs/deployment.md 2.3）。
+# 使い方（beginner_version で）：trivy config --skip-files "**/*.tfplan" --ignorefile terraform/.trivyignore terraform
+
+# サブネットで外から見える IP アドレスを付ける（network.tf）
+# ロードバランサー（月 約 20 USD）を使わず、EC2 を直接外に出す構成のため。
+# 入口は 22・80 を自分の IP アドレスだけに絞っている（security_groups.tf）。2026-11-04
+AWS-0164
+
+# EC2 から外への通信をすべて許している（security_groups.tf）
+# OS の更新（dnf）と AWS の API（パラメータストア）を使うため。
+# 外への道を絞るには VPC エンドポイント（有料）が要る。2026-11-04
+AWS-0104
+
+# VPC フローログ（通信の記録）がない（network.tf）
+# 記録の保存に料金がかかる。短い期間だけ公開する前提。2026-11-04
+AWS-0178
+
+# RDS で IAM での DB 認証を使っていない（rds.tf）
+# アプリはパスワード（パラメータストア）でつなぐ形にした（deployment.md 7.2）。2026-11-04
+AWS-0176
+
+# RDS の削除の保護がない（rds.tf）
+# 画面を確かめたらすぐ terraform destroy で消す前提（deployment.md 2.3 の 11）。2026-11-04
+AWS-0177
+
+# RDS の Performance Insights（性能の記録）がない（rds.tf）
+# 監視のための機能。今の規模では要らない。2026-11-04
+AWS-0133

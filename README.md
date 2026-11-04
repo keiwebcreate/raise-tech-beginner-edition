@@ -58,6 +58,8 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 
 ## 構成
 
+### 開発中
+
 ```mermaid
 flowchart LR
     browser["ブラウザ<br>React"]
@@ -73,6 +75,39 @@ flowchart LR
 
 - 開発中は、画面も API も `http://localhost:5173` から使います。Vite が `/api` を Spring Boot へ転送するので、画面と API が同じオリジンになり、CORS の設定がいりません
 - ログイン状態はセッション（Cookie）で持ち、セッションは PostgreSQL に保存します
+
+### 本番（AWS）
+
+```mermaid
+flowchart LR
+    browser["ブラウザ"]
+    subgraph aws["AWS シドニーリージョン ・ VPC"]
+        subgraph pub["パブリックサブネット"]
+            subgraph ec2["EC2（Amazon Linux 2023）"]
+                nginx["Nginx<br>:80"]
+                web["画面のファイル<br>（React をビルドしたもの）"]
+                api["Spring Boot<br>127.0.0.1:8080"]
+            end
+        end
+        subgraph priv["プライベートサブネット"]
+            rds[("RDS<br>PostgreSQL 18")]
+        end
+        ssm["SSM パラメータストア<br>（DB のパスワード）"]
+    end
+
+    browser -- "http" --> nginx
+    nginx -- "/" --> web
+    nginx -- "/api を転送" --> api
+    api -- "5432（EC2 からだけ）" --> rds
+    api -. "起動の前に読む<br>（IAM ロール）" .-> ssm
+```
+
+- サーバーやネットワークは、すべて **Terraform**（`terraform/`）で作ります。手作業の設定はしないので、同じ環境を何度でも作り直せ、1コマンドで消せます
+- 開発中の Vite と同じく、Nginx が `/api` を Spring Boot へ転送します。画面と API が同じ住所になるので、CORS の設定がいりません
+- RDS はインターネットから見えないプライベートサブネットに置き、EC2 からだけつながるようにしています
+- DB のパスワードは、Git・ファイル・Terraform の記録（state）のどこにも残しません。Terraform が作ってパラメータストアに暗号化して入れ、Spring Boot の起動の前に、EC2 が読む権限だけを持つ IAM ロールで読みます
+- HTTPS は、これから CloudFront を前に置いて対応します
+- 詳しい構成・料金・手順は [デプロイ手順書](docs/deployment.md) にあります
 
 ## 工夫したところ
 
