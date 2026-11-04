@@ -1,12 +1,14 @@
-# 引き継ぎ書（2026-11-01 更新）
+# 引き継ぎ書（2026-11-04 更新）
 
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #64（品質チェックに security-review を足す）がマージ済みかを `gh pr view 64` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
-2. 下の「次にやること」を進める。**AWS（とパスワードの再設定）は、私がスクールの AWS の講義を受けられるようになるまで待つ**（2026-11-01 に決めた）。それまでにやることは、私と相談して決める（設計書の見直しは #55・#59 で終わった）
+1. PR #66（AWS 段階1：Terraform でネットワークと EC2）がマージ済みかを `gh pr view 66` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 下の「次にやること」を進める（AWS の段階2から。講義の画面を貼るので、それに合わせて読み替える）
 
 **サーバーの状態**：前のチャットの終わり（2026-11-01）に、DB・Spring Boot・Vite をすべて止めた（ほかのチャットで起動したときにポートがぶつかってエラーになるため）。ポート 5432・8080・5173 は空いている。DB はコンテナを止めただけなので、データ（`demo@example.com` など）は残っている。動作確認のときは、スキル `dev-servers` の手順で DB → Spring Boot → Vite の順に起動する。チャットを終えるときも、起動したサーバーは止めておく
+
+**AWS の状態**：シドニーに段階1の EC2（`taskboard-app`）などが**動いている**（2026-11-04 に作成。料金がかかり続ける）。IP アドレスは `cd terraform; terraform output` で見られる（EC2 を止めて起動し直すと変わる）。消すときは私の OK をもらって `terraform destroy`（`deployment.md` 5.6）
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
@@ -29,7 +31,7 @@
 - 機能を作ったら、README の「進み具合」と、この引き継ぎ書も直す
 - 応答はすべて日本語（`C:\dev\Raise_Tech\.claude\CLAUDE.md`）
 
-## 今の状態（2026-11-01）
+## 今の状態（2026-11-04）
 
 **できていること**（講義の CRUD はカード・リスト・ラベルについてひととおり完了。ドラッグ＆ドロップも完了）
 
@@ -61,17 +63,30 @@
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| AWS へのデプロイ | G-04 | 構成が未決。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
+| AWS へのデプロイ | G-04 | 段階1（ネットワークと EC2）まで作った（#65）。段階2（DB）・3（アプリ）・4（HTTPS）が残り。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
 
 ## 次にやること
-講義のアプリ側は、品質チェックの回（初級編16）で終わっている。講義で「自分で作りこむ」ように言われたので、要件定義書 7章の「後回し」を順に作っている（検索・絞り込みは #45、ユーザーの提案でスマートフォン幅のハンバーガーメニューを #47、メールアドレス・パスワードの変更を #49、複数ボードを #51、登録の回数制限を #53 で作った）。AWS を待つあいだにやることは、私と相談して決める。候補：
-- 受け入れ基準（要件定義書 9章）をもとに、公開の前の手動のテストの一覧表（NT-03）を作る
-- 要件定義書 7章の「対象外」から、作りたいものを選ぶ（チェックリストなど）
-
-AWS の講義を受けられるようになったら：
-1. **AWS へのデプロイ**（G-04）。構成（EC2・RDS・画面の配信・ドメイン）を決めるところから。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）
+**AWS へのデプロイ（G-04）を、4つの段階に分けて進めている**（`docs/deployment.md` 2.1。講義 初級編19「Terraform で NW・EC2 構築」に合わせた）。段階1（#65）は完了。次は段階2：
+1. **段階2：DB**。月 20 USD の上限があるので、RDS（月 約 +20 USD）ではなく、EC2 の中に PostgreSQL を入れる形が有力（`deployment.md` 3.2）。EC2 の大きさ（t4g.micro のままスワップで補うか、t4g.small か）、DB の入れ方（Docker か、dnf で直接か）、バックアップ（NO-02 の `pg_dump`）を決める
+2. 段階3：アプリを載せる。Nginx の転送の設定（`/` は画面のファイル、`/api` は Spring Boot の 8080）、Spring Boot の起動のしかた（systemd など）、秘密の値（DB のパスワード）の渡し方（NS-12。「AWS のパラメータ管理機能」は SSM Parameter Store）
+3. 段階4：CloudFront で HTTPS。**us-east-1 が SCP で拒否されているので、CloudFront を作れるかを最初に確かめる**。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）。80 番を CloudFront からだけに変える
    - 公開の前に、スキル `quality-check` の「デプロイ前のセキュリティチェック」（コード全体を NS-01〜NS-14 で見直す・Dependabot の通知0件）を行う。公開したあとで、受け入れ基準 AC-47〜AC-54 を確かめる（2026-11-01 に決めた。イシュー #63）
-2. パスワードの再設定（メール送信が要る。AWS の SES とあわせて）
+4. パスワードの再設定（メール送信が要る。AWS の SES とあわせて。SES がシドニーで使えるかも確かめる）
+
+ほかの候補（AWS の合間に）：受け入れ基準（要件定義書 9章）をもとに、公開の前の手動のテストの一覧表（NT-03）を作る。要件定義書 7章の「対象外」から、作りたいものを選ぶ
+
+**AWS 段階1（#65）で決めたこと**（詳細は `docs/deployment.md`）
+- 作り方は講義と同じく **AWS CLI と Terraform**。コンソールは確認と初期設定だけ。Terraform のファイルは `terraform/`。`apply`・`destroy` は、Claude が `plan` の結果を説明し、私が OK と言ってから（`plan -out` で保存した予定どおりに `apply` する）
+- AWS CLI の認証は IAM ユーザー `KeisukeFujita`（`AdministratorAccess`）の**アクセスキー**（`aws configure`。私の選択）。鍵はチャット・Git に出さない。ルートユーザーは MFA あり、アクセスキーは作らない
+- **リージョンはシドニー（`ap-southeast-2`）**。アカウントが AWS Projects（プロジェクト名「Touch Grass Later」）の中にあり、SCP でシドニー以外（東京・大阪・us-east-1 など）が拒否される。最初は東京で作ろうとして、EC2・S3 などがすべて `explicit deny in a service control policy` で断られた（AWS サポートにも問い合わせたが、その前に私が ChatGPT と相談して原因がわかった）
+- **有料プランに切り替え済み**（2026-11-04。私がコンソールで行った）。クレジット 120 USD、**月の支出の上限 20 USD**。**「高度な機能」は絶対に有効にしない**（上限が外れる）。要件 NO-01 もこれに合わせて直した（要件定義書 1.11）
+- 構成：VPC（10.0.0.0/16）・パブリックサブネット 1つ（`ap-southeast-2a`）・EC2 t4g.micro（Amazon Linux 2023・ARM・ディスク 20GB 暗号化・IMDSv2 必須）。起動時に Java 25（Corretto）と Nginx を入れる。NAT ゲートウェイ・ロードバランサーは使わない
+- **画面は EC2 の Nginx（80）が配り、`/api` を Spring Boot（8080）へ転送する**（私の選択。講義と同じく Nginx。Spring Boot は外に開けない）。EC2 に Node.js は入れない（画面はパソコンで `npm run build` して送る）
+- セキュリティグループは 22（SSH）と 80 だけ、どちらも私の IP アドレス（`terraform.tfvars` の `my_ip_cidr`。Git に入れない）からだけ。`/32` 以外は入力チェックで断る。家の IP アドレスが変わったら直して `apply`
+- SSH は鍵 `C:\Users\imhun\.ssh\taskboard_ec2`（ED25519・**パスフレーズ付き**）。Claude はパスフレーズを入れられないので、**SSH での確認は私が PowerShell で行う**（`ssh -i "$HOME\.ssh\taskboard_ec2" ec2-user@（IP）`）。PowerShell の `ssh-keygen` では `~` が使えない（`$HOME` を使う）
+- 料金（シドニー）：段階1は月 約 13.3 USD（t4g.micro 7.7・IPv4 3.7・ディスク 1.9）。消費税がクレジットで払えるか・上限が税込みかは未確認
+- state はパソコンの `terraform/terraform.tfstate`（Git に入れない）。**消さないこと**（消すと Terraform が作ったものを管理できなくなる）
+- AWS CLI を設定したときの質問「AWS skills と MCP サーバーを設定するか」は `n`。jq も入れた（講義に合わせて）
 
 **カードのゴミ箱（#61）で決めたこと**（ユーザーの提案。詳細は `screen-design.md` W-03、要件 C-03・AC-60）
 - 押したら、カード詳細と同じ確認ダイアログを出してから消す（すぐ消す・「元に戻す」は選ばなかった）
@@ -209,6 +224,8 @@ AWS の講義を受けられるようになったら：
 | Docker | 開発用 DB（`compose.yaml`）とテストの Testcontainers で使う |
 | 開発用 DB | Docker の PostgreSQL 18（プロジェクト名 `taskboard`・コンテナ `taskboard-db-1`・ボリューム `taskboard_db-data`）。5432、DB `task_app`、ユーザー `task_app_user` |
 | DB のパスワード | Windows のユーザー環境変数 `DB_PASSWORD`（中身は私だけが知っている）。コードや Git には書かない |
+| AWS CLI ／ Terraform ／ jq | 2.39.3 ／ 1.16.6 ／ 1.8.2（2026-11-03 に winget で導入）。AWS CLI の初期のリージョンは `ap-southeast-2`、認証は `C:\Users\imhun\.aws\` |
+| SSH の鍵 | `C:\Users\imhun\.ssh\taskboard_ec2`（EC2 用。パスフレーズ付き）。前からある `id_rsa` は別の用途 |
 | 使わないもの | Windows の PostgreSQL 18（サービス `postgresql-x64-18`）と MySQL 8.4（`MySQL84`・3307）は停止して残してある。削除するかは後で決める |
 
 - **品質チェックはスキル `quality-check` の手順で**（自動チェック ＋ AI の見直し。PR の前は差分だけで、公式のスキル `security-review` も走らせる。デプロイの前は「デプロイ前のセキュリティチェック」）
@@ -225,6 +242,6 @@ AWS の講義を受けられるようになったら：
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・GitHub Actions の `backend`・`frontend` の成功が必須・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#64（イシューと PR は番号を共有している）。#63（品質チェックに security-review を足す）の PR が #64
+- これまでのイシューと PR：#1〜#66（イシューと PR は番号を共有している）。#65（AWS 段階1）の PR が #66
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

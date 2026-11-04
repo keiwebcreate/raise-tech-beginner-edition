@@ -1,0 +1,20 @@
+# Terraform がダウンロードした部品
+.terraform/
+
+# state（何を作ったかの記録。秘密の値が入る）
+*.tfstate
+*.tfstate.*
+
+# 変数の値（IP アドレスなど）。見本の terraform.tfvars.example は Git に入れる
+*.tfvars
+!*.tfvars.example
+
+# plan の保存ファイル・異常終了のログ
+*.tfplan
+crash.log
+crash.*.log
+
+# 鍵を間違えて置いたときのため
+*.pem
+*.key
+taskboard_ec2*
