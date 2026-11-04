@@ -3,12 +3,12 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #66（AWS 段階1：Terraform でネットワークと EC2）がマージ済みかを `gh pr view 66` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
-2. 下の「次にやること」を進める（AWS の段階2から。講義の画面を貼るので、それに合わせて読み替える）
+1. PR #68（AWS 段階2：RDS）がマージ済みかを `gh pr view 68` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+2. 下の「次にやること」を進める（AWS の段階3から。講義の画面を貼るので、それに合わせて読み替える）
 
 **サーバーの状態**：前のチャットの終わり（2026-11-01）に、DB・Spring Boot・Vite をすべて止めた（ほかのチャットで起動したときにポートがぶつかってエラーになるため）。ポート 5432・8080・5173 は空いている。DB はコンテナを止めただけなので、データ（`demo@example.com` など）は残っている。動作確認のときは、スキル `dev-servers` の手順で DB → Spring Boot → Vite の順に起動する。チャットを終えるときも、起動したサーバーは止めておく
 
-**AWS の状態**：シドニーに段階1の EC2（`taskboard-app`）などが**動いている**（2026-11-04 に作成。料金がかかり続ける）。IP アドレスは `cd terraform; terraform output` で見られる（EC2 を止めて起動し直すと変わる）。消すときは私の OK をもらって `terraform destroy`（`deployment.md` 5.6）
+**AWS の状態**：シドニーに段階1の EC2（`taskboard-app`）と段階2の RDS（`taskboard-db`）などが**動いている**（2026-11-04 に作成。**1日 約 1.1 USD** かかり続ける。RDS があると月 20 USD の上限を超えるので、デプロイを終えて画面を確かめたらすぐ消す）。IP アドレスは `cd terraform; terraform output` で見られる（EC2 を止めて起動し直すと変わる）。消すときは私の OK をもらって `terraform destroy`（`deployment.md` 5.6）
 
 **最初に読むファイル**（すべて `beginner_version/` の中）
 1. `docs/handoff.md`（このファイル）
@@ -63,17 +63,25 @@
 
 | 機能 | 要件・設計 | メモ |
 |---|---|---|
-| AWS へのデプロイ | G-04 | 段階1（ネットワークと EC2）まで作った（#65）。段階2（DB）・3（アプリ）・4（HTTPS）が残り。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
+| AWS へのデプロイ | G-04 | 段階1（ネットワークと EC2。#65）と段階2（RDS。#67）まで作った。段階3（アプリ）・4（HTTPS）が残り。画面と API は同じドメインにする（CORS を設定しないため）。回数制限のために `server.forward-headers-strategy: native` を入れる（`detailed-design.md` 3.8.8） |
 
 ## 次にやること
-**AWS へのデプロイ（G-04）を、4つの段階に分けて進めている**（`docs/deployment.md` 2.1。講義 初級編19「Terraform で NW・EC2 構築」に合わせた）。段階1（#65）は完了。次は段階2：
-1. **段階2：DB**。月 20 USD の上限があるので、RDS（月 約 +20 USD）ではなく、EC2 の中に PostgreSQL を入れる形が有力（`deployment.md` 3.2）。EC2 の大きさ（t4g.micro のままスワップで補うか、t4g.small か）、DB の入れ方（Docker か、dnf で直接か）、バックアップ（NO-02 の `pg_dump`）を決める
-2. 段階3：アプリを載せる。Nginx の転送の設定（`/` は画面のファイル、`/api` は Spring Boot の 8080）、Spring Boot の起動のしかた（systemd など）、秘密の値（DB のパスワード）の渡し方（NS-12。「AWS のパラメータ管理機能」は SSM Parameter Store）
+**AWS へのデプロイ（G-04）を、4つの段階に分けて進めている**（`docs/deployment.md` 2.1。講義 初級編19「Terraform で NW・EC2 構築」に合わせた）。段階1（#65）・段階2（#67）は完了。次は段階3：
+1. ~~段階2：DB~~ → RDS で作った（#67）
+2. **段階3：アプリを載せる**。アプリ用の DB ユーザー（`task_app_user`。必要な権限だけ。NS-14）を作る。Nginx の転送の設定（`/` は画面のファイル、`/api` は Spring Boot の 8080）、Spring Boot の起動のしかた（systemd など）、秘密の値（DB のパスワード）の渡し方（NS-12。「AWS のパラメータ管理機能」は SSM Parameter Store）
 3. 段階4：CloudFront で HTTPS。**us-east-1 が SCP で拒否されているので、CloudFront を作れるかを最初に確かめる**。回数制限のための `server.forward-headers-strategy: native` もこのとき（`detailed-design.md` 3.8.8）。80 番を CloudFront からだけに変える
    - 公開の前に、スキル `quality-check` の「デプロイ前のセキュリティチェック」（コード全体を NS-01〜NS-14 で見直す・Dependabot の通知0件）を行う。公開したあとで、受け入れ基準 AC-47〜AC-54 を確かめる（2026-11-01 に決めた。イシュー #63）
 4. パスワードの再設定（メール送信が要る。AWS の SES とあわせて。SES がシドニーで使えるかも確かめる）
 
 ほかの候補（AWS の合間に）：受け入れ基準（要件定義書 9章）をもとに、公開の前の手動のテストの一覧表（NT-03）を作る。要件定義書 7章の「対象外」から、作りたいものを選ぶ
+
+**AWS 段階2（#67）で決めたこと**（詳細は `docs/deployment.md` 6章）
+- 講義と同じく **RDS**（PostgreSQL 18.6・db.t4g.micro・gp3 20GB・暗号化・2a の1か所・`publicly_accessible = false`・バックアップ7日分）。全体で月 約 34 USD になり、月 20 USD の上限を超えるが、**デプロイを終えて画面を確かめたらすぐ `terraform destroy` で消す**（私が決めた）
+- プライベートサブネット2つ（2a・2b。RDS の決まりで2か所必要）。インターネットへの道はなく、NAT ゲートウェイも使わない。RDS の 5432 は **EC2 のセキュリティグループからだけ**
+- 管理者 `dbadmin` のパスワードは AWS が作って **Secrets Manager** へ（`manage_master_user_password`）。state にパスワードは入らない。**Claude はパスワードを取り出さない**。EC2 から `psql` でつなぐ確認は私が行った（パスワードの取り出しは PowerShell の `ConvertFrom-Json`。手順は `deployment.md` 6.5）
+- 最後のスナップショットは取らない（`skip_final_snapshot`。すぐ消す前提）
+- EC2 の `psql` は、私が SSH で `sudo dnf install -y postgresql17` で入れた（`user_data` には入れていない。入れると EC2 が起動し直して IP アドレスが変わるため）
+- 見つけて直したこと：このパソコンの Git（`core.autocrlf=true`）が `.tf` を CRLF で取り出し、`plan` で EC2 の `user_data` が変わったと出た（そのまま `apply` すると EC2 が起動し直す）。`terraform/.gitattributes` で LF に固定した。**`plan` で、変えていないものに change が出たら止まって確かめる**
 
 **AWS 段階1（#65）で決めたこと**（詳細は `docs/deployment.md`）
 - 作り方は講義と同じく **AWS CLI と Terraform**。コンソールは確認と初期設定だけ。Terraform のファイルは `terraform/`。`apply`・`destroy` は、Claude が `plan` の結果を説明し、私が OK と言ってから（`plan -out` で保存した予定どおりに `apply` する）
@@ -242,6 +250,6 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・GitHub Actions の `backend`・`frontend` の成功が必須・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#66（イシューと PR は番号を共有している）。#65（AWS 段階1）の PR が #66
+- これまでのイシューと PR：#1〜#68（イシューと PR は番号を共有している）。#67（AWS 段階2）の PR が #68
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

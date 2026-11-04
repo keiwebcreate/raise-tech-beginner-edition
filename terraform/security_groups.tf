@@ -33,10 +33,35 @@ resource "aws_vpc_security_group_ingress_rule" "http_from_my_ip" {
   cidr_ipv4         = var.my_ip_cidr
 }
 
-# 出ていく通信：すべて許す（Java などを取ってくるため）
+# 出ていく通信：すべて許す（Java などを取ってくるため、RDS へつなぐため）
 resource "aws_vpc_security_group_egress_rule" "all_out" {
   security_group_id = aws_security_group.ec2.id
   description       = "All outbound"
   ip_protocol       = "-1" # すべての種類
   cidr_ipv4         = "0.0.0.0/0"
 }
+
+# =============================================================
+# RDS のセキュリティグループ（段階2）
+# PostgreSQL（5432）を、EC2 のセキュリティグループが付いたものからだけ許す（要件 NS-14）。
+# IP アドレスではなく「EC2 のグループ」を相手にするので、EC2 の IP アドレスが変わっても直さなくてよい。
+# =============================================================
+
+resource "aws_security_group" "db" {
+  name        = "${var.project_name}-db-sg"
+  description = "TaskBoard RDS: PostgreSQL from the app EC2 only"
+  vpc_id      = aws_vpc.main.id
+
+  tags = { Name = "${var.project_name}-db-sg" }
+}
+
+resource "aws_vpc_security_group_ingress_rule" "db_from_ec2" {
+  security_group_id            = aws_security_group.db.id
+  description                  = "PostgreSQL from the app EC2"
+  ip_protocol                  = "tcp"
+  from_port                    = 5432
+  to_port                      = 5432
+  referenced_security_group_id = aws_security_group.ec2.id
+}
+
+# RDS から外へ出ていく通信のルールは書かない（DB から通信を始める必要がないため。書かなければ通さない）
