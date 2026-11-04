@@ -3,7 +3,7 @@
 前のチャットの続きです。以下を読んでから作業を再開してください。
 
 **最初にすること**
-1. PR #70（AWS 段階3：アプリを載せる）がマージ済みかを `gh pr view 70` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
+1. PR #72（品質チェックにインフラを足す）がマージ済みかを `gh pr view 72` で確かめる。マージ済みなら `main` に移って `git pull`。まだなら、私にマージを頼む
 2. 下の「次にやること」を進める（AWS の段階4から。講義の画面を貼るので、それに合わせて読み替える）
 3. Claude が EC2 に SSH するには、私が ssh-agent に鍵を入れておく必要がある（パソコンを起動し直すと消える。`ssh-add "$HOME\.ssh\taskboard_ec2"`）
 
@@ -75,6 +75,14 @@
 4. パスワードの再設定（メール送信が要る。AWS の SES とあわせて。SES がシドニーで使えるかも確かめる）
 
 ほかの候補（AWS の合間に）：受け入れ基準（要件定義書 9章）をもとに、公開の前の手動のテストの一覧表（NT-03）を作る。要件定義書 7章の「対象外」から、作りたいものを選ぶ
+
+**品質チェックにインフラを足す（#71）で決めたこと**（講義 初級編19 の最後に合わせた。詳細は `quality-check` の SKILL.md、`deployment.md` 8.1、`detailed-design.md` 5.2）
+- `quality-check` に範囲「インフラ」（`terraform/`・`deploy/`・`scripts/`・`application-prod.yml`）を足した。自動チェックは `terraform fmt -check`・`validate`・`plan -detailed-exitcode`・**Trivy**（私が winget で入れた。0.76.1）。AI の見直しの観点（入口・DB・秘密の値・IAM・料金・`plan` の思わぬ変更・改行・Nginx・スクリプト・systemd）。「デプロイ前のセキュリティチェック」にもインフラの全体の見直しを入れた
+- Trivy の6件は、理由をつけて `terraform/.trivyignore` で外した（私が A を選んだ）。外したあとは0件
+- 直したもの：Nginx で `X-Forwarded-Port` も上書きする（EC2 に反映済み）。`apply` に使った `*.tfplan` は終わったら消す（Trivy が読んでしまうため）
+- README の「構成」に本番（AWS）の図（mermaid）を足した
+- Claude が `rm` でファイルを消すのは許可で止められる。消すのは私が行う
+- Git Bash で `cd` のたびに `fnm`（Node.js の版を切り替える道具）のエラーが出る（Cursor を開き直したあとから。シェルの設定に `fnm env` がない）。`cd … && 次のコマンド` が止まるので、Claude は `-chdir` などで `cd` を避けている
 
 **AWS 段階3（#69）で決めたこと**（詳細は `docs/deployment.md` 7章）
 - 形は `ブラウザ → Nginx（80）→ /api だけ Spring Boot（127.0.0.1:8080）→ RDS`。画面は `/opt/taskboard/web`、jar は `/opt/taskboard/app/taskboard.jar`。Spring Boot は systemd（`taskboard.service`）で、アプリ専用のユーザー `taskboard` で動かす。Java は `-Xmx384m`、スワップ 1GB
@@ -261,6 +269,6 @@
 - リモート：`https://github.com/keiwebcreate/raise-tech-beginner-edition`（公開）。About 欄に説明あり
 - 運用：イシュー → `種類/番号-内容` のブランチ → PR（`Closes #番号`）→ 私が Squash and merge。マージしたブランチは GitHub で自動削除
 - `main` はルールセット「main を保護」で守っている（PR 必須・承認0人・GitHub Actions の `backend`・`frontend` の成功が必須・強制プッシュと削除の禁止・管理者も例外なし）。この引き継ぎ書の更新も PR で行う
-- これまでのイシューと PR：#1〜#70（イシューと PR は番号を共有している）。#69（AWS 段階3）の PR が #70
+- これまでのイシューと PR：#1〜#72（イシューと PR は番号を共有している）。#71（品質チェックにインフラを足す）の PR が #72
 - パソコンに、マージ済みのローカルブランチが残っている（`chore/1-github-workflow` など）。消すのは任意（`git branch -D`）。Claude がブランチやファイルを消そうとすると、Claude Code の許可で止められることがある
 - `backend/HELP.md`（Spring Initializr が作った説明）がパソコンに残っている。Git の対象外なので、そのままでよい

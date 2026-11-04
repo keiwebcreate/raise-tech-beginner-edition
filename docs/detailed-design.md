@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-04（本番の設定 application-prod.yml を追加。イシュー #69）
+最終更新：2026-11-04（インフラのチェックの道具 Trivy を追加。イシュー #71）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -703,8 +703,12 @@ Vitest で、ロジックのある部分だけを自動テストする。
 | サーバー | SpotBugs | 不具合になりやすい書き方（null の扱いなど）。コンパイルしたクラスを調べる | `backend/config/spotbugs/exclude.xml`（調べない指摘） | `./gradlew check`（結果は `build/reports/spotbugs/`） |
 | 画面 | oxlint | React の決まり（フックの使い方・依存の漏れ）、アクセシビリティ（jsx-a11y）、import の循環など | `frontend/.oxlintrc.json` | `npm run lint` |
 | 画面 | Prettier | 書き方（セミコロンなし、シングルクォート、1行120文字）。CSS・JSON も対象 | `frontend/.prettierrc.json`、`.prettierignore` | `npm run format:check`（確かめる）、`npm run format`（直す） |
+| インフラ | Terraform（`fmt`・`validate`） | Terraform の書き方がそろっているか、書き方の誤り | なし | `terraform fmt -check -recursive`・`terraform validate`（`terraform`） |
+| インフラ | Trivy | Terraform の設定ミス（入口が広い・暗号化していない・DB が外から見えるなど）。2026-11-04 に追加（イシュー #71） | `terraform/.trivyignore`（承知のうえで外したもの。理由つき） | `trivy config --skip-files "**/*.tfplan" --ignorefile terraform/.trivyignore terraform`（`beginner_version`） |
 
-`./gradlew check` はテストも一緒に走らせる（`./gradlew build` でも走る）。
+`./gradlew check` はテストも一緒に走らせる（`./gradlew build` でも走る）。インフラのチェックは GitHub Actions では走らせない（AWS の認証が要る `plan` があるため）。スキル `quality-check` の手順で、パソコンで走らせる。
+
+**Trivy で外したもの**（`terraform/.trivyignore`。2026-11-04 にユーザーと決めた）：サブネットで外から見える IP を付ける（AWS-0164。ロードバランサーを使わないため）、EC2 から外への通信をすべて許す（AWS-0104。OS の更新と AWS の API のため。絞るには有料の VPC エンドポイントが要る）、VPC フローログなし（AWS-0178）、RDS の IAM 認証なし（AWS-0176）、RDS の削除の保護なし（AWS-0177。すぐ消す前提）、Performance Insights なし（AWS-0133）。構成を変えたら見直す
 
 **規則の選び方**
 - Checkstyle：有名な Google や Sun の規則は、タブでの字下げがすべて違反になるので使わない。今のコードの書き方（Spring のひな形と同じタブ、Eclipse・Spring と同じ import の並び）に合わせて、このプロジェクト用に選んだ
