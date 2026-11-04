@@ -1,6 +1,6 @@
 # デプロイ手順書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-04（段階1：ネットワークと EC2 を作成。リージョンをシドニーに変更。イシュー #65）
+最終更新：2026-11-04（段階2：RDS を作成。イシュー #67）
 
 このアプリを AWS に公開する（要件 G-04）ための手順と、その考え方をまとめた文書。AWS や Terraform を初めて使う人が、この文書だけで同じ環境を作り直し・削除できることを目指す。
 
@@ -38,7 +38,7 @@
 | 段階 | 作るもの | 確かめること | 状態 |
 |---|---|---|---|
 | 1 | VPC・パブリックサブネット・セキュリティグループ・EC2（Java 25・Nginx 入り） | SSH でログインでき、Java 25 が入っている。ブラウザで Nginx の初期のページが出る | 完了（#65。2026-11-04） |
-| 2 | DB（RDS にするか、EC2 の中に入れるかは、この段階で決める。RDS は月 約 20 USD 増えて支出の上限を超えるので、EC2 の中が有力。3.2） | EC2 から DB につながる | 未着手 |
+| 2 | RDS（PostgreSQL）。EC2 からだけつながる | EC2 から `psql` でつながる。パソコンからはつながらない | 完了（#67。2026-11-04） |
 | 3 | アプリを EC2 に載せる（画面のファイルは Nginx、API は Spring Boot。Nginx が `/api` を転送する） | `http://（EC2 の IP アドレス）` でログイン画面が出る | 未着手 |
 | 4 | CloudFront を EC2 の前に置き、HTTPS にする（us-east-1 が SCP で拒否されているので、CloudFront を作れるかを最初に確かめる。作れなければ別の方法を相談する） | `https://xxxx.cloudfront.net` で使える（受け入れ基準 AC-44〜AC-54） | 未着手 |
 
@@ -68,15 +68,16 @@ AWS シドニーリージョン（ap-southeast-2）
 | # | 項目 | 決定 | 理由 |
 |---|---|---|---|
 | 1 | 作り方 | AWS CLI と Terraform。画面での手作業はしない | 同じものを作り直せる。Git に履歴が残る。AI がファイルを書いて進められる（講座の進め方） |
-| 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 6章 |
+| 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 7章 |
 | 3 | 進め方 | 段階に分ける（2.1） | 問題が起きたとき、どこが原因かがわかりやすい（講座の進め方） |
 | 4 | 画面の配り方 | 同じ EC2 の Nginx（80）が画面のファイルを配り、`/api` を Spring Boot（8080）へ転送する。S3 は使わない。EC2 に Node.js は入れない（画面はパソコンでビルドして送る） | 講座と同じく画面と API を同じサーバーに置く。画面と API が同じ住所になり、CORS の設定がいらない（詳細設計書の方針どおり）。開発中の Vite と同じ形で説明しやすく、サーバーのコードを変えずに済む。Spring Boot を外に開けなくてよい |
 | 5 | HTTPS | 段階4で CloudFront の無料の住所（`*.cloudfront.net`）を使う。ドメインは買わない | ログインがあるので HTTPS は必須（NS-02）。ドメインの購入はクレジットで払えないことがある |
 | 6 | EC2 へのログイン | SSH（鍵ファイル）。ポート 22 は自分の IP アドレスだけに許す | 講座と同じ方法。ファイルの送り込み（`scp`）も簡単 |
 | 7 | 段階1〜3の HTTP（80） | 自分の IP アドレスだけに許す。段階4で CloudFront からだけに変える | HTTPS になる前のログイン画面を、他人に使わせない |
-| 8 | EC2 の大きさ | t4g.micro（ARM・メモリ 1GB）。段階2で DB を EC2 に入れるときに、大きさを見直す（t4g.small にすると、合計が月 約 20 USD になる） | 月 20 USD の支出の上限に収まる。Java は ARM でもそのまま動く |
+| 8 | EC2 の大きさ | t4g.micro（ARM・メモリ 1GB） | 月 20 USD の支出の上限に収まる。Java は ARM でもそのまま動く |
 | 9 | state の置き場所 | パソコンの `terraform/terraform.tfstate`（Git には入れない） | 作業するのが1人なので、共有の置き場所（S3 など）はまだいらない |
 | 10 | リージョン | シドニー（`ap-southeast-2`）。講座の教材は東京 | このアカウントは AWS Projects の SCP で、シドニー以外のリージョン（東京・大阪・ソウル・シンガポール・us-east-1 など）を使えない（2026-11-04 に確認）。日本からは画面の反応が東京より 0.1 秒ほど遅くなるが、ポートフォリオとしては問題ない |
+| 11 | DB | 講座と同じく RDS（6章）。デプロイを終えて画面を確かめたら、すぐ `terraform destroy` で消す | RDS を足すと月 約 34 USD になり、月 20 USD の上限を超える。ずっと公開しておくのではなく、確かめたら消す前提なので、上限を超える前に消せる（2026-11-04 にユーザーが決めた） |
 
 ## 3. 料金とクレジット
 
@@ -113,7 +114,7 @@ AWS の価格の API（`aws pricing get-products`）で調べた値。
 | RDS db.t4g.micro（PostgreSQL・1か所） | 0.025 USD/時 | 約 18.3 USD（＋ディスク） |
 | CloudFront | 月 1TB の転送まで無料 | 0 USD |
 
-段階1の構成（t4g.micro ＋ IPv4 ＋ ディスク 20GB）は**ひと月 約 13.3 USD（1日 約 0.44 USD）**。使わない時期は `terraform destroy` で消せば料金はかからない（5.6）。
+段階1の構成（t4g.micro ＋ IPv4 ＋ ディスク 20GB）は**ひと月 約 13.3 USD（1日 約 0.44 USD）**。段階2の RDS（db.t4g.micro ＋ gp3 20GB。0.138 USD/GB・月）を足すと**1日 約 1.1 USD（ひと月 約 34 USD）**で、月 20 USD の上限を超えるので、ずっと動かしておかない。使わない時期は `terraform destroy` で消せば料金はかからない（5.6）。RDS のパスワードの預け先（Secrets Manager）は 1つ月 0.40 USD（日割り）。
 
 ### 3.3 予算のアラート
 
@@ -272,16 +273,102 @@ terraform destroy         # すべて消す（料金がかからなくなる）
 
 消したあとも、`terraform apply` でいつでも同じものを作り直せる（IP アドレスは変わる）。
 
-## 6. 安全のための決まり
+## 6. 段階2：RDS（PostgreSQL）
 
-- **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）
+### 6.1 構成
+
+```
+AWS シドニーリージョン（ap-southeast-2）
+└─ VPC（10.0.0.0/16）
+    ├─ パブリックサブネット（10.0.1.0/24・2a）
+    │   └─ EC2 ──5432──┐
+    ├─ プライベートサブネット（10.0.11.0/24・2a）◀─┘
+    │   └─ RDS（PostgreSQL 18.6・db.t4g.micro）
+    └─ プライベートサブネット（10.0.12.0/24・2b）  ※ RDS の決まりで2か所必要。DB は 2a だけで動く
+```
+
+- プライベートサブネットには、インターネットへの道がない（NAT ゲートウェイは使わない）
+- RDS のセキュリティグループは、5432 を **EC2 のセキュリティグループからだけ**許す（IP アドレスではなく「グループ」を相手にするので、EC2 の IP アドレスが変わっても直さなくてよい）。自分のパソコンからもつながらない（要件 NS-14）
+
+### 6.2 ファイル
+
+| ファイル | 中身 |
+|---|---|
+| `network.tf` | プライベートサブネット2つと、その道案内の表を足した |
+| `security_groups.tf` | RDS のセキュリティグループを足した |
+| `rds.tf` | RDS の区画の組（サブネットグループ）と RDS |
+| `variables.tf` | RDS の版（`db_engine_version`）と大きさ（`db_instance_class`）を足した |
+| `outputs.tf` | RDS の住所、パスワードの預け先（Secrets Manager）の場所、`psql` のコマンドを足した |
+| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（8章） |
+
+### 6.3 RDS の設定
+
+| 項目 | 設定 | 理由 |
+|---|---|---|
+| 版・大きさ | PostgreSQL 18.6・db.t4g.micro | 開発用の DB と同じ 18 系。いちばん小さい大きさ |
+| ディスク | gp3 20GB（最小）・暗号化 | |
+| 置き場所 | 2a の1か所（シングル AZ）・外から見えない（`publicly_accessible = false`） | 予備を置くと料金が倍。EC2 と同じ場所にすると、データセンターをまたぐ通信の料金がかからない |
+| DB 名・管理者 | `task_app`・`dbadmin` | アプリ用のユーザー（必要な権限だけ）は段階3で作る |
+| 管理者のパスワード | AWS が作り、**Secrets Manager**（秘密の値の預け先）に入れる（`manage_master_user_password`） | Terraform のファイルにも state にもパスワードが残らない（要件 NS-12） |
+| バックアップ | 自動バックアップ7日分 | 要件 NO-02。DB の大きさまでの保存は無料 |
+| 消すとき | 最後のスナップショット（DB の写し）を取らない | デプロイを確かめたらすぐ消す前提。写しを残すと料金がかかり続ける |
+
+料金は1日 約 0.69 USD（本体 0.6・ディスク 0.09）。段階1と合わせて **1日 約 1.1 USD**（3.2）。
+
+### 6.4 作る
+
+5.4 と同じ（`plan` を見てから `apply`）。段階2の `plan` は「9 to add, 0 to change」（プライベートサブネット2つ・道案内の表とその結びつけ2つ・RDS のセキュリティグループとルール・サブネットグループ・RDS）。RDS は作るのに 8分ほどかかる。
+
+**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。8章を参照。
+
+### 6.5 確かめる（パスワードを扱うので、ユーザーが行う）
+
+1. パソコンの PowerShell で、パスワードを取り出す（画面に出たものをコピーする。チャットや Git に貼らない）
+
+```powershell
+cd C:\dev\Raise_Tech\beginner_version\terraform
+(aws secretsmanager get-secret-value --secret-id (terraform output -raw db_master_secret_arn) --query SecretString --output text | ConvertFrom-Json).password
+```
+
+2. EC2 に SSH で入り、PostgreSQL のクライアント（`psql`）を入れて、RDS につなぐ。`psql` のコマンドは `terraform output -raw psql_command` でも出る
+
+```bash
+sudo dnf install -y postgresql17     # 1回だけ。ない場合は dnf list 'postgresql1*' で入れられる版を見る
+psql "host=（RDS の住所） port=5432 dbname=task_app user=dbadmin sslmode=require"
+```
+
+3. パスワードを聞かれたら貼り付ける（画面には出ない）。つながったら：
+
+```sql
+select version();   -- PostgreSQL 18.6 … と出る
+\q
+```
+
+- `sslmode=require` は、通信を暗号化してつなぐ指定（RDS の PostgreSQL は、暗号化しない接続を断る）
+- `psql` は Terraform の起動時の命令（`user_data`）には入れていない（入れると EC2 が起動し直して IP アドレスが変わるため）。EC2 を作り直したときは、2 の `dnf install` をもう一度行う
+
+外から見えないことの確かめ方（パソコンで）：
+
+```bash
+aws rds describe-db-instances --db-instance-identifier taskboard-db --query "DBInstances[0].PubliclyAccessible"   # false
+```
+
+RDS の住所をパソコンで引くと、VPC の中の住所（`10.0.11.x`）になり、5432 にはつながらない。
+
+### 6.6 削除する
+
+5.6 と同じ `terraform destroy` で、EC2 と一緒に消える（最後のスナップショットは取らない。自動バックアップも消える）。RDS は消すのにも 5〜10分かかる。
+
+## 7. 安全のための決まり
+
+- **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）。DB のパスワードは Secrets Manager に置き、使うときにユーザーが取り出す。AI はパスワードを取り出さない
 - アクセスキーは期限がないので、長く使わない時期は IAM の画面で「無効」にする。漏れたかもしれないときは、すぐ削除して作り直す
 - ルートユーザーのアクセスキーは作らない。ルートユーザーはコンソールで、MFA を付けて使う
 - 外からの入口は、必要なポートを、必要な相手にだけ開ける（`0.0.0.0/0` で開けない。`variables.tf` の入力チェックで `/32` 以外を断る）。Spring Boot の 8080 は外に開けない
 - Terraform で作ったものを、コンソールで手で直さない（ファイルと実物がずれる）
 - `terraform apply`・`destroy` は、`plan` の結果を確かめてから
 
-## 7. 困ったとき
+## 8. 困ったとき
 
 | 症状 | 原因と対処 |
 |---|---|
@@ -290,10 +377,14 @@ terraform destroy         # すべて消す（料金がかからなくなる）
 | SSH がつながらない（`Connection timed out`） | 家の IP アドレスが変わった。5.3 で `my_ip_cidr` を直し、`plan`・`apply` する |
 | `java -version` が見つからない・ブラウザで開けない | 起動直後で、Java と Nginx をまだ入れている途中。数分待つ。`sudo cat /var/log/cloud-init-output.log` で進み具合を見られる |
 | Git Bash で `aws ssm …` に渡したパスが `C:/Program Files/Git/…` に化ける | Git Bash がパスを Windows の形に直している。前に `MSYS_NO_PATHCONV=1` を付ける |
+| `plan` で、変えていない EC2 の `user_data` が変わったと出る | `.tf` の改行が CRLF（Windows の形）になっている。このパソコンの Git は、取り出すときに CRLF に変える設定（`core.autocrlf=true`）のため。`terraform/.gitattributes` で LF に固定した（2026-11-04）。それでも出たら、改行を LF に直してから `plan` し直す。そのまま `apply` しない |
+| PowerShell で `jq` が見つからない | jq を入れる前から開いていた窓。開き直すか、`ConvertFrom-Json` を使う（6.5） |
+| `psql` で `no pg_hba.conf entry … no encryption` と断られる | 暗号化していない接続。`sslmode=require` を付ける |
 
-## 8. 改訂履歴
+## 9. 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | 1.0 | 2026-11-03 | 新規作成。用語、構成と段階、料金とクレジット、準備、段階1（ネットワークと EC2）（#65） |
 | 1.1 | 2026-11-04 | リージョンを東京からシドニーに変更（SCP の制限）。有料プラン・クレジット・月 20 USD の上限に合わせて料金の章を書き直した。段階1を作成して確かめた（#65） |
+| 1.2 | 2026-11-04 | 段階2（RDS）を追加（6章）。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#67） |

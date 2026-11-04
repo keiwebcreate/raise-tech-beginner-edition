@@ -34,5 +34,17 @@ variable "ssh_public_key_path" {
 variable "instance_type" {
   description = "EC2 の大きさ"
   type        = string
-  default     = "t4g.micro" # 2コア・メモリ 1GB（ARM）。段階2で DB を EC2 に入れるなら t4g.small に上げる
+  default     = "t4g.micro" # 2コア・メモリ 1GB（ARM）
+}
+
+variable "db_engine_version" {
+  description = "RDS の PostgreSQL の版（開発用の DB と同じ 18 系。シドニーで使えるものを aws rds describe-db-engine-versions で確かめた）"
+  type        = string
+  default     = "18.6"
+}
+
+variable "db_instance_class" {
+  description = "RDS の大きさ"
+  type        = string
+  default     = "db.t4g.micro" # 2コア・メモリ 1GB（ARM）。いちばん小さい
 }
