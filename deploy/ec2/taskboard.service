@@ -1,0 +1,31 @@
+# Spring Boot を常に動かしておく設定（systemd）。/etc/systemd/system/taskboard.service に置く
+# - EC2 が起動したら、自動で動き出す
+# - 落ちたら、10秒後に起動し直す
+# 操作：sudo systemctl status taskboard ／ restart ／ stop、ログ：sudo journalctl -u taskboard
+
+[Unit]
+Description=TaskBoard (Spring Boot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+# root ではない、アプリ専用のユーザーで動かす
+User=taskboard
+Group=taskboard
+# DB の接続先などの設定（パスワードは入っていない。start.sh がパラメータストアから読む）
+EnvironmentFile=/etc/taskboard/taskboard.env
+ExecStart=/opt/taskboard/bin/start.sh
+# Java は、止めるときの合図（SIGTERM）で終わると 143 を返す。これを「正常に終わった」とみなす
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=10
+
+# アプリから書き換えられる場所を減らす
+NoNewPrivileges=true
+ProtectSystem=full
+ProtectHome=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

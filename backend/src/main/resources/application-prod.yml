@@ -1,0 +1,9 @@
+# 本番（AWS の EC2）だけの設定。環境変数 SPRING_PROFILES_ACTIVE=prod のときに読み込まれる
+# （deploy/ec2/taskboard.env.example）。開発やテストでは読み込まない
+
+server:
+  # 同じ EC2 の Nginx からだけ受け付ける（外からの通信は Nginx が受けて /api を転送する。docs/deployment.md 2.2）
+  address: 127.0.0.1
+  # Nginx が渡す X-Forwarded-For（本当の接続元）を getRemoteAddr() に反映する。
+  # Tomcat が信用するのは、内部のアドレス（127.0.0.1 など）から来たときだけ（詳細設計書 3.8.8）
+  forward-headers-strategy: native

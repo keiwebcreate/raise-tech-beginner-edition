@@ -1,0 +1,5 @@
+# Linux（EC2）で使うファイルは、いつも LF（Linux の改行）で取り出す。
+# このパソコンの Git は CRLF に変える設定（core.autocrlf=true）なので、
+# CRLF のままだとシェルスクリプトや Nginx の設定が EC2 で正しく動かない
+*.sh      text eol=lf
+deploy/** text eol=lf

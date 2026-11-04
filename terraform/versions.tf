@@ -11,6 +11,11 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0" # 6.x の中で最新を使う（7 には勝手に上げない）
     }
+    # ランダムな値を作る部品（アプリ用の DB パスワード。段階3）
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.7" # 「その場限りの値（ephemeral）」で使えるのは 3.7 から
+    }
   }
 
   # state（何を作ったかの記録）は、今はこのフォルダの terraform.tfstate に置く。

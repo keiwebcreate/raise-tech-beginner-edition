@@ -39,7 +39,8 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 - AWS への公開（Terraform で作る。4つの段階に分けて進めている。[デプロイ手順書](docs/deployment.md)）
   - 段階1：ネットワークとサーバー（EC2。Java と Nginx 入り）を作った（シドニーリージョン）
   - 段階2：DB（RDS の PostgreSQL。インターネットからは見えず、サーバーからだけつながる）を作った
-  - 段階3〜4：アプリを載せる、HTTPS（これから）
+  - 段階3：アプリを載せた（Nginx が画面を配り、API を Spring Boot へ転送する。DB のパスワードは AWS のパラメータストアから読む）
+  - 段階4：HTTPS（これから）
 
 ## 使っている技術
 
@@ -50,7 +51,7 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 | データベース | PostgreSQL 18・Flyway（テーブルの作成と変更の管理） |
 | テスト | JUnit 6・MockMvc・Testcontainers（サーバー）、Vitest 5（画面） |
 | コードのチェック | Checkstyle・SpotBugs（サーバー）、oxlint・Prettier（画面） |
-| インフラ | AWS（EC2・Amazon Linux 2023・Nginx・RDS・Secrets Manager）、Terraform・AWS CLI |
+| インフラ | AWS（EC2・Amazon Linux 2023・Nginx・RDS・Secrets Manager・SSM パラメータストア・IAM）、Terraform・AWS CLI |
 | その他 | Docker（開発用の DB）、GitHub（イシュー・プルリクエスト） |
 
 細かいバージョンの一覧は [詳細設計書 5.1](docs/detailed-design.md#51-使っているバージョン2026-10-31-時点) にあります。
@@ -167,6 +168,8 @@ npm run build         # 本番用のファイルを作る
 ├─ frontend/     画面（React）
 ├─ docs/         設計書・デプロイ手順書
 ├─ terraform/    AWS の構成（Terraform）
+├─ deploy/       EC2 に置く設定（Nginx・systemd など）
+├─ scripts/      EC2 の準備と、アプリを送るスクリプト
 ├─ mockup/       動きを確かめるためのモックアップ（本番では使わない）
 ├─ compose.yaml  開発用の DB（Docker）
 └─ CLAUDE.md     AI（Claude Code）に守ってもらう開発のルール

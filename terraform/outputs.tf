@@ -32,6 +32,16 @@ output "psql_command" {
   value       = "psql \"host=${aws_db_instance.main.address} port=5432 dbname=task_app user=dbadmin sslmode=require\""
 }
 
+output "region" {
+  description = "AWS のリージョン（scripts/setup-server.sh が使う）"
+  value       = var.region
+}
+
+output "app_db_password_parameter" {
+  description = "アプリ用の DB パスワードを入れたパラメータの名前（値そのものではない）"
+  value       = aws_ssm_parameter.app_db_password.name
+}
+
 output "app_url" {
   description = "ブラウザで開く URL（段階1では Nginx の初期のページ。段階3からアプリが出る）"
   value       = "http://${aws_instance.app.public_ip}"
