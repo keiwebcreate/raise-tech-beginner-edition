@@ -13,7 +13,7 @@ variable "project_name" {
 variable "region" {
   description = "AWS のリージョン"
   type        = string
-  default     = "ap-northeast-1" # 東京
+  default     = "ap-southeast-2" # シドニー。このアカウントは組織のポリシー（SCP）で、シドニー以外のリージョンを使えない（2026-11-04 に確認）
 }
 
 variable "my_ip_cidr" {

@@ -24,7 +24,7 @@ resource "aws_internet_gateway" "main" {
 resource "aws_subnet" "public_a" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "${var.region}a" # 東京の「a」のデータセンター
+  availability_zone       = "${var.region}a" # リージョンの「a」のデータセンター（シドニーなら ap-southeast-2a。t4g.micro が使えることを確認済み）
   map_public_ip_on_launch = true             # ここで作る EC2 に、外から見える IP アドレスを付ける
 
   tags = { Name = "${var.project_name}-public-a" }
