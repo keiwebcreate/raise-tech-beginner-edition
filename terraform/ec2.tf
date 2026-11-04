@@ -20,6 +20,10 @@ resource "aws_instance" "app" {
   vpc_security_group_ids = [aws_security_group.ec2.id]
   key_name               = aws_key_pair.main.key_name
 
+  # EC2 に付ける AWS の権限（パラメータストアの DB パスワードを読むだけ。iam.tf）。
+  # 付けても外しても、EC2 は起動し直さない
+  iam_instance_profile = aws_iam_instance_profile.app.name
+
   # サーバーの中から AWS の情報を読む仕組み（メタデータ）は、安全な新しい方式（IMDSv2）だけにする
   metadata_options {
     http_tokens   = "required"

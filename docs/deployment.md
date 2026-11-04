@@ -1,6 +1,6 @@
 # デプロイ手順書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-04（段階2：RDS を作成。イシュー #67）
+最終更新：2026-11-04（段階3：アプリを載せた。イシュー #69）
 
 このアプリを AWS に公開する（要件 G-04）ための手順と、その考え方をまとめた文書。AWS や Terraform を初めて使う人が、この文書だけで同じ環境を作り直し・削除できることを目指す。
 
@@ -39,7 +39,7 @@
 |---|---|---|---|
 | 1 | VPC・パブリックサブネット・セキュリティグループ・EC2（Java 25・Nginx 入り） | SSH でログインでき、Java 25 が入っている。ブラウザで Nginx の初期のページが出る | 完了（#65。2026-11-04） |
 | 2 | RDS（PostgreSQL）。EC2 からだけつながる | EC2 から `psql` でつながる。パソコンからはつながらない | 完了（#67。2026-11-04） |
-| 3 | アプリを EC2 に載せる（画面のファイルは Nginx、API は Spring Boot。Nginx が `/api` を転送する） | `http://（EC2 の IP アドレス）` でログイン画面が出る | 未着手 |
+| 3 | アプリを EC2 に載せる（画面のファイルは Nginx、API は Spring Boot。Nginx が `/api` を転送する） | `http://（EC2 の IP アドレス）` でログイン画面が出て、操作できる | 完了（#69。2026-11-04） |
 | 4 | CloudFront を EC2 の前に置き、HTTPS にする（us-east-1 が SCP で拒否されているので、CloudFront を作れるかを最初に確かめる。作れなければ別の方法を相談する） | `https://xxxx.cloudfront.net` で使える（受け入れ基準 AC-44〜AC-54） | 未着手 |
 
 ### 2.2 段階1の構成
@@ -68,7 +68,7 @@ AWS シドニーリージョン（ap-southeast-2）
 | # | 項目 | 決定 | 理由 |
 |---|---|---|---|
 | 1 | 作り方 | AWS CLI と Terraform。画面での手作業はしない | 同じものを作り直せる。Git に履歴が残る。AI がファイルを書いて進められる（講座の進め方） |
-| 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 7章 |
+| 2 | AWS CLI の認証 | IAM ユーザーのアクセスキー（`aws configure`） | 講座と同じ形で、手順が少ない。鍵の守り方は 8章 |
 | 3 | 進め方 | 段階に分ける（2.1） | 問題が起きたとき、どこが原因かがわかりやすい（講座の進め方） |
 | 4 | 画面の配り方 | 同じ EC2 の Nginx（80）が画面のファイルを配り、`/api` を Spring Boot（8080）へ転送する。S3 は使わない。EC2 に Node.js は入れない（画面はパソコンでビルドして送る） | 講座と同じく画面と API を同じサーバーに置く。画面と API が同じ住所になり、CORS の設定がいらない（詳細設計書の方針どおり）。開発中の Vite と同じ形で説明しやすく、サーバーのコードを変えずに済む。Spring Boot を外に開けなくてよい |
 | 5 | HTTPS | 段階4で CloudFront の無料の住所（`*.cloudfront.net`）を使う。ドメインは買わない | ログインがあるので HTTPS は必須（NS-02）。ドメインの購入はクレジットで払えないことがある |
@@ -78,6 +78,8 @@ AWS シドニーリージョン（ap-southeast-2）
 | 9 | state の置き場所 | パソコンの `terraform/terraform.tfstate`（Git には入れない） | 作業するのが1人なので、共有の置き場所（S3 など）はまだいらない |
 | 10 | リージョン | シドニー（`ap-southeast-2`）。講座の教材は東京 | このアカウントは AWS Projects の SCP で、シドニー以外のリージョン（東京・大阪・ソウル・シンガポール・us-east-1 など）を使えない（2026-11-04 に確認）。日本からは画面の反応が東京より 0.1 秒ほど遅くなるが、ポートフォリオとしては問題ない |
 | 11 | DB | 講座と同じく RDS（6章）。デプロイを終えて画面を確かめたら、すぐ `terraform destroy` で消す | RDS を足すと月 約 34 USD になり、月 20 USD の上限を超える。ずっと公開しておくのではなく、確かめたら消す前提なので、上限を超える前に消せる（2026-11-04 にユーザーが決めた） |
+| 12 | DB のパスワードの渡し方 | パラメータストア（暗号化）に入れ、EC2 の IAM ロール（そのパラメータを読むだけ）で起動の前に読む。パスワードは Terraform が作り、state に残さない（7.2） | 要件 NS-12「本番では AWS のパラメータ管理機能に入れる」。パラメータストアの標準の機能は無料。だれもパスワードを見ずに済む（2026-11-04 にユーザーが選んだ） |
+| 13 | EC2 への送り込み | ssh-agent に預けた鍵で、スクリプト（`scripts/`）を AI が実行する | パスフレーズを AI に渡さずに、AI が送り込みと確認をできる（2026-11-04 にユーザーが選んだ） |
 
 ## 3. 料金とクレジット
 
@@ -299,7 +301,7 @@ AWS シドニーリージョン（ap-southeast-2）
 | `rds.tf` | RDS の区画の組（サブネットグループ）と RDS |
 | `variables.tf` | RDS の版（`db_engine_version`）と大きさ（`db_instance_class`）を足した |
 | `outputs.tf` | RDS の住所、パスワードの預け先（Secrets Manager）の場所、`psql` のコマンドを足した |
-| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（8章） |
+| `.gitattributes` | Terraform のファイルを、Git がいつも LF（Linux の改行）で取り出すようにする（9章） |
 
 ### 6.3 RDS の設定
 
@@ -319,7 +321,7 @@ AWS シドニーリージョン（ap-southeast-2）
 
 5.4 と同じ（`plan` を見てから `apply`）。段階2の `plan` は「9 to add, 0 to change」（プライベートサブネット2つ・道案内の表とその結びつけ2つ・RDS のセキュリティグループとルール・サブネットグループ・RDS）。RDS は作るのに 8分ほどかかる。
 
-**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。8章を参照。
+**EC2 に「change」が出たら止まって確かめる**。2026-11-04 には、`ec2.tf` の改行が CRLF に変わったせいで、EC2 の起動時の命令（`user_data`）が変わったと判定された（そのまま `apply` すると EC2 が起動し直して IP アドレスが変わる）。9章を参照。
 
 ### 6.5 確かめる（パスワードを扱うので、ユーザーが行う）
 
@@ -359,16 +361,118 @@ RDS の住所をパソコンで引くと、VPC の中の住所（`10.0.11.x`）�
 
 5.6 と同じ `terraform destroy` で、EC2 と一緒に消える（最後のスナップショットは取らない。自動バックアップも消える）。RDS は消すのにも 5〜10分かかる。
 
-## 7. 安全のための決まり
+## 7. 段階3：アプリを載せる
 
-- **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）。DB のパスワードは Secrets Manager に置き、使うときにユーザーが取り出す。AI はパスワードを取り出さない
+### 7.1 EC2 の中の形
+
+```
+ブラウザ ─80─▶ Nginx ─┬ /       → /opt/taskboard/web（画面のファイル）
+                      └ /api/…  → Spring Boot（127.0.0.1:8080 だけで待ち受け）─5432─▶ RDS
+```
+
+| もの | 置き場所 | 中身 |
+|---|---|---|
+| 画面のファイル | `/opt/taskboard/web/` | パソコンで `npm run build` した `frontend/dist/` |
+| Spring Boot | `/opt/taskboard/app/taskboard.jar` | パソコンで `./gradlew bootJar` した jar |
+| 起動の仕組み | `/etc/systemd/system/taskboard.service` | EC2 の起動時と、落ちたときに Spring Boot を起動する。アプリ専用のユーザー `taskboard`（root ではない。ログインできない）で動かす |
+| 起動の前の処理 | `/opt/taskboard/bin/start.sh` | パラメータストアから DB のパスワードを読み、環境変数で Spring Boot に渡す |
+| Spring Boot の設定 | `/etc/taskboard/taskboard.env` | 本番の設定（プロファイル `prod`）・RDS の住所・ユーザー名・パラメータの名前・Java のメモリ。**パスワードは入っていない** |
+| Nginx の設定 | `/etc/nginx/nginx.conf`・`taskboard-headers.conf` | 上の図の転送と、画面のファイルに付けるセキュリティのヘッダー |
+| スワップ | `/swapfile`（1GB） | メモリ（1GB）が足りなくなったときに、ディスクで補う |
+
+これらの元のファイルは、リポジトリの `deploy/ec2/` にある。
+
+### 7.2 DB のパスワードの渡し方（要件 NS-12）
+
+```
+Terraform ──（その場限りの値を作り、書き込むだけ）──▶ パラメータストア /taskboard/db/app-password（暗号化）
+                                                          │ 読む（EC2 の IAM ロール。このパラメータを読む権限だけ）
+EC2 の start.sh ──（環境変数 DB_PASSWORD）──▶ Spring Boot
+```
+
+- パスワード（英数字32文字）は Terraform が作るが、**state にもファイルにも残らない**（`ssm.tf`。`ephemeral` と `value_wo`）。だれの画面にも出ない
+- EC2 に付ける IAM ロール（`iam.tf`）でできるのは、このパラメータを読むことだけ。ほかのパラメータは読めない
+- アプリ用の DB ユーザー `task_app_user` は、ユーザーが EC2 で `create-app-db-user.sh` を1回実行して作る（7.4）。権限は `task_app` の DB につなぐことと、`public` スキーマにテーブルを作って使うことだけで、管理者の権限はない（要件 NS-14）。テーブルは、アプリの起動時に Flyway が `task_app_user` として作る
+- パスワードを作り直すとき：`ssm.tf` の `value_wo_version` を 1 つ増やして `apply` → `create-app-db-user.sh` をもう一度実行（パスワードを合わせ直す）→ `sudo systemctl restart taskboard`
+
+### 7.3 ファイル
+
+| ファイル | 中身 |
+|---|---|
+| `terraform/ssm.tf` | パラメータストアの DB パスワード |
+| `terraform/iam.tf` | EC2 の IAM ロール（パラメータを読むだけ） |
+| `terraform/ec2.tf` | EC2 に IAM ロールを付けた（EC2 は起動し直さない） |
+| `backend/src/main/resources/application-prod.yml` | 本番だけの設定：`server.address: 127.0.0.1`、`server.forward-headers-strategy: native`（詳細設計書 3.7・3.8.8） |
+| `deploy/ec2/` | EC2 に置くファイル（7.1 の表）と、DB ユーザーを作るスクリプト |
+| `scripts/common.sh` | 下の3つが共通で使う設定（EC2 の IP アドレスは Terraform の出力から読む） |
+| `scripts/setup-server.sh` | EC2 の準備（最初に1回。`deploy/ec2/` を変えたときも。何度実行してもよい） |
+| `scripts/deploy-backend.sh` | jar を作って送り、Spring Boot を起動し直す。動き出すまで待つ |
+| `scripts/deploy-frontend.sh` | 画面のファイルを作って送り、入れ替える |
+| `.gitattributes` | `.sh` と `deploy/` を LF で取り出す（EC2 の Linux で正しく動かすため） |
+
+### 7.4 載せる
+
+SSH の鍵を ssh-agent（鍵を預かって SSH に渡す仕組み）に預けておくと、スクリプトがパスフレーズを聞かずに動く（AI も SSH を使える）。
+
+```powershell
+# 最初に1回だけ（PowerShell を「管理者として実行」で開いて）
+Set-Service -Name ssh-agent -StartupType Manual
+Start-Service ssh-agent
+# パソコンを起動し直したら、そのたびに（ふつうの PowerShell で。パスフレーズを聞かれる）
+ssh-add "$HOME\.ssh\taskboard_ec2"
+```
+
+スクリプトは Git Bash で、`beginner_version` で実行する。SSH は Windows の OpenSSH（ssh-agent を使える）を使う。
+
+```bash
+bash scripts/setup-server.sh      # 1. EC2 の準備
+```
+
+```powershell
+# 2. アプリ用の DB ユーザーを作る（ユーザーが PowerShell で。dbadmin のパスワードを聞かれるので、6.5 の方法で取り出して貼る）
+ssh -t ec2-user@（EC2 の IP アドレス） sudo /opt/taskboard/bin/create-app-db-user.sh
+# 最後に task_app_user の rolsuper・rolcreatedb・rolcreaterole が f（なし）と出る
+```
+
+```bash
+bash scripts/deploy-backend.sh    # 3. サーバー（先に ./gradlew check を通す）
+bash scripts/deploy-frontend.sh   # 4. 画面（先に npm run lint・npm test を通す）
+```
+
+2回目からは、変えたほうの 3 か 4 だけを実行すればよい。
+
+### 7.5 確かめる
+
+| 確かめること | 方法 | 2026-11-04 の結果 |
+|---|---|---|
+| 画面と操作 | ブラウザで `http://（EC2 の IP アドレス）`。登録・ログイン・ボード・リスト・カード（追加・変更・ドラッグ＆ドロップ・削除）・ゲスト | ユーザーが確認。問題なし |
+| URL を直接開く | `/boards/1` を開く・再読み込み | 画面が出る（200） |
+| API の転送 | `curl http://（IP）/api/auth/me` | 401（ログインしていないので正しい） |
+| 本当の接続元 | ログインを1回わざと失敗させ、`sudo journalctl -u taskboard \| grep ログインに失敗` | 自分の IP アドレスが出る（`127.0.0.1` ではない） |
+| 自動で動き出すか | `sudo systemctl reboot` のあと、ブラウザで開く | Spring Boot・Nginx ともに動き出した |
+| Spring Boot が外から届かないか | `sudo ss -ltnp \| grep 8080` | `127.0.0.1:8080` だけ |
+| 画面のヘッダー | `curl -I http://（IP）/` | `Content-Security-Policy: frame-ancestors 'none'`・`X-Frame-Options: DENY`・`X-Content-Type-Options: nosniff`。Nginx の版は出ない |
+
+よく使うコマンド（EC2 の中で）：
+
+```bash
+sudo systemctl status taskboard          # Spring Boot の状態
+sudo journalctl -u taskboard -n 100      # Spring Boot のログ（最後の100行）
+sudo journalctl -u taskboard -f          # ログを流し続ける（Ctrl + C で止める）
+sudo systemctl restart taskboard         # 起動し直す
+free -m                                  # メモリ
+```
+
+## 8. 安全のための決まり
+
+- **秘密の値（アクセスキー・SSH の秘密鍵・DB のパスワード）は、チャット・Git・プロジェクトのフォルダに出さない**（要件 NS-12）。DB の管理者のパスワードは Secrets Manager、アプリ用のパスワードはパラメータストアに置く。管理者のパスワードは使うときにユーザーが取り出す。AI はどちらのパスワードも取り出さない
 - アクセスキーは期限がないので、長く使わない時期は IAM の画面で「無効」にする。漏れたかもしれないときは、すぐ削除して作り直す
 - ルートユーザーのアクセスキーは作らない。ルートユーザーはコンソールで、MFA を付けて使う
 - 外からの入口は、必要なポートを、必要な相手にだけ開ける（`0.0.0.0/0` で開けない。`variables.tf` の入力チェックで `/32` 以外を断る）。Spring Boot の 8080 は外に開けない
 - Terraform で作ったものを、コンソールで手で直さない（ファイルと実物がずれる）
 - `terraform apply`・`destroy` は、`plan` の結果を確かめてから
 
-## 8. 困ったとき
+## 9. 困ったとき
 
 | 症状 | 原因と対処 |
 |---|---|
@@ -380,11 +484,16 @@ RDS の住所をパソコンで引くと、VPC の中の住所（`10.0.11.x`）�
 | `plan` で、変えていない EC2 の `user_data` が変わったと出る | `.tf` の改行が CRLF（Windows の形）になっている。このパソコンの Git は、取り出すときに CRLF に変える設定（`core.autocrlf=true`）のため。`terraform/.gitattributes` で LF に固定した（2026-11-04）。それでも出たら、改行を LF に直してから `plan` し直す。そのまま `apply` しない |
 | PowerShell で `jq` が見つからない | jq を入れる前から開いていた窓。開き直すか、`ConvertFrom-Json` を使う（6.5） |
 | `psql` で `no pg_hba.conf entry … no encryption` と断られる | 暗号化していない接続。`sslmode=require` を付ける |
+| `create-app-db-user.sh` で `taskboard.env: line 6: -Xmx384m: command not found` | `taskboard.env` の `JAVA_OPTS` を `"` で囲んでいない（スペースを含む値はシェルで読めない）。`setup-server.sh` を最新にして実行し直す（2026-11-04 に直した） |
+| `deploy-backend.sh` が「3分たっても動き出しません」 | EC2 で `sudo journalctl -u taskboard -n 100` を見る。DB につながらない（`task_app_user` を作っていない・パスワードが合っていない）ことが多い。7.2 の作り直しの手順でパスワードを合わせる |
+| スクリプトで `Permission denied (publickey)` やパスフレーズを聞かれる | ssh-agent に鍵が入っていない（パソコンを起動し直すと消える）。`ssh-add "$HOME\.ssh\taskboard_ec2"` |
+| パソコンでサーバーのテスト（Testcontainers）が `Connection reset` で失敗する | Docker Desktop の、パソコンとコンテナの間の通信の不調。2026-11-04 に WSL が更新されたあとに起きた。Docker Desktop を起動し直しても直らないときは、パソコンを再起動する。GitHub Actions のテストでも確かめられる |
 
-## 9. 改訂履歴
+## 10. 改訂履歴
 
 | 版 | 日付 | 内容 |
 |---|---|---|
 | 1.0 | 2026-11-03 | 新規作成。用語、構成と段階、料金とクレジット、準備、段階1（ネットワークと EC2）（#65） |
 | 1.1 | 2026-11-04 | リージョンを東京からシドニーに変更（SCP の制限）。有料プラン・クレジット・月 20 USD の上限に合わせて料金の章を書き直した。段階1を作成して確かめた（#65） |
 | 1.2 | 2026-11-04 | 段階2（RDS）を追加（6章）。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#67） |
+| 1.3 | 2026-11-04 | 段階3（アプリを載せる）を追加（7章）。決めたことに 12・13 を足した。安全のための決まり・困ったとき・改訂履歴の章番号を1つずらした（#69） |

@@ -1,6 +1,6 @@
 # 詳細設計書：トレロ風タスク管理アプリ
 
-最終更新：2026-11-01（複数ボードを追加。イシュー #51）
+最終更新：2026-11-04（本番の設定 application-prod.yml を追加。イシュー #69）
 
 要件は `requirements.md`、画面は `screen-design.md`、テーブルは `database-design.md`、APIは `api-design.md` を参照。
 この設計書は、それらを「プログラムの中でどう作るか」に落とし込んだもの（内部設計）。
@@ -239,6 +239,7 @@ Spring が投げる例外も同じ形にそろえる。`ApiExceptionHandler` は
 | 上限 | `app.limits.columns: 20`・`cards-per-column: 100`・`labels: 30`。`LimitsProperties`（`@ConfigurationProperties`）で読む（要件 3.7） |
 | 回数制限 | `app.rate-limit.login-failure`（`max-count: 10`・`window: 15m`）、`app.rate-limit.guest-creation`（`max-count: 10`・`window: 1h`）、`app.rate-limit.registration`（`max-count: 10`・`window: 1h`）。`RateLimitProperties` で読む（要件 U-10、3.8.8）。`@Validated` で、書き忘れや0以下の数があれば起動の時点でエラーにする |
 | Flyway | `src/main/resources/db/migration/` の SQL を起動時に流す |
+| 本番だけの設定 | `application-prod.yml`（プロファイル `prod`。EC2 の `/etc/taskboard/taskboard.env` の `SPRING_PROFILES_ACTIVE=prod` で読み込む）。`server.address: 127.0.0.1`（同じ EC2 の Nginx からだけ受け付ける）、`server.forward-headers-strategy: native`（3.8.8）。DB の接続先・パスワードは環境変数で渡す（パスワードは起動の前にパラメータストアから読む。`deployment.md` 7.2） |
 | 開発だけの設定 | `application-dev.yml`（プロファイル `dev`）。`./gradlew bootRun` のときだけ読み込む（`build.gradle` の `bootRun`）。実行した SQL をログに出す（`logging.level.org.hibernate.SQL: debug`）。本番とテストでは出さない |
 
 ### 3.8 主な処理の流れ
@@ -439,10 +440,12 @@ sequenceDiagram
 - 回数制限が働きはじめたら（`record` で記録して、ちょうど上限の数になったとき）、警告のログ（種類・IP アドレス）を1回だけ出す（要件 5章のログ）。制限中に断るたびには出さない（大量に送られたときに、ログがふくらまないように）
 - `RateLimitCleanupJob`：毎時0分に、いちばん長い数える時間（1時間）より古い行を消す
 
-**AWS で公開するとき**（まだ入れていない）
+**AWS で公開するとき**（2026-11-04 に入れた。イシュー #69）
 
 - ロードバランサーなどの中継役を通すと、`getRemoteAddr()` は全員が中継役の IP アドレスになる。本当の接続元は、中継役がヘッダー `X-Forwarded-For` に書いて渡す
 - このヘッダーはブラウザ側でも好きな値を書けるので、自分で読まない。本番の設定で `server.forward-headers-strategy: native` を有効にし、Tomcat に任せる。Tomcat は、信用できる中継役（初期設定では 10.x・192.168.x などの内部のアドレス）から来たときだけ、ヘッダーの値を `getRemoteAddr()` にする。AWS の構成を決めるときに、中継役のアドレスが内部のものかを確かめる（7章）
+- 今の構成（`deployment.md` 7.1）：中継役は同じ EC2 の Nginx（`127.0.0.1`。Tomcat が初期設定で信用する内部のアドレス）。`application-prod.yml` で `native` を有効にした。Nginx は、ブラウザが送ってきた `X-Forwarded-For` を使わず、Nginx が見た接続元（`$remote_addr`）で上書きして渡す（偽装を防ぐ）。2026-11-04 に、ログインの失敗のログに本当の接続元の IP アドレスが出ることを確かめた
+- 段階4で CloudFront を前に置くと、Nginx から見た接続元は CloudFront になる。そのときは、CloudFront のアドレスからだけ `X-Forwarded-For` を信用するよう、Nginx の設定を変える
 - 知っておくこと：IPv6 は1人が多くのアドレスを持てるので、アドレスを変えながら試されると防ぎきれない。必要になったら、IPv6 は上の64ビットだけで数えるようにする
 
 **テスト**（`RateLimitApiTest`）
@@ -633,7 +636,7 @@ Vitest で、ロジックのある部分だけを自動テストする。
 - 中身：`default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'`
   - スクリプト・API の呼び出し（`connect-src`）は自分のサイトだけ。画面と API は同じドメインにする（7章）
   - 見た目（`style-src`）だけは `'unsafe-inline'` で書き込みも許す。ドラッグ＆ドロップのライブラリ（@hello-pangea/dnd）が `<style>` を足すため。ライブラリは `nonce`（その場かぎりの合言葉）にも対応しているが、`<meta>` の値は全員に同じものが配られて合言葉にならないので使わない
-- `frame-ancestors`（ほかのサイトへの埋め込みの禁止）は `<meta>` では効かない。AWS で画面を配信する側（CloudFront など）のヘッダーで付ける（7章）
+- `frame-ancestors`（ほかのサイトへの埋め込みの禁止）は `<meta>` では効かない。EC2 の Nginx が、画面のファイルにヘッダー `Content-Security-Policy: frame-ancestors 'none'` と `X-Frame-Options: DENY` で付ける（`deploy/ec2/taskboard-headers.conf`。2026-11-04）
 - 確かめ方：`npm run build` のあと `npm run preview`（本番用の画面を手元で動かす。ポートは開発中と同じ 5173。`/api` の転送も同じ）で開き、開発者ツールのコンソールに CSP の違反が出ないこと。2026-11-01 に、登録・ボードを開く・カードの追加・カード詳細・キーボードでのカードの移動を自動で操作して、違反が0件なことを確かめた
 
 ## 5. 使うライブラリ
@@ -744,4 +747,5 @@ AI に守ってほしいルールは `beginner_version/CLAUDE.md` にまとめ�
 ## 7. まだ決めていないこと
 
 - ~~回数制限（要件 U-10）の数え方の実装~~ → DB に記録する（3.8.8。2026-11-01 決定）
-- AWS の構成（本番での画面とAPIの配信のしかた、ドメイン）。あわせて、回数制限のための `server.forward-headers-strategy` の設定と、中継役のアドレスの確認（3.8.8）、画面の HTML への `frame-ancestors 'none'`・HSTS のヘッダー（4.9）
+- ~~AWS の構成（本番での画面とAPIの配信のしかた）~~ → EC2 の Nginx が画面を配り、`/api` を Spring Boot へ転送する（`deployment.md`。2026-11-04）。~~`server.forward-headers-strategy` の設定~~ → 入れた（3.8.8）。~~`frame-ancestors 'none'`~~ → Nginx のヘッダーで付けた（4.9）
+- HTTPS と HSTS のヘッダー、CloudFront を通したときの本当の接続元（3.8.8）。段階4で決める
