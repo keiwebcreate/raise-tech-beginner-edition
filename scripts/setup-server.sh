@@ -12,7 +12,7 @@ REGION="$(terraform -chdir="$TF_DIR" output -raw region)"
 
 echo "== EC2（${EC2_HOST}）に設定ファイルを送ります"
 remote "rm -rf /tmp/taskboard-setup && mkdir -p /tmp/taskboard-setup"
-for f in nginx.conf taskboard-headers.conf taskboard.service start.sh create-app-db-user.sh; do
+for f in nginx.conf taskboard-headers.conf taskboard.service start.sh create-app-db-user.sh psql-app.sh; do
   send "$ROOT_DIR/deploy/ec2/$f" "/tmp/taskboard-setup/$f"
 done
 
@@ -40,6 +40,7 @@ install -d -o root -g taskboard -m 750 /opt/taskboard/app
 install -d -o root -g taskboard -m 750 /etc/taskboard
 install -o root -g root -m 755 start.sh /opt/taskboard/bin/start.sh
 install -o root -g root -m 755 create-app-db-user.sh /opt/taskboard/bin/create-app-db-user.sh
+install -o root -g root -m 755 psql-app.sh /opt/taskboard/bin/psql-app.sh
 
 # Spring Boot の設定（パスワードは入れない。start.sh がパラメータストアから読む）
 cat > /etc/taskboard/taskboard.env <<'ENV'
@@ -62,6 +63,23 @@ systemctl enable taskboard >/dev/null 2>&1
 [ -f /etc/nginx/nginx.conf.orig ] || cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.orig
 install -o root -g root -m 644 nginx.conf /etc/nginx/nginx.conf
 install -o root -g root -m 644 taskboard-headers.conf /etc/nginx/taskboard-headers.conf
+
+# CloudFront が EC2 へつなぐときのアドレスの一覧（AWS が公開している ip-ranges.json の CLOUDFRONT_ORIGIN_FACING）から、
+# Nginx の設定を2つ作る（nginx.conf の「CloudFront の後ろで動かすための設定」）。一覧は時々変わるので、ときどき実行し直す
+curl -fsS https://ip-ranges.amazonaws.com/ip-ranges.json | python3 -c '
+import json, sys
+data = json.load(sys.stdin)
+ranges = sorted({p["ip_prefix"] for p in data["prefixes"] if p["service"] == "CLOUDFRONT_ORIGIN_FACING"})
+if len(ranges) < 10:
+    sys.exit("CloudFront のアドレスの一覧を読めませんでした")
+with open("/etc/nginx/cloudfront-realip.conf", "w") as f:
+    f.write("# setup-server.sh が作るファイル（手で直さない）\n")
+    f.writelines("set_real_ip_from " + r + ";\n" for r in ranges)
+with open("/etc/nginx/cloudfront-geo.conf", "w") as f:
+    f.write("# setup-server.sh が作るファイル（手で直さない）\n")
+    f.writelines(r + " 1;\n" for r in ranges)
+print("CloudFront のアドレス", len(ranges), "件")
+'
 nginx -t -q
 systemctl reload nginx
 

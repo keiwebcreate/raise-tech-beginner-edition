@@ -17,7 +17,7 @@ variable "region" {
 }
 
 variable "my_ip_cidr" {
-  description = "SSH（22）と HTTP（80）を許す、自分のパソコンの IP アドレス（例：203.0.113.10/32）"
+  description = "SSH（22）を許す、自分のパソコンの IP アドレス（例：203.0.113.10/32）。HTTP（80）は CloudFront からだけ（段階4）"
   type        = string
 
   validation {

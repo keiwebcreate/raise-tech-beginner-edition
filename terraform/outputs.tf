@@ -42,6 +42,11 @@ output "app_db_password_parameter" {
   value       = aws_ssm_parameter.app_db_password.name
 }
 
+output "cloudfront_url" {
+  description = "公開の URL（HTTPS。段階4）"
+  value       = "https://${aws_cloudfront_distribution.app.domain_name}"
+}
+
 output "app_url" {
   description = "ブラウザで開く URL（段階1では Nginx の初期のページ。段階3からアプリが出る）"
   value       = "http://${aws_instance.app.public_ip}"

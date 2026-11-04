@@ -40,7 +40,7 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
   - 段階1：ネットワークとサーバー（EC2。Java と Nginx 入り）を作った（シドニーリージョン）
   - 段階2：DB（RDS の PostgreSQL。インターネットからは見えず、サーバーからだけつながる）を作った
   - 段階3：アプリを載せた（Nginx が画面を配り、API を Spring Boot へ転送する。DB のパスワードは AWS のパラメータストアから読む）
-  - 段階4：HTTPS（これから）
+  - 段階4：CloudFront を前に置いて HTTPS にした（ログインの失敗の回数制限も、CloudFront の後ろの本当の接続元で数える）
 
 ## 使っている技術
 
@@ -51,7 +51,7 @@ Trello のような、カンバン方式のタスク管理 Web アプリです�
 | データベース | PostgreSQL 18・Flyway（テーブルの作成と変更の管理） |
 | テスト | JUnit 6・MockMvc・Testcontainers（サーバー）、Vitest 5（画面） |
 | コードのチェック | Checkstyle・SpotBugs（サーバー）、oxlint・Prettier（画面） |
-| インフラ | AWS（EC2・Amazon Linux 2023・Nginx・RDS・Secrets Manager・SSM パラメータストア・IAM）、Terraform・AWS CLI |
+| インフラ | AWS（CloudFront・EC2・Amazon Linux 2023・Nginx・RDS・Secrets Manager・SSM パラメータストア・IAM）、Terraform・AWS CLI・Trivy |
 | その他 | Docker（開発用の DB）、GitHub（イシュー・プルリクエスト） |
 
 細かいバージョンの一覧は [詳細設計書 5.1](docs/detailed-design.md#51-使っているバージョン2026-10-31-時点) にあります。
@@ -81,6 +81,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     browser["ブラウザ"]
+    cf["CloudFront<br>（HTTPS）"]
     subgraph aws["AWS シドニーリージョン ・ VPC"]
         subgraph pub["パブリックサブネット"]
             subgraph ec2["EC2（Amazon Linux 2023）"]
@@ -95,7 +96,8 @@ flowchart LR
         ssm["SSM パラメータストア<br>（DB のパスワード）"]
     end
 
-    browser -- "http" --> nginx
+    browser -- "https" --> cf
+    cf -- "http（CloudFront からだけ）" --> nginx
     nginx -- "/" --> web
     nginx -- "/api を転送" --> api
     api -- "5432（EC2 からだけ）" --> rds
@@ -106,7 +108,7 @@ flowchart LR
 - 開発中の Vite と同じく、Nginx が `/api` を Spring Boot へ転送します。画面と API が同じ住所になるので、CORS の設定がいりません
 - RDS はインターネットから見えないプライベートサブネットに置き、EC2 からだけつながるようにしています
 - DB のパスワードは、Git・ファイル・Terraform の記録（state）のどこにも残しません。Terraform が作ってパラメータストアに暗号化して入れ、Spring Boot の起動の前に、EC2 が読む権限だけを持つ IAM ロールで読みます
-- HTTPS は、これから CloudFront を前に置いて対応します
+- **CloudFront**（AWS の配信の仕組み）を前に置き、無料の住所と証明書で HTTPS にしています。http で来たら https に移し、HSTS を付けます。EC2 には CloudFront からしか届きません
 - 詳しい構成・料金・手順は [デプロイ手順書](docs/deployment.md) にあります
 
 ## 工夫したところ
